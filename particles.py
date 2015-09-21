@@ -111,7 +111,7 @@ class collisionInfo(object):
 
 class particle(object):
 
-    def __init__(self,p,v,t=0.0,dt=1.0,tc=None):
+    def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),gp=numpy.zeros(3)):
         
         self.p=p
         self.v=v
@@ -119,9 +119,12 @@ class particle(object):
         self.dt=dt
         self.collisions=[]
         self.tc=tc
-        self.rho=1.0
+        self.rho=2.0e3
         self.g=numpy.array((0.,0.,0.))
-        self.omega=numpy.array((0.,0.,0.))
+        self.omega=numpy.array((0.,0.,100.0*numpy.pi))
+        self.diameter=40.0e-6
+        self.u=u
+        self.gp=gp
 
     def update(self):
         # Simple RK4 integration
@@ -162,21 +165,24 @@ class particle(object):
 
 
         self.t+=self.dt
+        self.u[:],self.gp[:]=self.picker(self.p,self.t)
 
     def force(self,p,v,t):
         
         ## Drag term:
 
-        beta=0.44
 
         u,grad_p=self.picker(p,t)
 
 #        if collision:
 #            raise collisionException
 
+
+        beta=0.44*3.0/32.0/self.diameter*numpy.sqrt(sum((u-v)**2))
+
         drag=beta*(u-v)
 
-        return grad_p/self.rho+drag+(-2.0*numpy.cross(self.omega,v)+self.g+numpy.cross(self.omega,numpy.cross(self.omega,p)))
+        return grad_p/self.rho+drag+(-2.0*numpy.cross(self.omega,v)+self.g-numpy.cross(self.omega,numpy.cross(self.omega,p)))
 
 
     def picker(self,p,t):
@@ -220,10 +226,9 @@ class particle(object):
             data_u=file.GetPointData().GetVectors('Velocity')
             data_p=file.GetPointData().GetScalars('Pressure')
 
-            out=numpy.zeros(3)
 
             sf=numpy.zeros(c.GetNumberOfPoints())
-            c.InterpolateFunctions(x,sf)
+            c.InterpolateFunctions(p,sf)
 
             rhs=numpy.zeros(2)
             rhs[0]=data_p.GetValue(c.GetPointId(1))-data_p.GetValue(c.GetPointId(0))
@@ -241,6 +246,7 @@ class particle(object):
             A=la.inv(A)
             
 
+            out=numpy.zeros(3)
             for k in range(c.GetNumberOfPoints()):
                 out+=sf[k]*numpy.array(data_u.GetTuple(pids.GetId(k)))
                 
@@ -259,11 +265,17 @@ class particle(object):
         return (1.0-alpha)*u0+alpha*u1,(1.0-alpha)*gp0+alpha*gp1
 
 
-    def collide(self,p,v=None,pa=None,dt=None):
+    def collide(self,p,v=None,pa=None,dt=None,level=0):
+        if level==10 :
+            if type(v) != type(None):
+                return p-pa, None, v-self.v
+            else:
+                return p-pa, None
+            
         if type(pa)==type(None):
             pa=self.p
             dt=self.dt
-        e=0.9
+        e=0.95
         
 
         s=vtk.mutable(-1.0)
@@ -306,11 +318,11 @@ class particle(object):
 
             if type(v) != type(None):
                 v-=(1.0+e)*n*(numpy.dot(n,v))
-                px,cr,vs=self.collide(p,v,x-1.0e-3*n,dt)
+                px,cr,vs=self.collide(p,v,x-1.0e-3*n,dt,level=level+1)
                 p=px+x-1.0e-3*n
-                return p-pa, coldat, vs-self.v
+                return p-pa, coldat, vs
             else:
-                p=x-1.0e-3*n+self.collide(p,None,x-1.0e-3*n,dt)[0]
+                p=x-1.0e-3*n+self.collide(p,None,x-1.0e-3*n,dt,level=level+1)[0]
                 return p-pa, coldat
                
         if type(v) != type(None):
@@ -321,18 +333,20 @@ class particle(object):
 
 class particle_bucket(object):
 
-    def __init__(self,X,V,t,dt,filename='data.dat',base_name=''):
+    def __init__(self,X,V,t,dt,filename='data.dat',base_name='',U=None,GP=None):
 
         self.tc=TemporalCache(base_name)
         self.particles=[]
 
 
-        for x,v in zip(X,V):
+        for x,v,u,gp in zip(X,V,U,GP):
             print x,v
-            self.particles.append(particle(x,v,t,dt,tc=self.tc))
+            self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp))
         self.t=t
         self.p=X
         self.v=V
+        self.u=U
+        self.gp=GP
         self.dt=dt
         self.file=open(filename,'w')
 
@@ -374,7 +388,7 @@ class particle_bucket(object):
 #               [0.0,0.0,0.0],
 #               [0.0,0.0,0.0]],)
 
-N=1000
+N=300
 
 X=2.0*(numpy.random.random((N,3))-0.5)
 X[:,2]=0
@@ -455,9 +469,11 @@ def movie(parbuck,filename='data.dat'):
             else:
                 break
 
+        p.axis([0.05,0.15,-0.06,0.04])
+
         p.title('t=%4.3f'%t[k])
 
-        p.savefig('movie/test%05d.png'%k)
+        p.savefig('movie/testF%05d.png'%k)
         
 p.figure()
 

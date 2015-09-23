@@ -1,117 +1,12 @@
-import vtk
 import numpy
-import scipy.linalg as la
-import pylab as p
-import itertools
-import glob
-
-class TemporalCache(object):
-    
-    def __init__(self,base_name):
-        files=glob.glob(base_name+'*.vtu')
-
-        self.data=[]
-
-        self.lower=0
-        self.upper=0
-
-        
-
-        print files
-
-        for file in files:
-            rdr=vtk.vtkXMLUnstructuredGridReader()
-            rdr.SetFileName(file)
-            for k in range(rdr.GetNumberOfPointArrays()):
-                rdr.SetPointArrayStatus(rdr.GetPointArrayName(k),0)
-            for k in range(rdr.GetNumberOfCellArrays()):
-                rdr.SetCellArrayStatus(rdr.GetCellArrayName(k),0)
-            rdr.SetPointArrayStatus('Time',1)
-            rdr.Update()
-            ug=rdr.GetOutput()
-            t=ug.GetPointData().GetScalars('Time').GetValue(0)
-            
-            self.data.append([t,file,None,None])
-
-        self.data.sort(cmp=lambda x,y:cmp(x[0],y[0]))
-        
-        self.open(0)
-            
-    def reset(self):
-        self.lower=0
-        self.upper=0
-
-    def range(self,a,b):
-        if self.data[self.lower][0]>a:
-            self.reset()
-        while self.lower<len(self.data)-2 and self.data[self.lower+1][0]<=a:
-            self.close(self.lower)
-            self.lower+=1
-        while self.upper<=len(self.data)-2 and self.data[self.upper][0]<=b:
-            self.upper+=1
-            self.open(self.upper)
-
-        return self.data[self.lower:self.upper+1]
-
-    def open(self,k):
-        
-        rdr=vtk.vtkXMLUnstructuredGridReader()
-
-        print 'loading %s'%self.data[k][1]
-        rdr.SetFileName(self.data[k][1])
-        rdr.Update()
-
-        self.data[k][2]=rdr.GetOutput()
-        cl=vtk.vtkCellLocator()
-        cl.SetDataSet(self.data[k][2])
-        cl.BuildLocator()
-        self.data[k][3]=cl
-
-    def close(self,k):
-        del self.data[k][3]
-        del self.data[k][2]
-        self.data[k].append(None)
-        self.data[k].append(None)
-
-    def __call__(self,t):
-        lower=self.lower
-        upper=self.upper
-        
-        while lower<len(self.data)-2 and self.data[lower+1][0]<=t:
-            lower+=1
-
-        t0=self.data[lower][0]
-        t1=self.data[lower+1][0]
-        if t1==t0: t1=1e300
-
-        return self.data[lower:lower+2], (t-t0)/(t1-t0)
-
-bnd_reader=vtk.vtkXMLUnstructuredGridReader()
-bnd_reader.SetFileName('bnd.vtu')
-bfile=bnd_reader.GetOutput()
-bnd_reader.GetOutput().Update()
-bfile.Update()
-gf=vtk.vtkGeometryFilter()
-gf.SetInput(bfile)
-gf.Update()
-bndl=vtk.vtkCellLocator()
-bndl.SetDataSet(gf.GetOutput())
-bndl.BuildLocator()
-
-class collisionException(Exception):
-    pass
-
-class collisionInfo(object):
-    def __init__(self,x,v,cell,angle,t):
-        self.x=x
-        self.v=v
-        self.cell=cell
-        self.angle=angle
-        self.t=t
+import TemporalCache
+import IO
 
 class particle(object):
 
-    def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),gp=numpy.zeros(3)):
+    def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
+                 gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
+                 omega=numpy.zeros(3),d=40e-6,bndl=None,e=0.99):
         
         self.p=p
         self.v=v
@@ -120,11 +15,13 @@ class particle(object):
         self.collisions=[]
         self.tc=tc
         self.rho=2.0e3
-        self.g=numpy.array((0.,0.,0.))
-        self.omega=numpy.array((0.,0.,100.0*numpy.pi))
-        self.diameter=40.0e-6
+        self.g=g
+        self.omega=omega
+        self.diameter=d
         self.u=u
         self.gp=gp
+        self.bndl=None
+        self.e=e
 
     def update(self):
         # Simple RK4 integration
@@ -284,7 +181,7 @@ class particle(object):
         si=vtk.mutable(0)
         ci=vtk.mutable(0)
 
-        f=bndl.IntersectWithLine(pa,p,
+        f=self.bndl.IntersectWithLine(pa,p,
                                1.0e-1,s,
                                x,loc,si,ci)
 
@@ -333,7 +230,9 @@ class particle(object):
 
 class particle_bucket(object):
 
-    def __init__(self,X,V,t,dt,filename='data.dat',base_name='',U=None,GP=None):
+    def __init__(self,X,V,t=0,dt=1.0e-3,filename='data.dat',
+                 base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
+                 omega=numpy.zeros(3),d=40.e-6,bndl=None,e=0.99):
 
         self.tc=TemporalCache(base_name)
         self.particles=[]
@@ -341,7 +240,9 @@ class particle_bucket(object):
 
         for x,v,u,gp in zip(X,V,U,GP):
             print x,v
-            self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp))
+            self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp,
+                                           rho=rho,g=g,omega=omega,
+                                           d=d,bndl=bndl,e=e))
         self.t=t
         self.p=X
         self.v=V
@@ -373,110 +274,8 @@ class particle_bucket(object):
 
         self.file.write('\n')
 
-        
-
-    
-
-        
-
-
-
-#X=numpy.array([[0.0,0.0,0.0],
-#               [0.5,0.0,0.0],
-#               [0.3,0.0,0.0]])
-#V=numpy.array([[0.0,1.0,0.0],
-#               [0.0,0.0,0.0],
-#               [0.0,0.0,0.0]],)
-
-N=300
-
-X=2.0*(numpy.random.random((N,3))-0.5)
-X[:,2]=0
-V=numpy.zeros((N,3))
-
-pb=particle_bucket(X,V,0.0,0.01,base_name='simple')
-pb.write()
-
-
-for k in range(500):
-    print pb.t
-    pb.update()
-    pb.write()
-pb.file.flush()
-
-
-
-
-def get_data(filename='data.dat'):
-    f=open(filename,'r')
-
-    t=[]
-    x=[]
-    y=[]
-    u=[]
-    v=[]
-
-    for m in f.readlines():
-        r=[float(M) for M in m.split()]
-
-
-        print r
-        t.append(r[0])
-        n=len(r[1:])/6
-        X=r[1::3]
-        Y=r[2::3]
-        print 
-        x.append(X[:n])
-        u.append(X[n:])
-        y.append(Y[:n])
-        v.append(Y[n:])
-
-    
-    print x
-    print y
-
-    x=numpy.array(x)
-    y=numpy.array(y)
-
-    f.close()
-
-    return t,x,y
-
-def plot(filename='data.dat'):
-
-    t,x,y = get_data(filename)
-
-    p.plot(x,y)
-
-def movie(parbuck,filename='data.dat'):
-
-    col=[c for c in pb.collisions()]
-
-    col.sort(key=lambda x:x.t)
-
-    t,x,y = get_data(filename)
-
-    for k in range(len(t)):
-        p.clf()
-        p.plot(x[:k+1],y[:k+1],zorder=1)
-        p.scatter(x[k],y[k],s=10,zorder=5)
-
-        for c in col:
-            if c.t<t[k]-0.01:
-                p.scatter(c.x[0],c.x[1],c='r',s=30)
-            elif c.t<=t[k]:
-                p.scatter(c.x[0],c.x[1],c='k',s=50)
-            else:
-                break
-
-        p.axis([0.05,0.15,-0.06,0.04])
-
-        p.title('t=%4.3f'%t[k])
-
-        p.savefig('movie/testF%05d.png'%k)
-        
-p.figure()
-
-movie(pb)
-
-
+    def run(self,t):
+        while self.t<t:
+            self.update()
+            self.write()
+        self.file.flush()

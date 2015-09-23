@@ -7,7 +7,7 @@ class particle(object):
 
     def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
                  gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40e-6,bndl=None,e=0.99,drag=DragModels.stokes_drag):
+                 omega=numpy.zeros(3),d=40e-6,bndl=None,e=0.99,drag=DragModels.turbulent_drag):
         
         self.p=p
         self.v=v

@@ -232,13 +232,17 @@ class particle(object):
 
 class particle_bucket(object):
 
-    def __init__(self,X,V,t=0,dt=1.0e-3,filename='data.dat',
+    def __init__(self,X,V,t=0,dt=1.0e-3,filename=None,
                  base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
                  omega=numpy.zeros(3),d=40.e-6,bndl=None,e=0.99):
 
-        self.tc=TemporalCache(base_name)
+        self.tc=TemporalCache.TemporalCache(base_name)
         self.particles=[]
 
+        if not U:
+            U=[None for i in range(X.shape[0])]
+        if not GP:
+            GP=[None for i in range(X.shape[0])]
 
         for x,v,u,gp in zip(X,V,U,GP):
             print x,v
@@ -251,7 +255,7 @@ class particle_bucket(object):
         self.u=U
         self.gp=GP
         self.dt=dt
-        self.file=open(filename,'w')
+        if filename: self.file=open(filename,'w')
 
     def update(self):
         self.tc.range(self.t,self.t+self.dt)

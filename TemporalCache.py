@@ -1,14 +1,14 @@
+import vtk
+import glob
+import numpy
+
 class TemporalCache(object):
     
-    def __init__(self,base_name):
+    def __init__(self,base_name,t_min=0.,t_max=numpy.infty):
         files=glob.glob(base_name+'*.vtu')
 
         self.data=[]
-
-        self.lower=0
-        self.upper=0
-
-        
+        self.reset()
 
         print files
 
@@ -27,19 +27,23 @@ class TemporalCache(object):
             self.data.append([t,file,None,None])
 
         self.data.sort(cmp=lambda x,y:cmp(x[0],y[0]))
-        
-        self.open(0)
+
+        self.range(t_min,t_max)
             
     def reset(self):
         self.lower=0
         self.upper=0
 
     def range(self,a,b):
+        if len(self.data)==0: return
         if self.data[self.lower][0]>a:
             self.reset()
         while self.lower<len(self.data)-2 and self.data[self.lower+1][0]<=a:
-            self.close(self.lower)
+            if self.lower<=self.upper: self.close(self.lower)
             self.lower+=1
+        if self.upper<self.lower: 
+            self.upper=self.lower
+            self.open(self.lower)
         while self.upper<=len(self.data)-2 and self.data[self.upper][0]<=b:
             self.upper+=1
             self.open(self.upper)

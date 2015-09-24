@@ -31,6 +31,8 @@ class TemporalCache(object):
         self.range(t_min,t_max)
             
     def reset(self):
+        for k,d in enumerate(self.data):
+            if d[2]: self.close(k)
         self.lower=0
         self.upper=0
 
@@ -39,9 +41,9 @@ class TemporalCache(object):
         if self.data[self.lower][0]>a:
             self.reset()
         while self.lower<len(self.data)-2 and self.data[self.lower+1][0]<=a:
-            if self.lower<=self.upper: self.close(self.lower)
+            self.close(self.lower)
             self.lower+=1
-        if self.upper<self.lower: 
+        if self.upper<=self.lower: 
             self.upper=self.lower
             self.open(self.lower)
         while self.upper<=len(self.data)-2 and self.data[self.upper][0]<=b:
@@ -79,6 +81,6 @@ class TemporalCache(object):
 
         t0=self.data[lower][0]
         t1=self.data[lower+1][0]
-        if t1==t0: t1=1e300
+        if t1==t0: t1=numpy.infty
 
         return self.data[lower:lower+2], (t-t0)/(t1-t0)

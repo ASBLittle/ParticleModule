@@ -1,6 +1,7 @@
 import Particles
 
 import vtk
+import numpy
 
 def test_tests():
     assert 1
@@ -58,8 +59,29 @@ def test_particle_bucket_step_do_nothing(tmpdir):
 
     pb.run(5.0)
 
-
     assert pb.t==5.0
     assert all(pb.particles[0].p==0.0)
     assert all(pb.particles[0].v==0.0)
 
+
+def test_picker():
+    
+    def tc(x):
+
+        r1=vtk.vtkXMLUnstructuredGridReader()
+        r1.SetFileName('tests/data/rightward_1.vtu')
+        r1.Update()
+
+        l1=vtk.vtkCellLocator()
+        l1.SetDataSet(r1.GetOutput())
+        l1.BuildLocator()
+
+        return [[None,None,r1.GetOutput(),l1],
+                [None,None,r1.GetOutput(),l1]], 0.0
+
+    P=Particles.particle(0,0,tc=tc)
+
+    u,gp=P.picker((0.5,0.5,0.0),0.0)
+
+
+    assert all(u==numpy.array((1.0,0,0)))

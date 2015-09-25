@@ -147,8 +147,6 @@ class particle(object):
             c.InterpolateFunctions(x,sf)
             c.InterpolateDerivs(x,df)
 
-            sf=numpy.zeros(c.GetNumberOfPoints())
-
             rhs=numpy.zeros(2)
             rhs[0]=data_p.GetValue(c.GetPointId(1))-data_p.GetValue(c.GetPointId(0))
             rhs[1]=data_p.GetValue(c.GetPointId(2))-data_p.GetValue(c.GetPointId(0))
@@ -180,7 +178,7 @@ class particle(object):
 
         u0,gp0=fpick(data[0][2],data[0][3])
         u1,gp1=fpick(data[1][2],data[1][3])
-            
+
         return (1.0-alpha)*u0+alpha*u1,(1.0-alpha)*gp0+alpha*gp1
 
 

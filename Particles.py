@@ -3,6 +3,9 @@ import TemporalCache
 import IO
 import DragModels
 
+import vtk
+import scipy.linalg as la
+
 class particle(object):
 
     def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
@@ -21,7 +24,7 @@ class particle(object):
         self.diameter=d
         self.u=u
         self.gp=gp
-        self.bndl=None
+        self.bndl=bndl
         self.e=e
         self.drag=drag
 
@@ -101,23 +104,36 @@ class particle(object):
 
             c=file.GetCell(ci)
 
-            collision=not c.PointInTriangle(p,c.GetPoints().GetPoint(0),
-                              c.GetPoints().GetPoint(1),
-                              c.GetPoints().GetPoint(2),1.0e-6)
-                
+            if c.GetCellType()==vtk.VTK_QUADRATIC_TRIANGLE:
+                ct=vtk.vtkTriangle()
+                ct.GetPoints().SetPoint(0,c.GetPoints().GetPoint(0))
+                ct.GetPoints().SetPoint(1,c.GetPoints().GetPoint(1))
+                ct.GetPoints().SetPoint(2,c.GetPoints().GetPoint(2))
+                ls=[0,1,2]
+            else:
+                ct=c
+                ls=[0,1,2]
+
+            collision=not ct.PointInTriangle(p,ct.GetPoints().GetPoint(0),
+                              ct.GetPoints().GetPoint(1),
+                              ct.GetPoints().GetPoint(2),1.0e-6)
 
             v1=[0.0,0.0]
             v2=[0.0,0.0]
             v3=[0.0,0.0]
 
-            c.ProjectTo2D(c.GetPoints().GetPoint(0),
-                          c.GetPoints().GetPoint(1),
-                          c.GetPoints().GetPoint(2),
+            ct.ProjectTo2D(ct.GetPoints().GetPoint(0),
+                          ct.GetPoints().GetPoint(1),
+                          ct.GetPoints().GetPoint(2),
                           v1,v2,v3)
 
             x=[0.0,0.0,0.0]
 
-            c.BarycentricCoords(p[:2],v1,v2,v3,x)
+            ct.BarycentricCoords(p[:2],
+                                ct.GetPoints().GetPoint(0)[:2],
+                                ct.GetPoints().GetPoint(1)[:2],
+                                ct.GetPoints().GetPoint(2)[:2],
+                                x)
         
 
             pids=c.GetPointIds()
@@ -127,7 +143,11 @@ class particle(object):
 
 
             sf=numpy.zeros(c.GetNumberOfPoints())
-            c.InterpolateFunctions(p,sf)
+            df=numpy.zeros(2.0*c.GetNumberOfPoints())
+            c.InterpolateFunctions(x,sf)
+            c.InterpolateDerivs(x,df)
+
+            sf=numpy.zeros(c.GetNumberOfPoints())
 
             rhs=numpy.zeros(2)
             rhs[0]=data_p.GetValue(c.GetPointId(1))-data_p.GetValue(c.GetPointId(0))
@@ -239,9 +259,9 @@ class particle_bucket(object):
         self.tc=TemporalCache.TemporalCache(base_name)
         self.particles=[]
 
-        if not U:
+        if U==None:
             U=[None for i in range(X.shape[0])]
-        if not GP:
+        if GP==None:
             GP=[None for i in range(X.shape[0])]
 
         for x,v,u,gp in zip(X,V,U,GP):

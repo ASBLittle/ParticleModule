@@ -1,4 +1,5 @@
 import TemporalCache as TC
+import vtk
 
 
 def test_basic_temporal_cache():
@@ -43,6 +44,7 @@ def test_temporal_cache_new_range():
 
 
 def test_temporal_cache_call():
+
     tc=TC.TemporalCache('tests/data/circle',0,1)
 
     d,alpha=tc(0.5)

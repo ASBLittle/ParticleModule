@@ -168,7 +168,6 @@ def test_step_head_on_collision():
     assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
     assert P.collisions[0].angle==numpy.pi/2.0
 
-
 def test_diagonal_collision():
 
     p0=numpy.array((0.9995,0.4995,0.0))
@@ -186,3 +185,21 @@ def test_diagonal_collision():
     assert all(P.collisions[0].v==numpy.array((1.,1.,0.)))
     assert P.collisions[0].angle-numpy.pi/4.0<1e-10
     
+
+
+def test_coefficient_of_restitution():
+
+    p0=numpy.array((0.95,0.5,0.0))
+    v0=numpy.array((1.0,0.0,0.0))
+
+    P=Particles.particle(p0,v0,dt=0.1,d=numpy.infty,tc=tc,bndl=bndl,bnd=rb.GetOutput(),e=0.5)
+    P.update()
+    assert all(abs(P.p-numpy.array((0.975,0.5,0)))<1.0e-8)
+    assert all(P.v==numpy.array((-0.5,0,0)))
+    assert P.t==0.1
+
+    assert len(P.collisions)==1
+    assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
+    assert P.collisions[0].t==0.05
+    assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
+    assert P.collisions[0].angle==numpy.pi/2.0

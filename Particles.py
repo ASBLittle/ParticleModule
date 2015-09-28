@@ -207,7 +207,7 @@ class particle(object):
         ci=vtk.mutable(0)
 
         intersect=self.bndl.IntersectWithLine(pa,p,
-                               1.0e-1,s,
+                               1.0e-8,s,
                                x,loc,si,ci)
 
         if s != -1.0:
@@ -254,8 +254,8 @@ class particle(object):
                 print 'After V1:', pa,p,n,vs,f
 
 
-                px,cr,vo=self.collide(vs,(1-s)*dt,v=vs,f=f,pa=x+1.0e-16*vs,level=level+1)
-                p=px+x+1.0e-16*vs
+                px,cr,vo=self.collide(vs,(1-s)*dt,v=vs,f=f,pa=x+1.0e-10*vs,level=level+1)
+                p=px+x+1.0e-10*vs
 
                 print 'After V2:', pa,p,n,vs,f
                 
@@ -264,7 +264,7 @@ class particle(object):
 
                 return p-pa, coldat, vo
             else:
-                p=x+1.0e-16*vs+self.collide(vs,(1-s)*dt,f=f,pa=x+1.0e-16*vs,level=level+1)[0]
+                p=x+1.0e-8*vs+self.collide(vs,(1-s)*dt,f=f,pa=x+1.0e-8*vs,level=level+1)[0]
 
 
                 print 'After', pa,p,n

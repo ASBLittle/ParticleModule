@@ -41,28 +41,28 @@ class particle(object):
                        self.v,
                        self.t)
 
-        s,c1=self.collide(self.p+0.5*self.dt*kp1)
+        s,c1,v1=self.collide(kp1,0.5*self.dt,self.v,f=kv1)
         kp2=self.v+0.5*self.dt*kv1
         kv2=self.force(self.p+s,
-                       self.v+0.5*self.dt*kv1,
+                       self.v+v1,
                        self.t+0.5*self.dt)
 
-        s,c2=self.collide(self.p+0.5*self.dt*kp2)
+        s,c2,v2=self.collide(kp2,0.5*self.dt,v=self.v,f=kv2)
         kp3=self.v+0.5*self.dt*kv2
         kv3=self.force(self.p+s,
-                       self.v+0.5*self.dt*kv2,
+                       self.v+v2,
                        self.t+0.5*self.dt)
 
 
-        s,c3=self.collide(self.p+self.dt*kp3)
+        s,c3,v3=self.collide(kp3,self.dt,v=self.v,f=kv3)
         kp4=self.v+self.dt*kv3
         kv4=self.force(self.p+s,
-                       self.v+self.dt*kv3,
+                       self.v+v3,
                        self.t+self.dt)
 
 
-        s,c4,v4=self.collide(self.p+self.dt*(kp1+2.0*(kp2+kp3)+kp4)/6.0,
-                             v=self.v+self.dt*(kv1+2.0*(kv2+kv3)+kv4)/6.0)
+        s,c4,v4=self.collide((kp1+2.0*(kp2+kp3)+kp4)/6.0,self.dt,
+                             v=self.v,f=(kv1+2.0*(kv2+kv3)+kv4)/6.0)
         self.p+=s
         self.v+=v4
         if type(c4)!=type(None):
@@ -185,18 +185,20 @@ class particle(object):
         return (1.0-alpha)*u0+alpha*u1,(1.0-alpha)*gp0+alpha*gp1
 
 
-    def collide(self,p,v=None,pa=None,dt=None,level=0):
-        if level==10 :
-            if type(v) != type(None):
-                return p-pa, None, v-self.v
-            else:
-                return p-pa, None
-            
+    def collide(self,k,dt,v=None,f=None,pa=None,level=0):
+
         if type(pa)==type(None):
             pa=self.p
-            dt=self.dt
-        e=0.95
-        
+
+        if level==10 :
+            if type(v) != type(None):
+                return k*dt, None, v-self.v
+            else:
+                return k*dt, None
+            
+
+
+        p=pa+dt*k
 
         s=vtk.mutable(-1.0)
         x=[0.0,0.0,0.0]
@@ -204,12 +206,12 @@ class particle(object):
         si=vtk.mutable(0)
         ci=vtk.mutable(0)
 
-        f=self.bndl.IntersectWithLine(pa,p,
+        intersect=self.bndl.IntersectWithLine(pa,p,
                                1.0e-1,s,
                                x,loc,si,ci)
 
         if s != -1.0:
-            print 'collision', f,ci, s, x, loc
+            print 'collision', intersect,ci, s, x, loc
             x=numpy.array(x)
 
             c=self.bnd.GetCell(ci)
@@ -226,27 +228,42 @@ class particle(object):
 
             n=n*numpy.sign(numpy.dot(n,(p-pa)))
 
+            p=x+dt*(k-(1.0+self.e)*n*(numpy.dot(n,k)))
+
             print 'Before',  p0,p
 
-            p=x+(1.0-s)*((p-pa)-(1.0+e)*n*(numpy.dot(n,(p-pa))))
-
-            print 'After', pa,p,n
-
-            theta=numpy.arccos(numpy.dot(n,(p-pa))/numpy.sqrt(numpy.dot(p-pa,p-p0)))
+            theta=numpy.arccos(numpy.dot(n,(p-pa))/numpy.sqrt(numpy.dot(x-pa,x-pa)))
 
             coldat=Collision.collisionInfo(x,v,ci,theta,self.t+s*dt)
 
+            
+
+
+            vs=k+s*dt*f
+            vs+=-(1.0+self.e)*n*numpy.dot(n,vs)
+
             if type(v) != type(None):
-                v-=(1.0+e)*n*(numpy.dot(n,v))
-                px,cr,vs=self.collide(p,v,x-1.0e-3*n,dt,level=level+1)
-                p=px+x-1.0e-3*n
-                return p-pa, coldat, vs
+
+                print 'After V1:', pa,p,n,vs,f
+
+
+                px,cr,vo=self.collide(vs,(1-s)*dt,v=vs,f=f,pa=x+1.0e-16*vs,level=level+1)
+                p=px+x+1.0e-16*vs
+
+                print 'After V2:', pa,p,n,vs,f
+
+                return p-pa, coldat, vo
             else:
-                p=x-1.0e-3*n+self.collide(p,None,x-1.0e-3*n,dt,level=level+1)[0]
+                p=x+1.0e-16*vs+self.collide(vs,(1-s)*dt,f=f,pa=x+1.0e-16*vs,level=level+1)[0]
+
+
+                print 'After', pa,p,n
+
                 return p-pa, coldat
                
         if type(v) != type(None):
-            return p-pa, None, v-self.v
+            
+            return p-pa, None, v+dt*f-self.v
         else:
             return p-pa, None
                                

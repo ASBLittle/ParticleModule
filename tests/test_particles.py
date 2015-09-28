@@ -172,10 +172,11 @@ def test_step_collision():
 
     p0=numpy.array((0.9995,0.5,0.0))
 
-    v0=numpy.array((0.0,0.0,0.0))
+    v0=numpy.array((1.0,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,tc=tc,bndl=bndl,bnd=rb.GetOutput())
+    P=Particles.particle(p0,v0,dt=0.001,tc=tc,bndl=bndl,bnd=rb.GetOutput(),e=1.0)
     P.update()
     assert P.p[0]>0.0
     assert P.p[0]<1.0
+    assert P.v[0]<0.5
     assert P.t==0.001

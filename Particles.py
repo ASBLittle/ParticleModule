@@ -2,6 +2,7 @@ import numpy
 import TemporalCache
 import IO
 import DragModels
+import Collision 
 
 import vtk
 import scipy.linalg as la
@@ -10,7 +11,8 @@ class particle(object):
 
     def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
                  gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40e-6,bndl=None,e=0.99,drag=DragModels.turbulent_drag):
+                 omega=numpy.zeros(3),d=40e-6,bndl=None,bnd=None,
+                 e=0.99,drag=DragModels.turbulent_drag):
         
         self.p=p
         self.v=v
@@ -25,6 +27,7 @@ class particle(object):
         self.u=u
         self.gp=gp
         self.bndl=bndl
+        self.bnd=bnd
         self.e=e
         self.drag=drag
 
@@ -209,7 +212,7 @@ class particle(object):
             print 'collision', f,ci, s, x, loc
             x=numpy.array(x)
 
-            c=gf.GetOutput().GetCell(ci)
+            c=self.bnd.GetCell(ci)
 
             p0=numpy.array(c.GetPoints().GetPoint(0))
             p1=numpy.array(c.GetPoints().GetPoint(1))
@@ -231,7 +234,7 @@ class particle(object):
 
             theta=numpy.arccos(numpy.dot(n,(p-pa))/numpy.sqrt(numpy.dot(p-pa,p-p0)))
 
-            coldat=collisionInfo(x,v,ci,theta,self.t+s*dt)
+            coldat=Collision.collisionInfo(x,v,ci,theta,self.t+s*dt)
 
             if type(v) != type(None):
                 v-=(1.0+e)*n*(numpy.dot(n,v))
@@ -252,7 +255,7 @@ class particle_bucket(object):
 
     def __init__(self,X,V,t=0,dt=1.0e-3,filename=None,
                  base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40.e-6,bndl=None,e=0.99):
+                 omega=numpy.zeros(3),d=40.e-6,bndl=None,bnd=None,e=0.99):
 
         self.tc=TemporalCache.TemporalCache(base_name)
         self.particles=[]
@@ -266,7 +269,7 @@ class particle_bucket(object):
             print x,v
             self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp,
                                            rho=rho,g=g,omega=omega,
-                                           d=d,bndl=bndl,e=e))
+                                           d=d,bndl=bndl,bnd=bnd,e=e))
         self.t=t
         self.p=X
         self.v=V

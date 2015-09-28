@@ -3,6 +3,26 @@ import Particles
 import vtk
 import numpy
 
+rb=vtk.vtkXMLUnstructuredGridReader()
+rb.SetFileName('tests/data/rightward_boundary.vtu')
+rb.Update()
+bndl=vtk.vtkCellLocator()
+bndl.SetDataSet(rb.GetOutput())
+bndl.BuildLocator()
+
+def tc(x):
+    r1=vtk.vtkXMLUnstructuredGridReader()
+    r1.SetFileName('tests/data/rightward_0.vtu')
+    r1.Update()
+
+    l1=vtk.vtkCellLocator()
+    l1.SetDataSet(r1.GetOutput())
+    l1.BuildLocator()
+
+    return [[None,None,r1.GetOutput(),l1],
+            [None,None,r1.GetOutput(),l1]], 0.0
+
+
 def test_tests():
     assert 1
 
@@ -121,27 +141,8 @@ def test_step_constant_velocity():
 
 
 def test_step_spin_up():
-    rb=vtk.vtkXMLUnstructuredGridReader()
-    rb.SetFileName('tests/data/rightward_boundary.vtu')
-    rb.Update()
-    bndl=vtk.vtkCellLocator()
-    bndl.SetDataSet(rb.GetOutput())
-    bndl.BuildLocator()
-
-    def tc(x):
-        r1=vtk.vtkXMLUnstructuredGridReader()
-        r1.SetFileName('tests/data/rightward_0.vtu')
-        r1.Update()
-
-        l1=vtk.vtkCellLocator()
-        l1.SetDataSet(r1.GetOutput())
-        l1.BuildLocator()
-
-        return [[None,None,r1.GetOutput(),l1],
-                [None,None,r1.GetOutput(),l1]], 0.0
 
     p0=numpy.array((0.1,0.5,0.0))
-
     v0=numpy.array((0.0,0.0,0.0))
 
     P=Particles.particle(p0,v0,dt=0.001,tc=tc,bndl=bndl,bnd=rb.GetOutput())
@@ -150,33 +151,38 @@ def test_step_spin_up():
     assert P.t==0.001
 
 
-def test_step_collision():
-    rb=vtk.vtkXMLUnstructuredGridReader()
-    rb.SetFileName('tests/data/rightward_boundary.vtu')
-    rb.Update()
-    bndl=vtk.vtkCellLocator()
-    bndl.SetDataSet(rb.GetOutput())
-    bndl.BuildLocator()
-
-    def tc(x):
-        r1=vtk.vtkXMLUnstructuredGridReader()
-        r1.SetFileName('tests/data/rightward_0.vtu')
-        r1.Update()
-
-        l1=vtk.vtkCellLocator()
-        l1.SetDataSet(r1.GetOutput())
-        l1.BuildLocator()
-
-        return [[None,None,r1.GetOutput(),l1],
-                [None,None,r1.GetOutput(),l1]], 0.0
+def test_step_head_on_collision():
 
     p0=numpy.array((0.9995,0.5,0.0))
-
     v0=numpy.array((1.0,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,tc=tc,bndl=bndl,bnd=rb.GetOutput(),e=1.0)
+    P=Particles.particle(p0,v0,dt=0.001,d=numpy.infty,tc=tc,bndl=bndl,bnd=rb.GetOutput(),e=1.0)
     P.update()
-    assert P.p[0]>0.0
-    assert P.p[0]<1.0
-    assert P.v[0]<0.5
+    assert all(abs(P.p-numpy.array((0.9995,0.5,0)))<1.0e-8)
+    assert all(P.v==numpy.array((-1.,0,0)))
     assert P.t==0.001
+
+    assert len(P.collisions)==1
+    assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
+    assert P.collisions[0].t==0.0005
+    assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
+    assert P.collisions[0].angle==numpy.pi/2.0
+
+
+def test_diagonal_collision():
+
+    p0=numpy.array((0.9995,0.4995,0.0))
+    v0=numpy.array((1.0,1.0,0.0))
+
+    P=Particles.particle(p0,v0,dt=0.001,d=numpy.infty,tc=tc,bndl=bndl,bnd=rb.GetOutput(),e=1.0)
+    P.update()
+    assert all(abs(P.p-numpy.array((0.9995,0.5005,0)))<1.0e-8)
+    assert all(P.v==numpy.array((-1.,1.0,0)))
+    assert P.t==0.001
+
+    assert len(P.collisions)==1
+    assert all(P.collisions[0].x-numpy.array((1.,0.5,0.))<1.0e-8)
+    assert P.collisions[0].t-0.0005<1e-8
+    assert all(P.collisions[0].v==numpy.array((1.,1.,0.)))
+    assert P.collisions[0].angle-numpy.pi/4.0<1e-10
+    

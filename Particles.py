@@ -66,7 +66,7 @@ class particle(object):
         self.p+=s
         self.v+=v4
         if type(c4)!=type(None):
-            self.collisions.append(c4)
+            self.collisions+=c4
 
 
         self.t+=self.dt
@@ -230,17 +230,24 @@ class particle(object):
 
             p=x+dt*(k-(1.0+self.e)*n*(numpy.dot(n,k)))
 
-            print 'Before',  p0,p
 
-            theta=numpy.arccos(numpy.dot(n,(p-pa))/numpy.sqrt(numpy.dot(x-pa,x-pa)))
+            theta=abs(numpy.arcsin(numpy.dot(n,(x-pa))/numpy.sqrt(numpy.dot(x-pa,x-pa))))
 
-            coldat=Collision.collisionInfo(x,v,ci,theta,self.t+s*dt)
+            coldat=[]
 
             
 
 
-            vs=k+s*dt*f
+            if type(v) !=type(None):
+                vs=v+s*dt*f
+            else:
+                vs=self.v+s*dt*f
+
+            print 'Before',  p0,p,vs
+
+            coldat.append(Collision.collisionInfo(x,vs,ci,theta,self.t+s*dt))
             vs+=-(1.0+self.e)*n*numpy.dot(n,vs)
+            
 
             if type(v) != type(None):
 
@@ -251,6 +258,9 @@ class particle(object):
                 p=px+x+1.0e-16*vs
 
                 print 'After V2:', pa,p,n,vs,f
+                
+                if cr:
+                    coldat+=cr
 
                 return p-pa, coldat, vo
             else:

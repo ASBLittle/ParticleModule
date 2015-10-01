@@ -12,7 +12,7 @@ class particle(object):
 
     def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
                  gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40e-6,bndl=None,bnd=None,
+                 omega=numpy.zeros(3),d=40e-6,boundary=None,
                  e=0.99,drag=DragModels.turbulent_drag):
         
         self.p=p
@@ -27,8 +27,7 @@ class particle(object):
         self.diameter=d
         self.u=u
         self.gp=gp
-        self.bndl=bndl
-        self.bnd=bnd
+        self.boundary=boundary
         self.e=e
         self.drag=drag
 
@@ -226,7 +225,7 @@ class particle(object):
         si=vtk.mutable(0)
         ci=vtk.mutable(0)
 
-        intersect=self.bndl.IntersectWithLine(pa,p,
+        intersect=self.boundary.bndl.IntersectWithLine(pa,p,
                                1.0e-8,s,
                                x,loc,si,ci)
 
@@ -234,7 +233,7 @@ class particle(object):
             print 'collision', intersect,ci, s, x, loc
             x=numpy.array(x)
 
-            c=self.bnd.GetCell(ci)
+            c=self.boundary.bnd.GetCell(ci)
 
             p0=numpy.array(c.GetPoints().GetPoint(0))
             p1=numpy.array(c.GetPoints().GetPoint(1))
@@ -304,7 +303,7 @@ class particle_bucket(object):
 
     def __init__(self,X,V,t=0,dt=1.0e-3,filename=None,
                  base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40.e-6,bndl=None,bnd=None,e=0.99,tc=None):
+                 omega=numpy.zeros(3),d=40.e-6,boundary=None,e=0.99,tc=None):
         """Initialize the bucket
         
         Args:
@@ -328,13 +327,14 @@ class particle_bucket(object):
             print x,v
             self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp,
                                            rho=rho,g=g,omega=omega,
-                                           d=d,bndl=bndl,bnd=bnd,e=e))
+                                           d=d,boundary=boundary,e=e))
         self.t=t
         self.p=X
         self.v=V
         self.u=U
         self.gp=GP
         self.dt=dt
+        self.boundary=boundary
         if filename: self.file=open(filename,'w')
 
     def update(self):

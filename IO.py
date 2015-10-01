@@ -1,11 +1,42 @@
 import vtk
 import pylab as p
 import numpy
+import os
+import os.path
 
 
 types_3d=[vtk.VTK_TETRA,vtk.VTK_QUADRATIC_TETRA]
 types_2d=[vtk.VTK_TRIANGLE,vtk.VTK_QUADRATIC_TRIANGLE]
 types_1d=[vtk.VTK_LINE]
+
+class boundaryData(object):
+    
+    def __init__(self,boundaryFileName):
+        """Class containing the information about the boundary of the domain.
+
+        Args:
+            boundaryFileName (str): Name of the file containing the vtkUnstructuredGrid denoting the boundary of the domain."""
+        
+
+        print os.getcwd()
+        if not os.path.isfile(boundaryFileName):
+            print os.getcwd()
+            raise OSError
+
+        reader=vtk.vtkXMLUnstructuredGridReader()
+        reader.SetFileName(boundaryFileName)
+        reader.Update()
+        self.bnd=reader.GetOutput()
+        self.bnd.Update()
+
+        self.gf=vtk.vtkGeometryFilter()
+        self.gf.SetInput(self.bnd)
+        self.gf.Update()
+
+        self.bndl=vtk.vtkCellLocator()
+        self.bndl.SetDataSet(self.gf.GetOutput())
+        self.bndl.BuildLocator()
+
 
 def clean_unstructured_grid(ugrid):
     """Collapse a vtu produced from a discontinuous grid back down to the continuous space.

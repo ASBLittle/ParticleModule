@@ -8,6 +8,15 @@ types_2d=[vtk.VTK_TRIANGLE,vtk.VTK_QUADRATIC_TRIANGLE]
 types_1d=[vtk.VTK_LINE]
 
 def clean_unstructured_grid(ugrid):
+    """Collapse a vtu produced from a discontinuous grid back down to the continuous space.
+
+    Args:
+    ugrid (vtkUnstructuredGrid): the input discontinuous grid 
+
+    Results
+    out_grid (vtkUnstructuredGrid): A continuous grid"""
+    
+
     
     mp=vtk.vtkMergePoints()
     out_grid=vtk.vtkUnstructuredGrid()
@@ -37,7 +46,16 @@ def clean_unstructured_grid(ugrid):
         
 
 def extract_boundary(ugrid):
+    """Extract the boundary elements from an unstructured grid, provided it already contains them.
 
+    Args:
+    
+    ugrid (vtkUnstructuredGrid): The grid with which to work.
+
+    Results:
+
+    out_grid (vtkUnstructuredGrid): Grid containing the boundary of ugrid"""
+ 
     out_grid=vtk.vtkUnstructuredGrid()
     pts=vtk.vtkPoints()
     pts.DeepCopy(ugrid.GetPoints())
@@ -79,6 +97,14 @@ def extract_boundary(ugrid):
 
 
 def plot_boundary(ugrid,**kwargs):
+
+    """Plot a boundary using matplotlib
+
+    Args:
+        ugrid (vtkUnstructuredGrid): The boundary mesh to plot
+
+    Other arguments are passed on to the matplotlib plot command"""
+
     for i in range(ugrid.GetNumberOfCells()):
         c=ugrid.GetCell(i)
         
@@ -94,6 +120,21 @@ def plot_boundary(ugrid,**kwargs):
 
 
 def get_ascii_data(filename='data.dat'):
+
+    """Read the ascii output file and output as numpy data arrays
+
+    Args:
+        filename (str) The file to interogate
+
+    Results:
+        t (ndarray): Time
+        x (ndarray): x coordinate of particle position
+        y (ndarray): y coordinate of particle position
+        z (ndarray): z coordinate of particle position
+        u (ndarray): u coordinate of particle velocity
+        v (ndarray): v coordinate of particle velocity
+        w (ndarray): w coordinate of particle velocity"""
+
     f=open(filename,'r')
 
     t=[]
@@ -133,6 +174,13 @@ def get_ascii_data(filename='data.dat'):
 
 def ascii_to_polydata_time_series(filename,basename):
 
+    """Convert ascii file to a series of vtkPolyData (.vtp) files. 
+
+    Each file contains one time level of the data, and are numbered sequentially. Within each file, each dataset is written to seperate pixel.
+
+    Args:
+        filename (str): Filename/path of the ascii file containing the data.
+        basename (str): String used in the construction of the file series. The formula is of the form basename_0.vtp, basename_1.vtp,..."""
 
     t,x,y,z,u,v,w=get_ascii_data(filename)
 
@@ -169,6 +217,13 @@ def ascii_to_polydata_time_series(filename,basename):
 
 
 def ascii_to_polydata(filename,outfile):
+    """Convert ascii file to a single vtkPolyData (.vtp) files. 
+
+    Each partilce is written to seperate cell.
+
+    Args:
+        filename (str): Filename/path of the ascii file containing the data.
+        outfile (str):  Filename of the output PolyDataFile. The extension .vtp is NOT added automatically."""
 
     pd=vtk.vtkPolyData()
     pnts=vtk.vtkPoints()

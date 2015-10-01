@@ -8,6 +8,7 @@ import vtk
 import scipy.linalg as la
 
 class particle(object):
+    """Class representing a single Lagrangian particle with mass"""
 
     def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
                  gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
@@ -32,7 +33,9 @@ class particle(object):
         self.drag=drag
 
     def update(self):
-        # Simple RK4 integration
+        """Update the state of the particle to the next time level
+
+        The method uses relatively simple RK4 time integration."""
 
         collision=False
 
@@ -74,7 +77,13 @@ class particle(object):
 
     def force(self,p,v,t):
         
-        ## Drag term:
+        """Calculate the sum of the forces on the particle.
+
+        Args:
+            p (float): Location at which forcing is evaluated.
+            v (float): Particle velocity at which forcing is evaluated.
+            t (float): Time at which particle is evaluated.
+        """
 
 
         u,grad_p=self.picker(p,t)
@@ -187,6 +196,17 @@ class particle(object):
 
     def collide(self,k,dt,v=None,f=None,pa=None,level=0):
 
+        """Collision detection routine.
+
+        Args:
+            k  (float): Displacement
+            dt (float): Timestep
+            v  (float, optional): velocity
+            f  (float, optional): forcing
+            pa (float, optional): starting position in subcycle
+            level (int) count to control maximum depth
+        """
+
         if type(pa)==type(None):
             pa=self.p
 
@@ -280,11 +300,23 @@ class particle(object):
 
 class particle_bucket(object):
 
+    """Class for a container for multiple Lagrangian particles."""
+
     def __init__(self,X,V,t=0,dt=1.0e-3,filename=None,
                  base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40.e-6,bndl=None,bnd=None,e=0.99):
+                 omega=numpy.zeros(3),d=40.e-6,bndl=None,bnd=None,e=0.99,tc=None):
+        """Initialize the bucket
+        
+        Args:
+            X (float): Initial particle positions.
+            V (float): Initial velocities
+        """
 
-        self.tc=TemporalCache.TemporalCache(base_name)
+
+        if tc:
+            self.tc=tc
+        else:
+            self.tc=TemporalCache.TemporalCache(base_name)
         self.particles=[]
 
         if U==None:
@@ -306,6 +338,7 @@ class particle_bucket(object):
         if filename: self.file=open(filename,'w')
 
     def update(self):
+        """ Update all the particles in the bucket to the next time level."""
         self.tc.range(self.t,self.t+self.dt)
         for p in self.particles:
             p.update()
@@ -313,10 +346,12 @@ class particle_bucket(object):
         self.t+=self.dt
 
     def collisions(self):
+        """Collect all collisions felt by particles in the bucket"""
         return itertools.chain(*[p.collisions for p in self.particles])
 
 
     def write(self):
+        """Write timelevel data to file."""
         
         self.file.write('%f'%self.t)
 
@@ -329,6 +364,7 @@ class particle_bucket(object):
         self.file.write('\n')
 
     def run(self,t):
+        """Drive particles forward until a given time."""
         while self.t<t:
             self.update()
             self.write()

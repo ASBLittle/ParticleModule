@@ -12,7 +12,8 @@ class collisionInfo(object):
         self.angle=angle
         self.t=copy.copy(t)
 
-
+def testInCell(cell,p):
+        return cell.GetParametricDistance(p)==0
 
 def MclauryMassCoeff(ci,n=2):
 

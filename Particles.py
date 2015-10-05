@@ -105,7 +105,6 @@ class particle(object):
 
             locator.BuildLocatorIfNeeded()
 
-
             cp=[0.0,0.0,0.0]
             ci=vtk.mutable(0)
             si=vtk.mutable(0)
@@ -121,30 +120,27 @@ class particle(object):
                 ct.GetPoints().SetPoint(1,c.GetPoints().GetPoint(1))
                 ct.GetPoints().SetPoint(2,c.GetPoints().GetPoint(2))
                 ls=[0,1,2]
-            else:
+            elif c.GetCellType()==vtk.VTK_TRIANGLE:
                 ct=c
                 ls=[0,1,2]
+            elif c.GetCellType()==vtk.VTK_QUADRATIC_TETRA:
+                ct=vtk.vtkTetra()
+                ct.GetPoints().SetPoint(0,c.GetPoints().GetPoint(0))
+                ct.GetPoints().SetPoint(1,c.GetPoints().GetPoint(1))
+                ct.GetPoints().SetPoint(2,c.GetPoints().GetPoint(2))
+                ct.GetPoints().SetPoint(3,c.GetPoints().GetPoint(3))
+                ls=[0,1,2,3]
+            elif c.GetCellType()==vtk.VTK_TETRA:
+                ct=c
+                ls=[0,1,2,3]
 
-            collision=not ct.PointInTriangle(p,ct.GetPoints().GetPoint(0),
-                              ct.GetPoints().GetPoint(1),
-                              ct.GetPoints().GetPoint(2),1.0e-6)
+            N=ct.GetNumberOfPoints()-1
+            x=numpy.zeros(ct.GetNumberOfPoints())
+            args=[ct.GetPoints().GetPoint(i)[:N] for i in range(N+1)]
+            args.append(x)
+            ct.BarycentricCoords(p[:N],*args)
 
-            v1=[0.0,0.0]
-            v2=[0.0,0.0]
-            v3=[0.0,0.0]
-
-            ct.ProjectTo2D(ct.GetPoints().GetPoint(0),
-                          ct.GetPoints().GetPoint(1),
-                          ct.GetPoints().GetPoint(2),
-                          v1,v2,v3)
-
-            x=[0.0,0.0,0.0]
-
-            ct.BarycentricCoords(p[:2],
-                                ct.GetPoints().GetPoint(0)[:2],
-                                ct.GetPoints().GetPoint(1)[:2],
-                                ct.GetPoints().GetPoint(2)[:2],
-                                x)
+            collision=not Collision.testInCell(ct,p)          
         
 
             pids=c.GetPointIds()
@@ -154,7 +150,7 @@ class particle(object):
 
 
             sf=numpy.zeros(c.GetNumberOfPoints())
-            df=numpy.zeros(2.0*c.GetNumberOfPoints())
+            df=numpy.zeros(N*c.GetNumberOfPoints())
             c.InterpolateFunctions(x,sf)
             c.InterpolateDerivs(x,df)
 

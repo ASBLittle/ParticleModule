@@ -15,12 +15,7 @@ class collisionInfo(object):
 def testInCell(cell,p):
         return cell.GetParametricDistance(p)==0
 
-def MclauryMassCoeff(ci,n=2):
-
-    k=1.0
-    H=1.0
-    F_s=1.0
-    F_B=1.0
+def MclauryMassCoeff(ci,n=2,k=1.,H=1.,F_s=1.,F_B=1.):
 
     def f(t):
         if numpy.tan(t)>1.0/3.0:

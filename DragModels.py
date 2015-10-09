@@ -26,7 +26,9 @@ def transitional_drag(u,v,d,**kwargs):
 
     Re=1.0e3*du*d/1.0e-3
 
-    if Re<1000.0:
+    if Re<1.0e-8:
+        return du*(U-V)
+    elif Re<1000.0:
         return (24.0/Re)*(1.0+0.15*Re**0.687)*3.0/32.0/d*du*(U-V)
     else:
         return 0.44*3.0/32.0/d*du*(U-V)

@@ -1,6 +1,7 @@
 import Particles
 import IO
 import Collision
+import DragModels
 
 import vtk
 import numpy
@@ -91,7 +92,7 @@ def test_step_constant_velocity():
 
     v0=numpy.array((1.0,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.1,tc=tc(),boundary=bnd)
+    P=Particles.particle(p0,v0,dt=0.1,d=numpy.infty,tc=tc(),boundary=bnd)
     P.update()
     assert all(P.p==numpy.array((0.6,0.5,0)))
     assert P.t==0.1
@@ -99,14 +100,24 @@ def test_step_constant_velocity():
     assert all(P.p==numpy.array((0.7,0.5,0)))
 
 
-def test_step_spin_up():
+def test_step_spin_up_turbulent_drag():
+
+    p0=numpy.array((0.1,0.5,0.0))
+    v0=numpy.array((0.0,0.0,0.0))
+
+    P=Particles.particle(p0,v0,dt=0.001,tc=tc(),boundary=bnd,drag=DragModels.turbulent_drag)
+    P.update()
+    assert all(abs(P.p-numpy.array((0.100345,0.5,0)))<1.e-8)
+    assert P.t==0.001
+
+def test_step_spin_up_transitional_drag():
 
     p0=numpy.array((0.1,0.5,0.0))
     v0=numpy.array((0.0,0.0,0.0))
 
     P=Particles.particle(p0,v0,dt=0.001,tc=tc(),boundary=bnd)
     P.update()
-    assert all(abs(P.p-numpy.array((0.100345,0.5,0)))<1.e-8)
+    assert all(abs(P.p-numpy.array((0.10373956,0.5,0)))<1.e-8)
     assert P.t==0.001
 
 

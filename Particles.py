@@ -1,3 +1,5 @@
+""" Baseline module for the package. Contains the main classes, particle and particle_bucket. """
+
 import numpy
 import TemporalCache
 import IO
@@ -6,6 +8,7 @@ import Collision
 
 import vtk
 import scipy.linalg as la
+import itertools
 
 class particle(object):
     """Class representing a single Lagrangian particle with mass"""
@@ -144,7 +147,7 @@ class particle(object):
         
 
             pids=c.GetPointIds()
-            
+
             data_u=file.GetPointData().GetVectors('Velocity')
             data_p=file.GetPointData().GetScalars('Pressure')
 
@@ -314,9 +317,9 @@ class particle_bucket(object):
             self.tc=TemporalCache.TemporalCache(base_name)
         self.particles=[]
 
-        if U==None:
+        if type(U)==type(None):
             U=[None for i in range(X.shape[0])]
-        if GP==None:
+        if type(GP)==type(None):
             GP=[None for i in range(X.shape[0])]
 
         for x,v,u,gp in zip(X,V,U,GP):

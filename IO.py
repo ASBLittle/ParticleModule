@@ -1,3 +1,7 @@
+""" Module containing input-output routines between the particle model and the file system. Mostly vtk"""
+
+import Collision
+
 import vtk
 import pylab as p
 import numpy
@@ -68,7 +72,7 @@ def clean_unstructured_grid(ugrid):
         for j in range(c.GetNumberOfPoints()):
             c.GetPointIds().SetId(j,mp.FindClosestInsertedPoint(c.GetPoints().GetPoint(j))) 
 
-        out_grid.InsertNextCell(c.GetCellType(),C.GetPointIds())
+        out_grid.InsertNextCell(c.GetCellType(),c.GetPointIds())
 
 
     out_grid.GetCellData().DeepCopy(ugrid.GetCellData())
@@ -250,7 +254,7 @@ def ascii_to_polydata_time_series(filename,basename):
 def ascii_to_polydata(filename,outfile):
     """Convert ascii file to a single vtkPolyData (.vtp) files. 
 
-    Each partilce is written to seperate cell.
+    Each particle is written to seperate cell.
 
     Args:
         filename (str): Filename/path of the ascii file containing the data.
@@ -276,6 +280,47 @@ def ascii_to_polydata(filename,outfile):
         pd.InsertNextCell(line.GetCellType(),line.GetPointIds())
 
     pd.GetPointData().AddArray(time)
+    
+    writer=vtk.vtkXMLPolyDataWriter()
+    writer.SetFileName(outfile)
+    writer.SetInput(pd)
+    
+    writer.Write()
+
+
+def collision_list_to_polydata(col_list,outfile,
+                               model=Collision.MclauryMassCoeff,**kwargs):
+    """Convert collision data to a single vtkPolyData (.vtp) files. 
+
+    Each partilce is written to seperate cell.
+
+    Args:
+        filename (str): Filename/path of the ascii file containing the data.
+        outfile (str):  Filename of the output PolyDataFile. The extension .vtp is NOT added automatically."""
+
+    pd=vtk.vtkPolyData()
+    pnts=vtk.vtkPoints()
+    pnts.Allocate(0)
+    pd.SetPoints(pnts)
+    pd.Allocate(len(col_list))
+
+    time=vtk.vtkDoubleArray()
+    time.SetName('Time')
+    wear=vtk.vtkDoubleArray()
+    wear.SetName('Wear')
+    
+        
+    for col in col_list:
+        pixel=vtk.vtkPixel()
+        pixel.GetPointIds().InsertId(0,pd.GetPoints().InsertNextPoint(col.x[0],
+                                                                      col.x[1],
+                                                                      col.x[2]))
+        time.InsertNextValue(col.t)
+        wear.InsertNextValue(model(col,**kwargs))
+        pd.InsertNextCell(pixel.GetCellType(),pixel.GetPointIds())
+
+    pd.GetPointData().AddArray(time)
+    pd.GetPointData().AddArray(wear)
     
     writer=vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(outfile)

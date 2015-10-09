@@ -1,3 +1,3 @@
-import Collision
-import IO
-import Particles
+import particle_model.Collision
+import particle_model.IO
+import particle_model.Particles

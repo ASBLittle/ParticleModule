@@ -1,4 +1,5 @@
-""" Module containing input-output routines between the particle model and the file system. Mostly vtk"""
+""" Module containing input-output routines between the particle model and
+the file system. Mostly vtk."""
 
 import Collision
 
@@ -9,129 +10,138 @@ import os
 import os.path
 
 
-types_3d=[vtk.VTK_TETRA,vtk.VTK_QUADRATIC_TETRA]
-types_2d=[vtk.VTK_TRIANGLE,vtk.VTK_QUADRATIC_TRIANGLE]
-types_1d=[vtk.VTK_LINE]
+types_3d = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
+types_2d = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
+types_1d = [vtk.VTK_LINE]
 
 class boundaryData(object):
-    
-    def __init__(self,boundaryFileName):
+    """ Class storing the boundary data for the problem"""
+    def __init__(self, filename):
         """Class containing the information about the boundary of the domain.
 
         Args:
-            boundaryFileName (str): Name of the file containing the vtkUnstructuredGrid denoting the boundary of the domain."""
-        
+            filename (str): Name of the file containing the
+            vtkUnstructuredGrid denoting the boundary of the domain."""
 
-        print os.getcwd()
-        if not os.path.isfile(boundaryFileName):
+        self.geom_filter = vtk.vtkGeometryFilter()
+        self.reader = vtk.vtkXMLUnstructuredGridReader()
+        self.bnd = self.reader.GetOutput()
+        self.bndl = vtk.vtkCellLocator()
+
+        self.update_boundary_file(filename)
+
+    def update_boundary_file(self, filename):
+        """ Update the boundary data from the file."""
+        if not os.path.isfile(filename):
             print os.getcwd()
             raise OSError
 
-        reader=vtk.vtkXMLUnstructuredGridReader()
-        reader.SetFileName(boundaryFileName)
-        reader.Update()
-        self.bnd=reader.GetOutput()
+        self.reader.SetFileName(filename)
+        self.reader.Update()
         self.bnd.Update()
 
-        self.gf=vtk.vtkGeometryFilter()
-        self.gf.SetInput(self.bnd)
-        self.gf.Update()
 
-        self.bndl=vtk.vtkCellLocator()
-        self.bndl.SetDataSet(self.gf.GetOutput())
+        self.geom_filter.SetInput(self.bnd)
+        self.geom_filter.Update()
+
+        self.bndl.SetDataSet(self.geom_filter.GetOutput())
         self.bndl.BuildLocator()
+
+    def rebuild_locator(self):
+        """ Rebuild the locator information"""
+        self.bndl.BuildLocator()
+
 
 
 def clean_unstructured_grid(ugrid):
     """Collapse a vtu produced from a discontinuous grid back down to the continuous space.
 
     Args:
-    ugrid (vtkUnstructuredGrid): the input discontinuous grid 
+    ugrid (vtkUnstructuredGrid): the input discontinuous grid
 
     Results
     out_grid (vtkUnstructuredGrid): A continuous grid"""
-    
 
-    
-    mp=vtk.vtkMergePoints()
-    out_grid=vtk.vtkUnstructuredGrid()
+    merge_points = vtk.vtkMergePoints()
+    out_grid = vtk.vtkUnstructuredGrid()
 
     for i in range(ugrid.GetNumberOfPoints()):
-        mp.InsertUniquePoint(ugrid.GetPoints().GetPoint(i))
-        
-    mp.BuildLocator()
+        merge_points.InsertUniquePoint(ugrid.GetPoints().GetPoint(i))
 
+    merge_points.BuildLocator()
 
-    pts=vtk.vtkPoints()
-    pts.DeepCopy(mp.GetPoints())
+    pts = vtk.vtkPoints()
+    pts.DeepCopy(merge_points.GetPoints())
     out_grid.SetPoints(pts)
 
     for i in range(ugrid.GetNumberOfCells()):
-        c=ugrid.GetCell(i)
+        cell = ugrid.GetCell(i)
+        cell_ids = cell.GetPointIds()
 
-        for j in range(c.GetNumberOfPoints()):
-            c.GetPointIds().SetId(j,mp.FindClosestInsertedPoint(c.GetPoints().GetPoint(j))) 
+        for j in range(cell.GetNumberOfPoints()):
 
-        out_grid.InsertNextCell(c.GetCellType(),c.GetPointIds())
+            original_point = cell.GetPoints().GetPoint(j)
+            cell_ids.SetId(j,
+                           merge_points.FindClosestInsertedPoint(original_point))
+
+        out_grid.InsertNextCell(cell.GetCellType(), cell.GetPointIds())
 
 
     out_grid.GetCellData().DeepCopy(ugrid.GetCellData())
 
     return out_grid
-        
 
 def extract_boundary(ugrid):
     """Extract the boundary elements from an unstructured grid, provided it already contains them.
 
     Args:
-    
+
     ugrid (vtkUnstructuredGrid): The grid with which to work.
 
     Results:
 
     out_grid (vtkUnstructuredGrid): Grid containing the boundary of ugrid"""
- 
-    out_grid=vtk.vtkUnstructuredGrid()
-    pts=vtk.vtkPoints()
+
+    out_grid = vtk.vtkUnstructuredGrid()
+    pts = vtk.vtkPoints()
     pts.DeepCopy(ugrid.GetPoints())
     out_grid.SetPoints(pts)
     out_grid.GetCellData().CopyStructure(ugrid.GetCellData())
 
-    celltypes=vtk.vtkCellTypes()
-    
+    celltypes = vtk.vtkCellTypes()
+
     ugrid.GetCellTypes(celltypes)
 
     if any([celltypes.IsType(ct) for ct in types_3d]):
-        dim=3
+        dim = 3
     elif any([celltypes.IsType(ct) for ct in types_2d]):
-        dim=2
+        dim = 2
     elif any([celltypes.IsType(ct) for ct in types_1d]):
-        dim=1
+        dim = 1
     else:
-        dim=0
+        dim = 0
 
     print dim
 
-    NC=ugrid.GetNumberOfCells()
-    NCDA=ugrid.GetCellData().GetNumberOfArrays()
+    NC = ugrid.GetNumberOfCells()
+    NCDA = ugrid.GetCellData().GetNumberOfArrays()
 
     for i in range(NCDA):
         out_grid.GetCellData().GetArray(i).SetName(ugrid.GetCellData().GetArray(i).GetName())
 
-    
-
+    cell_data = ugrid.GetCellData()
     for i in range(NC):
-        c=ugrid.GetCell(i)
-        if (dim>c.GetCellDimension()):
-            out_grid.InsertNextCell(c.GetCellType(),c.GetPointIds())
+        cell = ugrid.GetCell(i)
+        if dim > cell.GetCellDimension():
+            out_grid.InsertNextCell(cell.GetCellType(),
+                                    cell.GetPointIds())
             for j in range(NCDA):
-                out_grid.GetCellData().GetArray(j).InsertNextTuple(ugrid.GetCellData().GetArray(j).GetTuple(i))
-
+                out_data = out_grid.GetCellData().GetArray(j)
+                out_data.InsertNextTuple(cell_data.GetArray(j).GetTuple(i))
 
     return out_grid
 
-
-def plot_boundary(ugrid,**kwargs):
+def plot_boundary(ugrid, **kwargs):
 
     """Plot a boundary using matplotlib
 
@@ -141,18 +151,17 @@ def plot_boundary(ugrid,**kwargs):
     Other arguments are passed on to the matplotlib plot command"""
 
     for i in range(ugrid.GetNumberOfCells()):
-        c=ugrid.GetCell(i)
-        
-        x=[]
-        y=[]
+        cell = ugrid.GetCell(i)
 
-        for j in range(c.GetNumberOfPoints()):
-            pnt=c.GetPoints().GetPoint(j)
-            x.append(pnt[0])
-            y.append(pnt[1])
+        pos_x = []
+        pos_y = []
 
-        p.plot(x,y,'k',**kwargs)
+        for j in range(cell.GetNumberOfPoints()):
+            pnt = cell.GetPoints().GetPoint(j)
+            pos_x.append(pnt[0])
+            pos_y.append(pnt[1])
 
+        p.plot(pos_x, pos_y, 'k', **kwargs)
 
 def get_ascii_data(filename='data.dat'):
 
@@ -170,41 +179,38 @@ def get_ascii_data(filename='data.dat'):
         v (ndarray): v coordinate of particle velocity
         w (ndarray): w coordinate of particle velocity"""
 
-    f=open(filename,'r')
+    infile = open(filename, 'r')
 
-    t=[]
-    x=[]
-    y=[]
-    z=[]
-    u=[]
-    v=[]
-    w=[]
+    time = []
+    x = []
+    y = []
+    z = []
+    u = []
+    v = []
+    w = []
 
-    for m in f.readlines():
-        r=[float(M) for M in m.split()]
+    for line in infile.readlines():
+        data = [float(M) for M in line.split()]
 
-        t.append(r[0])
-        n=len(r[1:])/6
-        X=r[1::3]
-        Y=r[2::3]
-        Z=r[3::3]
-        x.append(X[:n])
-        u.append(X[n:])
-        y.append(Y[:n])
-        v.append(Y[n:])
-        z.append(Z[:n])
-        w.append(Z[n:])
+        time.append(data[0])
+        n = len(data[1:])/6
+        x.append(data[1::3][:n])
+        u.append(data[1::3][n:])
+        y.append(data[2::3][:n])
+        v.append(data[2::3][:n])
+        z.append(data[3::3][:n])
+        w.append(data[3::3][n:])
 
-    x=numpy.array(x)
-    y=numpy.array(y)
-    z=numpy.array(z)
-    u=numpy.array(u)
-    v=numpy.array(v)
-    w=numpy.array(w)
+    x = numpy.array(x)
+    y = numpy.array(y)
+    z = numpy.array(z)
+    u = numpy.array(u)
+    v = numpy.array(v)
+    w = numpy.array(w)
 
-    f.close()
+    infile.close()
 
-    return t,x,y,z,u,v,w
+    return time, x, y, z, u, v, w
 
 
 def ascii_to_polydata_time_series(filename,basename):
@@ -217,118 +223,120 @@ def ascii_to_polydata_time_series(filename,basename):
         filename (str): Filename/path of the ascii file containing the data.
         basename (str): String used in the construction of the file series. The formula is of the form basename_0.vtp, basename_1.vtp,..."""
 
-    t,x,y,z,u,v,w=get_ascii_data(filename)
+    time, pos_x, pos_y, pos_z, vel_u, vel_v, vel_w = get_ascii_data(filename)
 
-    for i, (X,Y,U,V) in enumerate(zip(x,y,u,v)):
-
-        pd=vtk.vtkPolyData()
-        pnts=vtk.vtkPoints()
+    for i, full_data in enumerate(zip(pos_x, pos_y, pos_z,
+                                               vel_u, vel_v, vel_w)):
+        poly_data = vtk.vtkPolyData()
+        pnts = vtk.vtkPoints()
         pnts.Allocate(0)
-        pd.SetPoints(pnts)
-        pd.Allocate(x.shape[0])
+        poly_data.SetPoints(pnts)
+        poly_data.Allocate(pos_x.shape[0])
 
-        time=vtk.vtkDoubleArray()
-        time.Allocate(x.shape[0])
-        time.SetName('Time')
+        outtime = vtk.vtkDoubleArray()
+        outtime.Allocate(pos_x.shape[0])
+        outtime.SetName('Time')
 
-        velocity=vtk.vtkDoubleArray()
+        velocity = vtk.vtkDoubleArray()
         velocity.SetNumberOfComponents(3)
-        velocity.Allocate(x.shape[0])
+        velocity.Allocate(pos_x.shape[0])
         velocity.SetName('Particle Velocity')
 
-        for k,D in enumerate(zip(X,Y,U,V)):
-            px,py,qu,qv=D
-            pixel=vtk.vtkPixel()
-            pixel.GetPointIds().InsertId(k,pd.GetPoints().InsertNextPoint(px,py,0.))
-            time.InsertNextValue(t[i])
-            velocity.InsertNextTuple3(qu,qv,0.0)
+        for k, data in enumerate(full_data):
+            pixel = vtk.vtkPixel()
+            pixel.GetPointIds().InsertId(k,
+                                         poly_data.GetPoints().InsertNextPoint(data[0],
+                                                                               data[1],
+                                                                               data[2]))
+            outtime.InsertNextValue(time[i])
+            velocity.InsertNextTuple3(data[3], data[4], data[5])
 
-        pd.GetPointData().AddArray(time)
-        pd.GetPointData().AddArray(velocity)
-        writer=vtk.vtkXMLPolyDataWriter()
-        writer.SetFileName("%s_%d.vtp"%(basename,i))
-        writer.SetInput(pd)
+        poly_data.GetPointData().AddArray(outtime)
+        poly_data.GetPointData().AddArray(velocity)
+        writer = vtk.vtkXMLPolyDataWriter()
+        writer.SetFileName("%s_%d.vtp"%(basename, i))
+        writer.SetInput(poly_data)
         writer.Write()
 
-
-def ascii_to_polydata(filename,outfile):
-    """Convert ascii file to a single vtkPolyData (.vtp) files. 
+def ascii_to_polydata(filename, outfile):
+    """Convert ascii file to a single vtkPolyData (.vtp) files.
 
     Each particle is written to seperate cell.
 
     Args:
         filename (str): Filename/path of the ascii file containing the data.
-        outfile (str):  Filename of the output PolyDataFile. The extension .vtp is NOT added automatically."""
+        outfile (str):  Filename of the output PolyDataFile. The extension .vtp
+        is NOT added automatically."""
 
-    pd=vtk.vtkPolyData()
-    pnts=vtk.vtkPoints()
+    poly_data = vtk.vtkPolyData()
+    pnts = vtk.vtkPoints()
     pnts.Allocate(0)
-    pd.SetPoints(pnts)
-    t,x,y, z,u,v,w=get_ascii_data(filename)
-    pd.Allocate(x.shape[1])
+    poly_data.SetPoints(pnts)
+    full_data = get_ascii_data(filename)
+    time = full_data[0]
+    pos_x = full_data[1]
+    pos_y = full_data[2]
+    pos_z = full_data[3]
+    poly_data.Allocate(pos_x.shape[1])
 
-    time=vtk.vtkDoubleArray()
-    time.SetName('Time')
-    
-        
-    for X,Y in zip(x.T,y.T):
-        line=vtk.vtkLine()
-        for k,D in enumerate(zip(t,X,Y)):
-            T,px,py=D
-            line.GetPointIds().InsertId(k,pd.GetPoints().InsertNextPoint(px,py,0.))
-            time.InsertNextValue(T)
-        pd.InsertNextCell(line.GetCellType(),line.GetPointIds())
+    outtime = vtk.vtkDoubleArray()
+    outtime.SetName('Time')
 
-    pd.GetPointData().AddArray(time)
+    for X, Y, Z in zip(pos_x.T, pos_y.T, pos_z.T):
+        line = vtk.vtkLine()
+        for k, data in enumerate(zip(time, X, Y, Z)):
+            line.GetPointIds().InsertId(k,
+                                        poly_data.GetPoints().InsertNextPoint(data[1],
+                                                                              data[2],
+                                                                              data[3]))
+            outtime.InsertNextValue(data[0])
+        poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
+
+    poly_data.GetPointData().AddArray(outtime)
     
-    writer=vtk.vtkXMLPolyDataWriter()
+    writer = vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(outfile)
-    writer.SetInput(pd)
-    
+    writer.SetInput(poly_data)
+
     writer.Write()
 
-
-def collision_list_to_polydata(col_list,outfile,
-                               model=Collision.MclauryMassCoeff,**kwargs):
+def collision_list_to_polydata(col_list, outfile,
+                               model=Collision.MclauryMassCoeff, **kwargs):
     """Convert collision data to a single vtkPolyData (.vtp) files. 
 
-    Each partilce is written to seperate cell.
+    Each particle is written to seperate cell.
 
     Args:
         filename (str): Filename/path of the ascii file containing the data.
-        outfile (str):  Filename of the output PolyDataFile. The extension .vtp is NOT added automatically."""
+        outfile (str):  Filename of the output PolyDataFile. The extension .vtp
+        is NOT added automatically."""
 
-    pd=vtk.vtkPolyData()
-    pnts=vtk.vtkPoints()
+    poly_data = vtk.vtkPolyData()
+    pnts = vtk.vtkPoints()
     pnts.Allocate(0)
-    pd.SetPoints(pnts)
-    pd.Allocate(len(col_list))
+    poly_data.SetPoints(pnts)
+    poly_data.Allocate(len(col_list))
 
-    time=vtk.vtkDoubleArray()
+    time = vtk.vtkDoubleArray()
     time.SetName('Time')
-    wear=vtk.vtkDoubleArray()
+    wear = vtk.vtkDoubleArray()
     wear.SetName('Wear')
-    
         
     for col in col_list:
-        pixel=vtk.vtkPixel()
-        pixel.GetPointIds().InsertId(0,pd.GetPoints().InsertNextPoint(col.x[0],
-                                                                      col.x[1],
-                                                                      col.x[2]))
+        pixel = vtk.vtkPixel()
+        pixel.GetPointIds().InsertId(0, 
+                                     poly_data.GetPoints().InsertNextPoint(col.x[0],
+                                                                           col.x[1],
+                                                                           col.x[2]))
         time.InsertNextValue(col.time)
-        wear.InsertNextValue(model(col,**kwargs))
-        pd.InsertNextCell(pixel.GetCellType(),pixel.GetPointIds())
+        wear.InsertNextValue(model(col, **kwargs))
+        poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
-    pd.GetPointData().AddArray(time)
-    pd.GetPointData().AddArray(wear)
-    
-    writer=vtk.vtkXMLPolyDataWriter()
+    poly_data.GetPointData().AddArray(time)
+    poly_data.GetPointData().AddArray(wear)
+
+    writer = vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(outfile)
-    writer.SetInput(pd)
-    
+    writer.SetInput(poly_data)
+
     writer.Write()
-
-            
-            
-
-    

@@ -12,9 +12,9 @@ class TemporalCache(object):
 
         print files
 
-        for file in files:
+        for filename in files:
             rdr=vtk.vtkXMLUnstructuredGridReader()
-            rdr.SetFileName(file)
+            rdr.SetFileName(filename)
             for k in range(rdr.GetNumberOfPointArrays()):
                 rdr.SetPointArrayStatus(rdr.GetPointArrayName(k),0)
             for k in range(rdr.GetNumberOfCellArrays()):
@@ -24,7 +24,7 @@ class TemporalCache(object):
             ug=rdr.GetOutput()
             t=ug.GetPointData().GetScalars('Time').GetValue(0)
             
-            self.data.append([t,file,None,None])
+            self.data.append([t,filename,None,None])
 
         self.data.sort(cmp=lambda x,y:cmp(x[0],y[0]))
 
@@ -75,6 +75,8 @@ class TemporalCache(object):
     def __call__(self,t):
         lower=self.lower
         upper=self.upper
+
+        assert (self.data[lower][0]<=t and self.data[upper][0]>=t)
         
         while lower<len(self.data)-2 and self.data[lower+1][0]<=t:
             lower+=1

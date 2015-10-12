@@ -1,4 +1,4 @@
-import DragModels as DM
+import particle_model.DragModels as DM
 from numpy import array
 
 def test_stokes_drag():

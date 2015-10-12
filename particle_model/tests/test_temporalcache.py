@@ -1,14 +1,14 @@
-import TemporalCache as TC
+import particle_model.TemporalCache as TC
 import vtk
 
 
 def test_basic_temporal_cache():
-    tc=TC.TemporalCache('tests/data/circle')
+    tc=TC.TemporalCache('particle_model/tests/data/circle')
     assert len(tc.data) == 3
 
 
 def test_temporal_cache_with_range():
-    tc=TC.TemporalCache('tests/data/circle',0,1)
+    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
     assert len(tc.data) == 3
     assert tc.lower==0
     assert tc.upper==1
@@ -26,7 +26,7 @@ def test_temporal_cache_with_range():
 
 
 def test_temporal_cache_new_range():
-    tc=TC.TemporalCache('tests/data/circle',0,1)
+    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
 
     tc.range(6,8)
 
@@ -45,7 +45,7 @@ def test_temporal_cache_new_range():
 
 def test_temporal_cache_call():
 
-    tc=TC.TemporalCache('tests/data/circle',0,1)
+    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
 
     d,alpha=tc(0.5)
 

@@ -1,17 +1,17 @@
-import Particles
-import IO
-import Collision
-import DragModels
+from particle_model import Particles
+from particle_model import IO
+from particle_model import Collision
+from particle_model import DragModels
 
 import vtk
 import numpy
 
-bnd=IO.boundaryData('tests/data/rightward_boundary.vtu')
+bnd=IO.boundaryData('particle_model/tests/data/rightward_boundary.vtu')
 
 def tc(fname='rightward_0.vtu'):
     def fn(x):
         r1=vtk.vtkXMLUnstructuredGridReader()
-        r1.SetFileName('tests/data/'+fname)
+        r1.SetFileName('particle_model/tests/data/'+fname)
         r1.Update()
 
         l1=vtk.vtkCellLocator()
@@ -54,7 +54,7 @@ def test_basic_particle_bucket_initialization(tmpdir):
 def test_particle_bucket_step_do_nothing(tmpdir):
     from numpy import zeros
 
-    bndc=IO.boundaryData('tests/data/boundary_circle.vtu')
+    bndc=IO.boundaryData('particle_model/tests/data/boundary_circle.vtu')
 
     N=1
 
@@ -64,7 +64,7 @@ def test_particle_bucket_step_do_nothing(tmpdir):
     gp=zeros((N,3))
 
     pb=Particles.particle_bucket(p,v,0.0,dt=0.5,U=u,GP=gp,
-                                 base_name='tests/data/circle',
+                                 base_name='particle_model/tests/data/circle',
                                  filename=tmpdir.join('data.dat').strpath,
                                  boundary=bndc)
 
@@ -160,7 +160,7 @@ def test_gyre_collision():
 
     ### Regression test for Mclaury coefficient
 
-    bndg=IO.boundaryData('tests/data/gyre_boundary.vtu')
+    bndg=IO.boundaryData('particle_model/tests/data/gyre_boundary.vtu')
 
     from math import pi
 

@@ -315,7 +315,7 @@ def collision_list_to_polydata(col_list,outfile,
         pixel.GetPointIds().InsertId(0,pd.GetPoints().InsertNextPoint(col.x[0],
                                                                       col.x[1],
                                                                       col.x[2]))
-        time.InsertNextValue(col.t)
+        time.InsertNextValue(col.time)
         wear.InsertNextValue(model(col,**kwargs))
         pd.InsertNextCell(pixel.GetCellType(),pixel.GetPointIds())
 

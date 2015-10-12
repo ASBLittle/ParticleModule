@@ -134,7 +134,7 @@ def test_step_head_on_collision():
 
     assert len(P.collisions)==1
     assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
-    assert P.collisions[0].t==0.0005
+    assert P.collisions[0].time==0.0005
     assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
     assert P.collisions[0].angle==numpy.pi/2.0
 
@@ -151,7 +151,7 @@ def test_diagonal_collision():
 
     assert len(P.collisions)==1
     assert all(P.collisions[0].x-numpy.array((1.,0.5,0.))<1.0e-8)
-    assert P.collisions[0].t-0.0005<1e-8
+    assert P.collisions[0].time-0.0005<1e-8
     assert all(P.collisions[0].v==numpy.array((1.,1.,0.)))
     assert P.collisions[0].angle-numpy.pi/4.0<1e-10
 
@@ -180,7 +180,7 @@ def test_gyre_collision():
 
     assert len(P.collisions)==1
     assert P.collisions[0].x[0]==1.0
-    assert Collision.MclauryMassCoeff(P.collisions[0])-0.17749677523046933<1.0e-8
+    assert Collision.MclauryMassCoeff(P.collisions[0])-0.179258689483243<1.0e-8
 
 
 def test_coefficient_of_restitution():
@@ -198,6 +198,6 @@ def test_coefficient_of_restitution():
 
     assert len(P.collisions)==1
     assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
-    assert P.collisions[0].t==0.05
+    assert P.collisions[0].time==0.05
     assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
     assert P.collisions[0].angle==numpy.pi/2.0

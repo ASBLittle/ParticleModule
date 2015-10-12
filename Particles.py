@@ -9,6 +9,7 @@ import Collision
 import vtk
 import scipy.linalg as la
 import itertools
+import copy
 
 class particle(object):
     """Class representing a single Lagrangian particle with mass"""
@@ -263,7 +264,11 @@ class particle(object):
 
             print 'Before',  p0,p,vs
 
-            coldat.append(Collision.collisionInfo(x,vs,ci,theta,self.t+s*dt))
+            par_col=copy.copy(self)
+            par_col.p=x
+            par_col.v=v
+
+            coldat.append(Collision.collisionInfo(par_col,ci,theta,self.t+s*dt))
             vs+=-(1.0+self.e)*n*numpy.dot(n,vs)
             
 

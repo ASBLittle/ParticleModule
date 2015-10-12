@@ -14,72 +14,66 @@ import copy
 class particle(object):
     """Class representing a single Lagrangian particle with mass"""
 
-    def __init__(self,p,v,t=0.0,dt=1.0,tc=None,u=numpy.zeros(3),
-                 gp=numpy.zeros(3),rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40e-6,boundary=None,
-                 e=0.99,drag=DragModels.transitional_drag):
-        
-        self.p=p
-        self.v=v
-        self.t=t
-        self.dt=dt
-        self.collisions=[]
-        self.tc=tc
-        self.rho=2.0e3
-        self.g=g
-        self.omega=omega
-        self.diameter=d
-        self.u=u
-        self.gp=gp
-        self.boundary=boundary
-        self.e=e
-        self.drag=drag
+    def __init__(self, p, v, t=0.0, dt=1.0, tc=None, u=numpy.zeros(3),
+                 gp=numpy.zeros(3), rho=2.5e3, g=numpy.zeros(3),
+                 omega=numpy.zeros(3), diameter=40e-6, boundary=None,
+                 e=0.99, drag=DragModels.transitional_drag):
+
+        self.p = p
+        self.v = v
+        self.t = t
+        self.dt = dt
+        self.collisions = []
+        self.tc = tc
+        self.rho = 2.0e3
+        self.g = g
+        self.omega = omega
+        self.diameter = diameter
+        self.u = u
+        self.gp = gp
+        self.boundary = boundary
+        self.e = e
+        self.rho = rho
+        self.drag = drag
 
     def update(self):
         """Update the state of the particle to the next time level
 
         The method uses relatively simple RK4 time integration."""
 
-        collision=False
+        k1 = (self.v, self.force(self.p,
+                                 self.v,
+                                 self.t))
 
-        kp1=self.v
-        kv1=self.force(self.p,
-                       self.v,
-                       self.t)
+        s, col, v = self.collide(k1[0], 0.5 * self.dt, self.v, f=k1[1])
+        k2 = (self.v + 0.5*self.dt * k1[1], self.force(self.p + s,
+                                                       self.v + v,
+                                                       self.t + 0.5 * self.dt))
 
-        s,c1,v1=self.collide(kp1,0.5*self.dt,self.v,f=kv1)
-        kp2=self.v+0.5*self.dt*kv1
-        kv2=self.force(self.p+s,
-                       self.v+v1,
-                       self.t+0.5*self.dt)
-
-        s,c2,v2=self.collide(kp2,0.5*self.dt,v=self.v,f=kv2)
-        kp3=self.v+0.5*self.dt*kv2
-        kv3=self.force(self.p+s,
-                       self.v+v2,
-                       self.t+0.5*self.dt)
+        s, col, v = self.collide(k2[0], 0.5 * self.dt, v=self.v,f=k2[1])
+        k3 = (self.v+0.5 * self.dt * k2[1], self.force(self.p + s,
+                                                     self.v + v,
+                                                     self.t + 0.5*self.dt))
 
 
-        s,c3,v3=self.collide(kp3,self.dt,v=self.v,f=kv3)
-        kp4=self.v+self.dt*kv3
-        kv4=self.force(self.p+s,
-                       self.v+v3,
-                       self.t+self.dt)
+        s, col, v = self.collide(k3[0], self.dt, v=self.v, f=k3[1])
+        k4 = (self.v + self.dt * k3[1],self.force(self.p + s,
+                                                  self.v + v,
+                                                  self.t + self.dt))
 
 
-        s,c4,v4=self.collide((kp1+2.0*(kp2+kp3)+kp4)/6.0,self.dt,
-                             v=self.v,f=(kv1+2.0*(kv2+kv3)+kv4)/6.0)
-        self.p+=s
-        self.v+=v4
-        if type(c4)!=type(None):
-            self.collisions+=c4
+        s, col, v = self.collide((k1[0] +2.0 * (k2[0] + k3[0]) + k4[0]) / 6.0, self.dt,
+                                 v=self.v, f=(k1[1] + 2.0 * (k2[1] + k3[1]) + k4[1])/6.0)
+        self.p += s
+        self.v += v
+        if col:
+            self.collisions += col
 
 
-        self.t+=self.dt
-        self.u[:],self.gp[:]=self.picker(self.p,self.t)
+        self.t += self.dt
+        self.u[:], self.gp[:] = self.picker(self.p, self.t)
 
-    def force(self,p,v,t):
-        
+    def force(self, position, particle_velocity, time):
         """Calculate the sum of the forces on the particle.
 
         Args:
@@ -88,113 +82,100 @@ class particle(object):
             t (float): Time at which particle is evaluated.
         """
 
-
-        u,grad_p=self.picker(p,t)
+        fluid_velocity, grad_p = self.picker(position, time)
 
 #        if collision:
 #            raise collisionException
 
+        return (grad_p / self.rho
+                + self.drag(fluid_velocity, particle_velocity, self.diameter)
+                + self.coriolis_force(particle_velocity)
+                + self.g
+                - self.centrifugal_force(position))
 
-        beta=0.44*3.0/32.0/self.diameter*numpy.sqrt(sum((u-v)**2))
+    def coriolis_force(self, particle_velocity):
+        """ Return Coriolis force on particle."""
+        return -2.0 * numpy.cross(self.omega, particle_velocity)
 
-        drag=self.drag(u,v,self.diameter)
+    def centrifugal_force(self, position):
+        """ Return centrifugal force on particle"""
+        return - numpy.cross(self.omega, numpy.cross(self.omega,position))
 
-        return grad_p/self.rho+drag+(-2.0*numpy.cross(self.omega,v)+self.g-numpy.cross(self.omega,numpy.cross(self.omega,p)))
+    def find_cell(self, locator, point):
+        """ Use vtk rountines to find cell/element containing the point."""
+        arg1 = [0.0, 0.0, 0.0]
+        cell_index = vtk.mutable(0)
+        arg3 = vtk.mutable(0)
+        arg4 = vtk.mutable(0.0)
+
+        locator.FindClosestPoint(point, arg1, cell_index, arg3, arg4)
+
+        return cell_index
 
 
-    def picker(self,p,t):
+    def picker(self, pos, time):
+        """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
-        
-        def fpick(file,locator):
+        def fpick(infile, locator):
+            """ Extract fluid velocity and pressure from single .vtu file"""
 
             locator.BuildLocatorIfNeeded()
 
-            cp=[0.0,0.0,0.0]
-            ci=vtk.mutable(0)
-            si=vtk.mutable(0)
-            sd=vtk.mutable(0.0)
+            cell_index = self.find_cell(locator, pos)
+            cell = infile.GetCell(cell_index)
+            linear_cell = IO.get_linear_cell(cell)
 
-            locator.FindClosestPoint(p,cp,ci,si,sd)
-
-            c=file.GetCell(ci)
-
-            if c.GetCellType()==vtk.VTK_QUADRATIC_TRIANGLE:
-                ct=vtk.vtkTriangle()
-                ct.GetPoints().SetPoint(0,c.GetPoints().GetPoint(0))
-                ct.GetPoints().SetPoint(1,c.GetPoints().GetPoint(1))
-                ct.GetPoints().SetPoint(2,c.GetPoints().GetPoint(2))
-                ls=[0,1,2]
-            elif c.GetCellType()==vtk.VTK_TRIANGLE:
-                ct=c
-                ls=[0,1,2]
-            elif c.GetCellType()==vtk.VTK_QUADRATIC_TETRA:
-                ct=vtk.vtkTetra()
-                ct.GetPoints().SetPoint(0,c.GetPoints().GetPoint(0))
-                ct.GetPoints().SetPoint(1,c.GetPoints().GetPoint(1))
-                ct.GetPoints().SetPoint(2,c.GetPoints().GetPoint(2))
-                ct.GetPoints().SetPoint(3,c.GetPoints().GetPoint(3))
-                ls=[0,1,2,3]
-            elif c.GetCellType()==vtk.VTK_TETRA:
-                ct=c
-                ls=[0,1,2,3]
-
-            N=ct.GetNumberOfPoints()-1
-            x=numpy.zeros(ct.GetNumberOfPoints())
-            args=[ct.GetPoints().GetPoint(i)[:N] for i in range(N+1)]
+            N = linear_cell.GetNumberOfPoints()-1
+            x = numpy.zeros(linear_cell.GetNumberOfPoints())
+            args = [linear_cell.GetPoints().GetPoint(i)[:N] for i in range(N+1)]
             args.append(x)
-            ct.BarycentricCoords(p[:N],*args)
+            linear_cell.BarycentricCoords(pos[:N],*args)
 
-            collision=not Collision.testInCell(ct,p)          
-        
+#           collision == Collision.testInCell(linear_cell, pos) 
+            pids=cell.GetPointIds()
 
-            pids=c.GetPointIds()
-
-            data_u=file.GetPointData().GetVectors('Velocity')
-            data_p=file.GetPointData().GetScalars('Pressure')
+            data_u = infile.GetPointData().GetVectors('Velocity')
+            data_p = infile.GetPointData().GetScalars('Pressure')
 
 
-            sf=numpy.zeros(c.GetNumberOfPoints())
-            df=numpy.zeros(N*c.GetNumberOfPoints())
-            c.InterpolateFunctions(x,sf)
-            c.InterpolateDerivs(x,df)
+            sf = numpy.zeros(cell.GetNumberOfPoints())
+            df = numpy.zeros(N*cell.GetNumberOfPoints())
+            cell.InterpolateFunctions(x, sf)
+            cell.InterpolateDerivs(x, df)
 
-            rhs=numpy.zeros(2)
-            rhs[0]=data_p.GetValue(c.GetPointId(1))-data_p.GetValue(c.GetPointId(0))
-            rhs[1]=data_p.GetValue(c.GetPointId(2))-data_p.GetValue(c.GetPointId(0))
+            rhs = numpy.zeros(2)
+            rhs[0] = data_p.GetValue(cell.GetPointId(1)) - data_p.GetValue(cell.GetPointId(0))
+            rhs[1] = data_p.GetValue(cell.GetPointId(2)) - data_p.GetValue(cell.GetPointId(0))
 
-            A=numpy.zeros((2,2))
+            A = numpy.zeros((2,2))
 
-
-            p0=numpy.array(c.GetPoints().GetPoint(0))
-            p1=numpy.array(c.GetPoints().GetPoint(1))
-            p2=numpy.array(c.GetPoints().GetPoint(2))
-            A[0,:]=(p1-p0)[:2]
-            A[1,:]=(p2-p0)[:2]
+            p0 = numpy.array(cell.GetPoints().GetPoint(0))
+            p1 = numpy.array(cell.GetPoints().GetPoint(1))
+            p2 = numpy.array(cell.GetPoints().GetPoint(2))
+            A[0,:] = (p1 - p0)[:2]
+            A[1,:] = (p2 - p0)[:2]
 
             A=la.inv(A)
             
 
-            out=numpy.zeros(3)
-            for k in range(c.GetNumberOfPoints()):
-                out+=sf[k]*numpy.array(data_u.GetTuple(pids.GetId(k)))
+            out = numpy.zeros(3)
+            for k in range(cell.GetNumberOfPoints()):
+                out += sf[k]*numpy.array(data_u.GetTuple(pids.GetId(k)))
                 
+            gp = numpy.zeros(3)
+            gp[:2] = numpy.dot(A,rhs)
 
-            gp=numpy.zeros(3)
-            gp[:2]=numpy.dot(A,rhs)
+            return out, gp
 
+        data, alpha = self.tc(time)
 
-            return out,gp
+        u0,gp0 = fpick(data[0][2],data[0][3])
+        u1,gp1 = fpick(data[1][2],data[1][3])
 
-        data,alpha=self.tc(t)
-
-        u0,gp0=fpick(data[0][2],data[0][3])
-        u1,gp1=fpick(data[1][2],data[1][3])
-
-        return (1.0-alpha)*u0+alpha*u1,(1.0-alpha)*gp0+alpha*gp1
+        return (1.0-alpha) * u0 + alpha * u1, (1.0 - alpha) * gp0 + alpha * gp1
 
 
-    def collide(self,k,dt,v=None,f=None,pa=None,level=0):
-
+    def collide(self, k, dt, v=None, f=None, pa=None, level=0):
         """Collision detection routine.
 
         Args:
@@ -205,109 +186,86 @@ class particle(object):
             pa (float, optional): starting position in subcycle
             level (int) count to control maximum depth
         """
+        if isinstance(pa,type(None)):
+            pa = self.p
 
-        if type(pa)==type(None):
-            pa=self.p
+        if level == 10 :
+            return k * dt, None, v - self.v
 
-        if level==10 :
-            if type(v) != type(None):
-                return k*dt, None, v-self.v
-            else:
-                return k*dt, None
-            
+        p = pa+dt*k
 
+        s = vtk.mutable(-1.0)
+        x = [0.0, 0.0, 0.0]
+        arg6 = [0.0, 0.0, 0.0]
+        arg7 = vtk.mutable(0)
+        cell_index = vtk.mutable(0)
 
-        p=pa+dt*k
-
-        s=vtk.mutable(-1.0)
-        x=[0.0,0.0,0.0]
-        loc=[0.0,0.0,0.0]
-        si=vtk.mutable(0)
-        ci=vtk.mutable(0)
-
-        intersect=self.boundary.bndl.IntersectWithLine(pa,p,
-                               1.0e-8,s,
-                               x,loc,si,ci)
+        intersect = self.boundary.bndl.IntersectWithLine(pa, p,
+                                                         1.0e-8, s,
+                                                         x, arg6, arg7, cell_index)
 
         if s != -1.0:
-            print 'collision', intersect,ci, s, x, loc
-            x=numpy.array(x)
+            print 'collision', intersect,cell_index, s, x
+            x = numpy.array(x)
 
-            c=self.boundary.bnd.GetCell(ci)
+            cell = self.boundary.bnd.GetCell(cell_index)
 
-            p0=numpy.array(c.GetPoints().GetPoint(0))
-            p1=numpy.array(c.GetPoints().GetPoint(1))
+            p0 = numpy.array(cell.GetPoints().GetPoint(0))
+            p1 = numpy.array(cell.GetPoints().GetPoint(1))
 
-            n=numpy.zeros(3)
+            normal = numpy.zeros(3)
 
-            n[0]=(p1-p0)[1]
-            n[1]=(p0-p1)[0]
+            normal[0] = (p1-p0)[1]
+            normal[1] = (p0-p1)[0]
 
-            n=n/numpy.sqrt(sum(n**2))
+            normal = normal / numpy.sqrt(sum(normal**2))
 
-            n=n*numpy.sign(numpy.dot(n,(p-pa)))
+            normal = normal * numpy.sign(numpy.dot(normal, (p-pa)))
 
-            p=x+dt*(k-(1.0+self.e)*n*(numpy.dot(n,k)))
+            p = x + dt * (k - (1.0 + self.e) * normal * (numpy.dot(normal, k)))
 
+            theta = abs(numpy.arcsin(numpy.dot(normal, (x-pa))
+                                     / numpy.sqrt(numpy.dot(x - pa, x - pa))))
 
-            theta=abs(numpy.arcsin(numpy.dot(n,(x-pa))/numpy.sqrt(numpy.dot(x-pa,x-pa))))
+            coldat = []
 
-            coldat=[]
-
-            
-
-
-            if type(v) !=type(None):
-                vs=v+s*dt*f
+            if any(v):
+                vs = v + s * dt * f
             else:
-                vs=self.v+s*dt*f
+                vs = self.v + s * dt * f
 
-            print 'Before',  p0,p,vs
+#            print 'Before', p0, p, vs
 
-            par_col=copy.copy(self)
-            par_col.p=x
-            par_col.v=v
+            par_col = copy.copy(self)
+            par_col.p = x
+            par_col.v = vs
 
-            coldat.append(Collision.collisionInfo(par_col,ci,theta,self.t+s*dt))
-            vs+=-(1.0+self.e)*n*numpy.dot(n,vs)
-            
+            coldat.append(Collision.collisionInfo(par_col, cell_index, theta,
+                                                  self.t + s * dt))
+            vs += -(1.0 + self.e)* normal * numpy.dot(normal, vs)
 
-            if type(v) != type(None):
+#            print 'After V1:', pa, p, n, vs, f
 
-                print 'After V1:', pa,p,n,vs,f
+            px, col, vo = self.collide(vs, (1 - s) * dt,
+                                      v=vs, f=f, pa=x + 1.0e-10 * vs,
+                                      level=level + 1)
+            p = px + x + 1.0e-10 * vs
 
+#            print 'After V2:', pa, p, n, vs, f
 
-                px,cr,vo=self.collide(vs,(1-s)*dt,v=vs,f=f,pa=x+1.0e-10*vs,level=level+1)
-                p=px+x+1.0e-10*vs
+            if col:
+                coldat += col
 
-                print 'After V2:', pa,p,n,vs,f
-                
-                if cr:
-                    coldat+=cr
-
-                return p-pa, coldat, vo
-            else:
-                p=x+1.0e-8*vs+self.collide(vs,(1-s)*dt,f=f,pa=x+1.0e-8*vs,level=level+1)[0]
-
-
-                print 'After', pa,p,n
-
-                return p-pa, coldat
-               
-        if type(v) != type(None):
-            
-            return p-pa, None, v+dt*f-self.v
-        else:
-            return p-pa, None
-                               
+            return p - pa, coldat, vo
+        
+        return p - pa, None, v + dt * f - self.v
 
 class particle_bucket(object):
-
     """Class for a container for multiple Lagrangian particles."""
 
-    def __init__(self,X,V,t=0,dt=1.0e-3,filename=None,
-                 base_name='',U=None,GP=None,rho=2.5e3,g=numpy.zeros(3),
-                 omega=numpy.zeros(3),d=40.e-6,boundary=None,e=0.99,tc=None):
+    def __init__(self, X, V, t=0, dt=1.0e-3, filename=None,
+                 base_name='', U=None, GP=None, rho=2.5e3, g=numpy.zeros(3),
+                 omega=numpy.zeros(3), diameter=40.e-6, boundary=None, e=0.99, tc=None):
         """Initialize the bucket
         
         Args:
@@ -317,37 +275,38 @@ class particle_bucket(object):
 
 
         if tc:
-            self.tc=tc
+            self.tc = tc
         else:
-            self.tc=TemporalCache.TemporalCache(base_name)
-        self.particles=[]
+            self.tc = TemporalCache.TemporalCache(base_name)
+        self.particles = []
 
-        if type(U)==type(None):
-            U=[None for i in range(X.shape[0])]
-        if type(GP)==type(None):
-            GP=[None for i in range(X.shape[0])]
+        if type(U) == type(None):
+            U = [None for i in range(X.shape[0])]
+        if type(GP) == type(None):
+            GP = [None for i in range(X.shape[0])]
 
-        for x,v,u,gp in zip(X,V,U,GP):
-            print x,v
-            self.particles.append(particle(x,v,t,dt,tc=self.tc,u=u,gp=gp,
-                                           rho=rho,g=g,omega=omega,
-                                           d=d,boundary=boundary,e=e))
-        self.t=t
-        self.p=X
-        self.v=V
-        self.u=U
-        self.gp=GP
-        self.dt=dt
-        self.boundary=boundary
-        if filename: self.file=open(filename,'w')
+        for x, v, u, gp in zip(X, V, U, GP):
+            print x, v
+            self.particles.append(particle(x, v, t, dt, tc=self.tc, u=u, gp=gp,
+                                           rho=rho, g=g, omega=omega,
+                                           diameter=diameter, boundary=boundary, e=e))
+        self.t = t
+        self.p = X
+        self.v = V
+        self.u = U
+        self.gp = GP
+        self.dt = dt
+        self.boundary = boundary
+        if filename:
+            self.file = open(filename,'w')
 
     def update(self):
         """ Update all the particles in the bucket to the next time level."""
-        self.tc.range(self.t,self.t+self.dt)
+        self.tc.range(self.t, self.t + self.dt)
         for p in self.particles:
             p.update()
 
-        self.t+=self.dt
+        self.t += self.dt
 
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""
@@ -367,9 +326,9 @@ class particle_bucket(object):
 
         self.file.write('\n')
 
-    def run(self,t):
+    def run(self, t):
         """Drive particles forward until a given time."""
-        while self.t<t:
+        while self.t < t:
             self.update()
             self.write()
         self.file.flush()

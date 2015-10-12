@@ -1,4 +1,5 @@
-""" Module contains routines to deal with calculating wear from collision information."""
+""" Module contains routines to deal with calculating wear from
+collision information."""
 
 import numpy
 import copy

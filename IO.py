@@ -217,7 +217,8 @@ def ascii_to_polydata_time_series(filename,basename):
 
     """Convert ascii file to a series of vtkPolyData (.vtp) files. 
 
-    Each file contains one time level of the data, and are numbered sequentially. Within each file, each dataset is written to seperate pixel.
+    Each file contains one time level of the data, and are numbered sequentially.
+    Within each file, each dataset is written to seperate pixel.
 
     Args:
         filename (str): Filename/path of the ascii file containing the data.
@@ -226,7 +227,7 @@ def ascii_to_polydata_time_series(filename,basename):
     time, pos_x, pos_y, pos_z, vel_u, vel_v, vel_w = get_ascii_data(filename)
 
     for i, full_data in enumerate(zip(pos_x, pos_y, pos_z,
-                                               vel_u, vel_v, vel_w)):
+                                      vel_u, vel_v, vel_w)):
         poly_data = vtk.vtkPolyData()
         pnts = vtk.vtkPoints()
         pnts.Allocate(0)
@@ -293,7 +294,7 @@ def ascii_to_polydata(filename, outfile):
         poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
 
     poly_data.GetPointData().AddArray(outtime)
-    
+
     writer = vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(outfile)
     writer.SetInput(poly_data)
@@ -302,7 +303,7 @@ def ascii_to_polydata(filename, outfile):
 
 def collision_list_to_polydata(col_list, outfile,
                                model=Collision.MclauryMassCoeff, **kwargs):
-    """Convert collision data to a single vtkPolyData (.vtp) files. 
+    """Convert collision data to a single vtkPolyData (.vtp) files.
 
     Each particle is written to seperate cell.
 
@@ -321,10 +322,10 @@ def collision_list_to_polydata(col_list, outfile,
     time.SetName('Time')
     wear = vtk.vtkDoubleArray()
     wear.SetName('Wear')
-        
+
     for col in col_list:
         pixel = vtk.vtkPixel()
-        pixel.GetPointIds().InsertId(0, 
+        pixel.GetPointIds().InsertId(0,
                                      poly_data.GetPoints().InsertNextPoint(col.x[0],
                                                                            col.x[1],
                                                                            col.x[2]))
@@ -340,3 +341,26 @@ def collision_list_to_polydata(col_list, outfile,
     writer.SetInput(poly_data)
 
     writer.Write()
+
+def get_linear_cell(cell):
+    """ Get equivalent linear cell to vtkCell cell"""
+    if (cell.GetCellType() == vtk.VTK_POLY_LINE or
+        cell.GetCellType() == vtk.VTK_LINE):
+        linear_cell = vtk.vtkLine()
+        linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
+        linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
+    elif (cell.GetCellType() == vtk.VTK_QUADRATIC_TRIANGLE or
+        cell.GetCellType() == vtk.VTK_TRIANGLE):
+        linear_cell = vtk.vtkTriangle()
+        linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
+        linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
+        linear_cell.GetPoints().SetPoint(2, cell.GetPoints().GetPoint(2))
+    elif (cell.GetCellType() == vtk.VTK_QUADRATIC_TETRA or
+          cell.GetCellType() == vtk.VTK_TETRA):
+        linear_cell = vtk.vtkTetra()
+        linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
+        linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
+        linear_cell.GetPoints().SetPoint(2, cell.GetPoints().GetPoint(2))
+        linear_cell.GetPoints().SetPoint(3, cell.GetPoints().GetPoint(3))
+
+    return linear_cell

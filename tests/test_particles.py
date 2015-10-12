@@ -92,7 +92,7 @@ def test_step_constant_velocity():
 
     v0=numpy.array((1.0,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.1,d=numpy.infty,tc=tc(),boundary=bnd)
+    P=Particles.particle(p0,v0,dt=0.1,diameter=numpy.infty,tc=tc(),boundary=bnd)
     P.update()
     assert all(P.p==numpy.array((0.6,0.5,0)))
     assert P.t==0.1
@@ -126,7 +126,7 @@ def test_step_head_on_collision():
     p0=numpy.array((0.9995,0.5,0.0))
     v0=numpy.array((1.0,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,d=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
+    P=Particles.particle(p0,v0,dt=0.001,diameter=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
     P.update()
     assert all(abs(P.p-numpy.array((0.9995,0.5,0)))<1.0e-8)
     assert all(P.v==numpy.array((-1.,0,0)))
@@ -143,7 +143,7 @@ def test_diagonal_collision():
     p0=numpy.array((0.9995,0.4995,0.0))
     v0=numpy.array((1.0,1.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,d=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
+    P=Particles.particle(p0,v0,dt=0.001,diameter=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
     P.update()
     assert all(abs(P.p-numpy.array((0.9995,0.5005,0)))<1.0e-8)
     assert all(P.v==numpy.array((-1.,1.0,0)))
@@ -167,7 +167,7 @@ def test_gyre_collision():
     p0=numpy.array((0.8,0.45,0.0))
     v0=numpy.array((2.0*pi,0.0,0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,d=100.0e-4,tc=tc('gyre_0.vtu'),boundary=bndg,e=1.0)
+    P=Particles.particle(p0,v0,dt=0.001,diameter=100.0e-4,tc=tc('gyre_0.vtu'),boundary=bndg,e=1.0)
 
     for i in range(100):
         P.update()
@@ -180,7 +180,7 @@ def test_gyre_collision():
 
     assert len(P.collisions)==1
     assert P.collisions[0].x[0]==1.0
-    assert Collision.MclauryMassCoeff(P.collisions[0])-0.179258689483243<1.0e-8
+    assert abs(Collision.MclauryMassCoeff(P.collisions[0])-0.17749677523046933)<1.0e-8
 
 
 def test_coefficient_of_restitution():
@@ -190,7 +190,7 @@ def test_coefficient_of_restitution():
 
     print bnd.bnd
 
-    P=Particles.particle(p0,v0,dt=0.1,d=numpy.infty,tc=tc(),boundary=bnd,e=0.5)
+    P=Particles.particle(p0,v0,dt=0.1,diameter=numpy.infty,tc=tc(),boundary=bnd,e=0.5)
     P.update()
     assert all(abs(P.p-numpy.array((0.975,0.5,0)))<1.0e-8)
     assert all(P.v==numpy.array((-0.5,0,0)))

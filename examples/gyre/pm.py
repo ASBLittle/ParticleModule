@@ -13,7 +13,7 @@ bnd=pm.IO.boundaryData('Gyre_boundary.vtu')
 tc=pm.TemporalCache.TemporalCache('gyre')
 
 pb=pm.Particles.particle_bucket(X,V,0.004,1.0e-4,tc=tc,U=U,GP=GP,
-                                filename='data.dat',boundary=bnd,d=1e-4)
+                                filename='data.dat',boundary=bnd,diameter=1e-4)
 
 
 pb.write()

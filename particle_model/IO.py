@@ -1,7 +1,7 @@
 """ Module containing input-output routines between the particle model and
 the file system. Mostly vtk."""
 
-import Collision
+from particle_model import Collision
 
 import vtk
 import pylab as p
@@ -10,11 +10,11 @@ import os
 import os.path
 
 
-types_3d = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
-types_2d = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
-types_1d = [vtk.VTK_LINE]
+TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
+TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
+TYPES_1D = [vtk.VTK_LINE]
 
-class boundaryData(object):
+class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
     def __init__(self, filename):
         """Class containing the information about the boundary of the domain.
@@ -112,30 +112,30 @@ def extract_boundary(ugrid):
 
     ugrid.GetCellTypes(celltypes)
 
-    if any([celltypes.IsType(ct) for ct in types_3d]):
+    if any([celltypes.IsType(ct) for ct in TYPES_3D]):
         dim = 3
-    elif any([celltypes.IsType(ct) for ct in types_2d]):
+    elif any([celltypes.IsType(ct) for ct in TYPES_2D]):
         dim = 2
-    elif any([celltypes.IsType(ct) for ct in types_1d]):
+    elif any([celltypes.IsType(ct) for ct in TYPES_1D]):
         dim = 1
     else:
         dim = 0
 
     print dim
 
-    NC = ugrid.GetNumberOfCells()
-    NCDA = ugrid.GetCellData().GetNumberOfArrays()
+    ncells = ugrid.GetNumberOfCells()
+    ncda = ugrid.GetCellData().GetNumberOfArrays()
 
-    for i in range(NCDA):
+    for i in range(ncda):
         out_grid.GetCellData().GetArray(i).SetName(ugrid.GetCellData().GetArray(i).GetName())
 
     cell_data = ugrid.GetCellData()
-    for i in range(NC):
+    for i in range(ncells):
         cell = ugrid.GetCell(i)
         if dim > cell.GetCellDimension():
             out_grid.InsertNextCell(cell.GetCellType(),
                                     cell.GetPointIds())
-            for j in range(NCDA):
+            for j in range(ncda):
                 out_data = out_grid.GetCellData().GetArray(j)
                 out_data.InsertNextTuple(cell_data.GetArray(j).GetTuple(i))
 
@@ -182,65 +182,67 @@ def get_ascii_data(filename='data.dat'):
     infile = open(filename, 'r')
 
     time = []
-    x = []
-    y = []
-    z = []
-    u = []
-    v = []
-    w = []
+    pos_x = []
+    pos_y = []
+    pos_z = []
+    vel_u = []
+    vel_v = []
+    vel_w = []
 
     for line in infile.readlines():
         data = [float(M) for M in line.split()]
 
         time.append(data[0])
-        n = len(data[1:])/6
-        x.append(data[1::3][:n])
-        u.append(data[1::3][n:])
-        y.append(data[2::3][:n])
-        v.append(data[2::3][:n])
-        z.append(data[3::3][:n])
-        w.append(data[3::3][n:])
+        num = len(data[1:])/6
+        pos_x.append(data[1::3][:num])
+        vel_u.append(data[1::3][num:])
+        pos_y.append(data[2::3][:num])
+        vel_v.append(data[2::3][num:])
+        pos_z.append(data[3::3][:num])
+        vel_w.append(data[3::3][num:])
 
-    x = numpy.array(x)
-    y = numpy.array(y)
-    z = numpy.array(z)
-    u = numpy.array(u)
-    v = numpy.array(v)
-    w = numpy.array(w)
+    pos_x = numpy.array(pos_x)
+    pos_y = numpy.array(pos_y)
+    pos_z = numpy.array(pos_z)
+    vel_u = numpy.array(vel_u)
+    vel_v = numpy.array(vel_v)
+    vel_w = numpy.array(vel_w)
 
     infile.close()
 
-    return time, x, y, z, u, v, w
+    return time, pos_x, pos_y, pos_z, vel_u, vel_v, vel_w
 
 
-def ascii_to_polydata_time_series(filename,basename):
+def ascii_to_polydata_time_series(filename, basename):
 
-    """Convert ascii file to a series of vtkPolyData (.vtp) files. 
+    """Convert ascii file to a series of vtkPolyData (.vtp) files.
 
     Each file contains one time level of the data, and are numbered sequentially.
     Within each file, each dataset is written to seperate pixel.
 
     Args:
         filename (str): Filename/path of the ascii file containing the data.
-        basename (str): String used in the construction of the file series. The formula is of the form basename_0.vtp, basename_1.vtp,..."""
+        basename (str): String used in the construction of the file series.
+        The formula is of the form basename_0.vtp, basename_1.vtp,..."""
 
-    time, pos_x, pos_y, pos_z, vel_u, vel_v, vel_w = get_ascii_data(filename)
+    ascii_data = get_ascii_data(filename)
+    time = ascii_data[0]
 
-    for i, full_data in enumerate(zip(pos_x, pos_y, pos_z,
-                                      vel_u, vel_v, vel_w)):
+    for i, full_data in enumerate(zip(ascii_data[1], ascii_data[2], ascii_data[3],
+                                      ascii_data[4], ascii_data[5], ascii_data[6])):
         poly_data = vtk.vtkPolyData()
         pnts = vtk.vtkPoints()
         pnts.Allocate(0)
         poly_data.SetPoints(pnts)
-        poly_data.Allocate(pos_x.shape[0])
+        poly_data.Allocate(ascii_data[1].shape[0])
 
         outtime = vtk.vtkDoubleArray()
-        outtime.Allocate(pos_x.shape[0])
+        outtime.Allocate(ascii_data[1].shape[0])
         outtime.SetName('Time')
 
         velocity = vtk.vtkDoubleArray()
         velocity.SetNumberOfComponents(3)
-        velocity.Allocate(pos_x.shape[0])
+        velocity.Allocate(ascii_data[1].shape[0])
         velocity.SetName('Particle Velocity')
 
         for k, data in enumerate(full_data):
@@ -283,14 +285,14 @@ def ascii_to_polydata(filename, outfile):
     outtime = vtk.vtkDoubleArray()
     outtime.SetName('Time')
 
-    for X, Y, Z in zip(pos_x.T, pos_y.T, pos_z.T):
+    for positions in zip(pos_x.T, pos_y.T, pos_z.T):
         line = vtk.vtkLine()
-        for k, data in enumerate(zip(time, X, Y, Z)):
+        for k, data in enumerate(zip(time, positions[0], positions[1], positions[2])):
+            outtime.InsertNextValue(data[0])
             line.GetPointIds().InsertId(k,
                                         poly_data.GetPoints().InsertNextPoint(data[1],
                                                                               data[2],
                                                                               data[3]))
-            outtime.InsertNextValue(data[0])
         poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
 
     poly_data.GetPointData().AddArray(outtime)
@@ -302,7 +304,7 @@ def ascii_to_polydata(filename, outfile):
     writer.Write()
 
 def collision_list_to_polydata(col_list, outfile,
-                               model=Collision.MclauryMassCoeff, **kwargs):
+                               model=Collision.mclaury_mass_coeff, **kwargs):
     """Convert collision data to a single vtkPolyData (.vtp) files.
 
     Each particle is written to seperate cell.
@@ -326,9 +328,9 @@ def collision_list_to_polydata(col_list, outfile,
     for col in col_list:
         pixel = vtk.vtkPixel()
         pixel.GetPointIds().InsertId(0,
-                                     poly_data.GetPoints().InsertNextPoint(col.x[0],
-                                                                           col.x[1],
-                                                                           col.x[2]))
+                                     poly_data.GetPoints().InsertNextPoint(col.pos[0],
+                                                                           col.pos[1],
+                                                                           col.pos[2]))
         time.InsertNextValue(col.time)
         wear.InsertNextValue(model(col, **kwargs))
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
@@ -344,19 +346,16 @@ def collision_list_to_polydata(col_list, outfile,
 
 def get_linear_cell(cell):
     """ Get equivalent linear cell to vtkCell cell"""
-    if (cell.GetCellType() == vtk.VTK_POLY_LINE or
-        cell.GetCellType() == vtk.VTK_LINE):
+    if cell.GetCellType() in (vtk.VTK_POLY_LINE, vtk.VTK_LINE):
         linear_cell = vtk.vtkLine()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
-    elif (cell.GetCellType() == vtk.VTK_QUADRATIC_TRIANGLE or
-        cell.GetCellType() == vtk.VTK_TRIANGLE):
+    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TRIANGLE, vtk.VTK_TRIANGLE):
         linear_cell = vtk.vtkTriangle()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
         linear_cell.GetPoints().SetPoint(2, cell.GetPoints().GetPoint(2))
-    elif (cell.GetCellType() == vtk.VTK_QUADRATIC_TETRA or
-          cell.GetCellType() == vtk.VTK_TETRA):
+    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TETRA, vtk.VTK_TETRA):
         linear_cell = vtk.vtkTetra()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))

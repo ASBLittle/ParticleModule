@@ -1,59 +1,52 @@
+""" Tests for the temporal cache."""
 import particle_model.TemporalCache as TC
-import vtk
-
 
 def test_basic_temporal_cache():
-    tc=TC.TemporalCache('particle_model/tests/data/circle')
-    assert len(tc.data) == 3
-
+    """Test if a simple cache will create itself."""
+    temp_cache = TC.TemporalCache('particle_model/tests/data/circle')
+    assert len(temp_cache.data) == 3
 
 def test_temporal_cache_with_range():
-    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
-    assert len(tc.data) == 3
-    assert tc.lower==0
-    assert tc.upper==1
+    """Test if we can create a range."""
+    temp_cache = TC.TemporalCache('particle_model/tests/data/circle', 0, 1)
+    assert len(temp_cache.data) == 3
+    assert temp_cache.lower == 0
+    assert temp_cache.upper == 1
 
-    count=0
-    for d in tc.data:
-        if d[2]: count+=1
+    count = 0
+    for data in temp_cache.data:
+        if data[2]:
+            count += 1
 
-    assert tc.lower==0
-    assert tc.upper==1
-
-    print tc.data
-
-    assert count==2
+    assert temp_cache.lower == 0
+    assert temp_cache.upper == 1
+    assert count == 2
 
 
 def test_temporal_cache_new_range():
-    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
+    """Test if we can reset the range."""
+    temp_cache = TC.TemporalCache('particle_model/tests/data/circle', 0, 1)
 
-    tc.range(6,8)
+    temp_cache.range(6, 8)
 
-    assert tc.lower==1
-    assert tc.upper==2
+    assert temp_cache.lower == 1
+    assert temp_cache.upper == 2
 
-    count=0
-    for d in tc.data:
-        if d[2]: count+=1
+    count = 0
+    for data in temp_cache.data:
+        if data[2]:
+            count += 1
 
-    print tc.data
-
-    assert count==2
+    assert count == 2
 
 
 
 def test_temporal_cache_call():
+    """Test if we can make a call."""
+    temp_cache = TC.TemporalCache('particle_model/tests/data/circle', 0, 1)
 
-    tc=TC.TemporalCache('particle_model/tests/data/circle',0,1)
+    data, alpha = temp_cache(0.5)
 
-    d,alpha=tc(0.5)
-
-    print d,alpha
-
-
-    assert d[0][0]==0.0
-    assert d[1][0]-5.0 < 1.e-8
-    assert alpha-0.1<1e-8
-    
-    
+    assert data[0][0] == 0.0
+    assert data[1][0]-5.0 < 1.e-8
+    assert alpha-0.1 < 1e-8

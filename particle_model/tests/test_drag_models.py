@@ -1,19 +1,25 @@
+"""Test drag models."""
 import particle_model.DragModels as DM
 from numpy import array
 
 def test_stokes_drag():
-    assert DM.stokes_drag(u=1.0,v=0.0,d=1.0,mu=1.0)==9.0/2.
+    """Test Stokes drag law"""
+    assert DM.stokes_drag(fluid_velocity=1.0, particle_velocity=0.0,
+                          diameter=1.0, fluid_viscosity=1.0) == 9.0 / 2.
 
 
 def test_turbulent_drag():
-    u=array((1.,0.,0.))
-    v=array((0.,0.,0.))
-    e=array((1.0e-8,1.0e-8,1.0e-8))
-    q=0.44*3.0/32.0*u
-    assert all(DM.turbulent_drag(u=u,v=v,d=1.0,mu=1.0)-q<e)
+    """Test turbulent drag law"""
+    fluid_vel = array((1., 0., 0.))
+    vel = array((0., 0., 0.))
+    emax = array((1.0e-8, 1.0e-8, 1.0e-8))
+    drag = 0.44 * 3.0 / 32.0 * fluid_vel
+    assert all(DM.turbulent_drag(fluid_velocity=fluid_vel, particle_velocity=vel,
+                                 diameter=1.0, fluid_viscosity=1.0) - drag < emax)
 
-    u=array((0.,5.,0.))
-    v=array((0.,1.,0.))
-    q=0.44*3.0/20.0*v
+    fluid_vel = array((0., 5., 0.))
+    vel = array((0., 1., 0.))
+    drag = 0.44 * 3.0 / 20.0 * vel
 
-    assert all(DM.turbulent_drag(u=u,v=v,d=10.0,mu=1.0)-q<e)
+    assert all(DM.turbulent_drag(fluid_velocity=fluid_vel, particle_velocity=vel,
+                                 diameter=10.0, fluid_viscosity=1.0) - drag < emax)

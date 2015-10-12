@@ -4,24 +4,24 @@ collision information."""
 import numpy
 import copy
 
-class collisionException(Exception):
+class CollisionException(Exception):
     """ Exception to deal with bad collisions"""
     pass
 
-class collisionInfo(object):
+class CollisionInfo(object):
     """ Utility class for collision information """
     def __init__(self, particle, cell, angle, time):
         """ Initialise from particle collision information."""
         self.particle = copy.copy(particle)
-        self.x = copy.copy(particle.p)
-        self.v = copy.copy(particle.v)
+        self.pos = copy.copy(particle.p)
+        self.vel = copy.copy(particle.v)
         self.cell = cell
         self.angle = angle
         self.time = copy.copy(time)
 
     def get_wear(self):
         """ Calculate wear induced by this collision"""
-        return MclauryMassCoeff(self)
+        return mclaury_mass_coeff(self)
 
     def write_data(self, poly_data):
         """ Write data to polyfile """
@@ -30,15 +30,15 @@ class collisionInfo(object):
         print wear
         raise NotImplementedError
 
-standard_material = {'n': 2, 'k': 1., 'H':1., 'F_s': 1., 'F_B':1.}
+STANDARD_MATERIAL = {'n': 2, 'k': 1., 'H':1., 'F_s': 1., 'F_B':1.}
 
-def testInCell(cell, position):
+def test_in_cell(cell, position):
     """ Check if point is in vtk cell"""
     return cell.GetParametricDistance(position) == 0
 
-def MclauryMassCoeff(collision, material=None):
+def mclaury_mass_coeff(collision, material=None):
     """ Wear rate coefficient of collision from Mclaury correlation"""
-    material = material or standard_material
+    material = material or STANDARD_MATERIAL
 
     n_exp = material['n']
     k = material['k']
@@ -53,6 +53,6 @@ def MclauryMassCoeff(collision, material=None):
         else:
             return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
 
-    vel = numpy.sqrt(numpy.sum(collision.v**2))
+    vel = numpy.sqrt(numpy.sum(collision.vel**2))
 
     return k*H*F_s*F_B*vel**n_exp*fun(collision.angle)

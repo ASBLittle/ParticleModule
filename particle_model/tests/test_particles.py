@@ -1,3 +1,4 @@
+""" Test the main particle routines."""
 from particle_model import Particles
 from particle_model import IO
 from particle_model import Collision
@@ -6,198 +7,213 @@ from particle_model import DragModels
 import vtk
 import numpy
 
-bnd=IO.boundaryData('particle_model/tests/data/rightward_boundary.vtu')
+BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 
-def tc(fname='rightward_0.vtu'):
-    def fn(x):
-        r1=vtk.vtkXMLUnstructuredGridReader()
-        r1.SetFileName('particle_model/tests/data/'+fname)
-        r1.Update()
+def temp_cache(fname='rightward_0.vtu'):
+    """Mock temporal cache."""
+    def fun(time):
+        """Factory function to mock a temporal cache."""
+        del time
+        reader = vtk.vtkXMLUnstructuredGridReader()
+        reader.SetFileName('particle_model/tests/data/'+fname)
+        reader.Update()
 
-        l1=vtk.vtkCellLocator()
-        l1.SetDataSet(r1.GetOutput())
-        l1.BuildLocator()
+        locator = vtk.vtkCellLocator()
+        locator.SetDataSet(reader.GetOutput())
+        locator.BuildLocator()
 
-        return [[None,None,r1.GetOutput(),l1],
-                [None,None,r1.GetOutput(),l1]], 0.0
+        return [[0.0, fname, reader.GetOutput(), locator],
+                [1.0, fname, reader.GetOutput(), locator]], 0.0
 
-    return fn
-
+    return fun
 
 def test_tests():
+    """ Test test structure with a minimal test."""
     assert 1
 
-
 def test_basic_particle_initialization():
+    """Test basic particle initialization"""
     from numpy import zeros
 
-    p=zeros(3)
-    v=zeros(3)
+    pres = zeros(3)
+    vel = zeros(3)
 
-    pt=Particles.particle(p,v)
+    part = Particles.Particle(pres, vel)
 
-    assert all(pt.p==p) and all(pt.v==v)
+    assert all(part.p == pres) and all(part.v == vel)
 
 
 
-def test_basic_particle_bucket_initialization(tmpdir):
+def test_basic_particle_bucket_initialization():
+    """ Test initializing a particle bucket."""
     from numpy import zeros
 
-    N=10
+    num = 10
 
-    p=zeros((N,3))
-    v=zeros((N,3))
+    pres = zeros((num, 3))
+    vel = zeros((num, 3))
 
-    p=Particles.particle_bucket(p,v)
+    part = Particles.ParticleBucket(pres, vel)
+
+    assert part
 
 
 def test_particle_bucket_step_do_nothing(tmpdir):
+    """ Test initializing a full particle bucket."""
     from numpy import zeros
 
-    bndc=IO.boundaryData('particle_model/tests/data/boundary_circle.vtu')
+    bndc = IO.BoundaryData('particle_model/tests/data/boundary_circle.vtu')
 
-    N=1
+    num = 1
 
-    p=zeros((N,3))
-    v=zeros((N,3))
-    u=zeros((N,3))
-    gp=zeros((N,3))
+    pres = zeros((num, 3))
+    vel = zeros((num, 3))
+    fluid_vel = zeros((num, 3))
+    grad_p = zeros((num, 3))
 
-    pb=Particles.particle_bucket(p,v,0.0,dt=0.5,U=u,GP=gp,
-                                 base_name='particle_model/tests/data/circle',
-                                 filename=tmpdir.join('data.dat').strpath,
-                                 boundary=bndc)
+    bucket = Particles.ParticleBucket(pres, vel, 0.0, dt=0.5, U=fluid_vel, GP=grad_p,
+                                      base_name='particle_model/tests/data/circle',
+                                      filename=tmpdir.join('data.dat').strpath,
+                                      boundary=bndc)
 
-    pb.run(5.0)
+    bucket.run(5.0)
 
-    assert pb.t==5.0
-    assert all(pb.particles[0].p==0.0)
-    assert all(pb.particles[0].v==0.0)
+    assert bucket.time == 5.0
+    assert all(bucket.particles[0].p == 0.0)
+    assert all(bucket.particles[0].v == 0.0)
 
 
 def test_picker():
+    """Test vtk picker."""
 
-    P=Particles.particle(0,0,tc=tc())
+    part = Particles.Particle(0, 0, tc=temp_cache())
+    fluid_velocity, grad_p = part.picker((0.5, 0.5, 0.0), 0.0)
 
-    u,gp=P.picker((0.5,0.5,0.0),0.0)
-
-
-    assert all(u==numpy.array((1.0,0,0)))
+    assert all(fluid_velocity == numpy.array((1.0, 0.0, 0.0)))
+    assert all(grad_p == numpy.array((0.0, 0.0, 0.0)))
 
 
 
 def test_step_constant_velocity():
+    """Test single step at constant velocity."""
 
-    p0=numpy.array((0.5,0.5,0.0))
+    pos = numpy.array((0.5, 0.5, 0.0))
+    vel = numpy.array((1.0, 0.0, 0.0))
 
-    v0=numpy.array((1.0,0.0,0.0))
-
-    P=Particles.particle(p0,v0,dt=0.1,diameter=numpy.infty,tc=tc(),boundary=bnd)
-    P.update()
-    assert all(P.p==numpy.array((0.6,0.5,0)))
-    assert P.t==0.1
-    P.update()
-    assert all(P.p==numpy.array((0.7,0.5,0)))
+    part = Particles.Particle(pos, vel, dt=0.1, diameter=numpy.infty,
+                              tc=temp_cache(), boundary=BOUNDARY)
+    part.update()
+    assert all(part.p == numpy.array((0.6, 0.5, 0.0)))
+    assert part.t == 0.1
+    part.update()
+    assert all(part.p == numpy.array((0.7, 0.5, 0.0)))
 
 
 def test_step_spin_up_turbulent_drag():
+    """Test turbulent drag function"""
 
-    p0=numpy.array((0.1,0.5,0.0))
-    v0=numpy.array((0.0,0.0,0.0))
+    pos = numpy.array((0.1, 0.5, 0.0))
+    vel = numpy.array((0.0, 0.0, 0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,tc=tc(),boundary=bnd,drag=DragModels.turbulent_drag)
-    P.update()
-    assert all(abs(P.p-numpy.array((0.100345,0.5,0)))<1.e-8)
-    assert P.t==0.001
+    part = Particles.Particle(pos, vel, dt=0.001, tc=temp_cache(), boundary=BOUNDARY,
+                              drag=DragModels.turbulent_drag)
+    part.update()
+    assert all(abs(part.p - numpy.array((0.100345, 0.5, 0))) < 1.e-8)
+    assert part.t == 0.001
 
 def test_step_spin_up_transitional_drag():
+    """ Test transitional drag function."""
 
-    p0=numpy.array((0.1,0.5,0.0))
-    v0=numpy.array((0.0,0.0,0.0))
+    pos = numpy.array((0.1, 0.5, 0.0))
+    vel = numpy.array((0.0, 0.0, 0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,tc=tc(),boundary=bnd)
-    P.update()
-    assert all(abs(P.p-numpy.array((0.10373956,0.5,0)))<1.e-8)
-    assert P.t==0.001
+    part = Particles.Particle(pos, vel, dt=0.001, tc=temp_cache(), boundary=BOUNDARY)
+    part.update()
+    assert all(abs(part.p - numpy.array((0.10373956, 0.5, 0))) < 1.e-8)
+    assert part.t == 0.001
 
 
 def test_step_head_on_collision():
+    """ Test a head-on collision."""
 
-    p0=numpy.array((0.9995,0.5,0.0))
-    v0=numpy.array((1.0,0.0,0.0))
+    pos = numpy.array((0.9995, 0.5, 0.0))
+    vel = numpy.array((1.0, 0.0, 0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,diameter=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
-    P.update()
-    assert all(abs(P.p-numpy.array((0.9995,0.5,0)))<1.0e-8)
-    assert all(P.v==numpy.array((-1.,0,0)))
-    assert P.t==0.001
+    part = Particles.Particle(pos, vel, dt=0.001, diameter=numpy.infty,
+                              tc=temp_cache(), boundary=BOUNDARY, e=1.0)
+    part.update()
+    assert all(abs(part.p - numpy.array((0.9995, 0.5, 0.0))) < 1.0e-8)
+    assert all(part.v == numpy.array((-1., 0., 0.)))
+    assert part.t == 0.001
 
-    assert len(P.collisions)==1
-    assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
-    assert P.collisions[0].time==0.0005
-    assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
-    assert P.collisions[0].angle==numpy.pi/2.0
+    assert len(part.collisions) == 1
+    assert all(part.collisions[0].pos == numpy.array((1., 0.5, 0.)))
+    assert part.collisions[0].time == 0.0005
+    assert all(part.collisions[0].vel == numpy.array((1., 0., 0.)))
+    assert part.collisions[0].angle == numpy.pi/2.0
 
 def test_diagonal_collision():
+    """Test a collision at an angle"""
 
-    p0=numpy.array((0.9995,0.4995,0.0))
-    v0=numpy.array((1.0,1.0,0.0))
+    pos = numpy.array((0.9995, 0.4995, 0.0))
+    vel = numpy.array((1.0, 1.0, 0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,diameter=numpy.infty,tc=tc(),boundary=bnd,e=1.0)
-    P.update()
-    assert all(abs(P.p-numpy.array((0.9995,0.5005,0)))<1.0e-8)
-    assert all(P.v==numpy.array((-1.,1.0,0)))
-    assert P.t==0.001
+    part = Particles.Particle(pos, vel, dt=0.001, diameter=numpy.infty,
+                              tc=temp_cache(), boundary=BOUNDARY, e=1.0)
+    part.update()
+    assert all(abs(part.p - numpy.array((0.9995, 0.5005, 0))) < 1.0e-8)
+    assert all(part.v == numpy.array((-1., 1.0, 0.0)))
+    assert part.t == 0.001
 
-    assert len(P.collisions)==1
-    assert all(P.collisions[0].x-numpy.array((1.,0.5,0.))<1.0e-8)
-    assert P.collisions[0].time-0.0005<1e-8
-    assert all(P.collisions[0].v==numpy.array((1.,1.,0.)))
-    assert P.collisions[0].angle-numpy.pi/4.0<1e-10
+    assert len(part.collisions) == 1
+    assert all(part.collisions[0].pos - numpy.array((1., 0.5, 0.)) < 1.0e-8)
+    assert part.collisions[0].time - 0.0005 < 1e-8
+    assert all(part.collisions[0].vel == numpy.array((1., 1., 0.)))
+    assert part.collisions[0].angle - numpy.pi / 4.0 < 1e-10
 
 
 def test_gyre_collision():
+    """Regression test for Mclaury coefficient"""
 
-    ### Regression test for Mclaury coefficient
-
-    bndg=IO.boundaryData('particle_model/tests/data/gyre_boundary.vtu')
+    bndg = IO.BoundaryData('particle_model/tests/data/gyre_boundary.vtu')
 
     from math import pi
 
-    p0=numpy.array((0.8,0.45,0.0))
-    v0=numpy.array((2.0*pi,0.0,0.0))
+    pos = numpy.array((0.8, 0.45, 0.0))
+    vel = numpy.array((2.0 * pi, 0.0, 0.0))
 
-    P=Particles.particle(p0,v0,dt=0.001,diameter=100.0e-4,tc=tc('gyre_0.vtu'),boundary=bndg,e=1.0)
+    part = Particles.Particle(pos, vel, dt=0.001, diameter=100.0e-4,
+                              tc=temp_cache('gyre_0.vtu'), boundary=bndg, e=1.0)
 
     for i in range(100):
-        P.update()
+        del i
+        part.update()
 
-    assert P.p[0]<1.0
-    assert P.p[1]<1.0
-    assert P.p[0]>0.0
-    assert P.p[1]>0.0
-    
+    assert part.p[0] < 1.0
+    assert part.p[1] < 1.0
+    assert part.p[0] > 0.0
+    assert part.p[1] > 0.0
 
-    assert len(P.collisions)==1
-    assert P.collisions[0].x[0]==1.0
-    assert abs(Collision.MclauryMassCoeff(P.collisions[0])-0.17749677523046933)<1.0e-8
+    assert len(part.collisions) == 1
+    assert part.collisions[0].pos[0] == 1.0
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.17749677523046933) < 1.0e-8
 
 
 def test_coefficient_of_restitution():
+    """Test of coefficient of restitution parameter."""
 
-    p0=numpy.array((0.95,0.5,0.0))
-    v0=numpy.array((1.0,0.0,0.0))
+    pos = numpy.array((0.95, 0.5, 0.0))
+    vel = numpy.array((1.0, 0.0, 0.0))
 
-    print bnd.bnd
+    part = Particles.Particle(pos, vel, dt=0.1, diameter=numpy.infty, tc=temp_cache(),
+                              boundary=BOUNDARY, e=0.5)
+    part.update()
+    assert all(abs(part.p-numpy.array((0.975, 0.5, 0))) < 1.0e-8)
+    assert all(part.v == numpy.array((-0.5, 0, 0)))
+    assert part.t == 0.1
 
-    P=Particles.particle(p0,v0,dt=0.1,diameter=numpy.infty,tc=tc(),boundary=bnd,e=0.5)
-    P.update()
-    assert all(abs(P.p-numpy.array((0.975,0.5,0)))<1.0e-8)
-    assert all(P.v==numpy.array((-0.5,0,0)))
-    assert P.t==0.1
-
-    assert len(P.collisions)==1
-    assert all(P.collisions[0].x==numpy.array((1.,0.5,0.)))
-    assert P.collisions[0].time==0.05
-    assert all(P.collisions[0].v==numpy.array((1.,0.,0.)))
-    assert P.collisions[0].angle==numpy.pi/2.0
+    assert len(part.collisions) == 1
+    assert all(part.collisions[0].pos == numpy.array((1., 0.5, 0.)))
+    assert part.collisions[0].time == 0.05
+    assert all(part.collisions[0].vel == numpy.array((1., 0., 0.)))
+    assert part.collisions[0].angle == numpy.pi/2.0

@@ -2,27 +2,33 @@
 import particle_model as pm
 import numpy
 
-N = 200
+N = 400
 
-X = numpy.random.random((N, 3))
+X = 0.5+0.25*(numpy.random.random((N, 3))-0.5)
+X[:, 0] += 0.2
 X[:, 2] = 0
+
 V = numpy.zeros((N, 3))
+V[:, 0] = -2.0*numpy.pi*numpy.sin(numpy.pi*X[:, 0])*numpy.cos(2.0*numpy.pi*X[:, 1])
+V[:, 1] = numpy.pi*numpy.cos(numpy.pi*X[:, 0])*numpy.sin(2.0*numpy.pi*X[:, 1])
 U = numpy.zeros((N, 3))
 GP = numpy.zeros((N, 3))
 
 BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache('gyre')
 
-PB = pm.Particles.ParticleBucket(X, V, 0.004, 1.0e-4, tc=TEMP_CACHE, U=U, GP=GP,
+PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, tc=TEMP_CACHE, U=U, GP=GP,
                                  filename='data.dat', boundary=BOUNDARY,
-                                 diameter=1e-4)
+                                 diameter=1e-3)
+
+TEMP_CACHE.data[1][0] = 100.0
 
 
 PB.write()
-for _ in range(1000):
+for _ in range(300):
     print PB.time
-    print PB.vel[:, 0].ravel().min()
-    print PB.fluid_vel[:, 0].ravel().min()
+    print 'min, max: pos_x', PB.pos[:, 0].ravel().min(), PB.pos[:, 0].ravel().max()
+    print 'min, max: vel_x', PB.vel[:, 0].ravel().min(), PB.vel[:, 0].ravel().max()
     PB.update()
     PB.write()
 PB.outfile.flush()

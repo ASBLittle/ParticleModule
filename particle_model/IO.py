@@ -245,14 +245,15 @@ def ascii_to_polydata_time_series(filename, basename):
         velocity.Allocate(ascii_data[1].shape[0])
         velocity.SetName('Particle Velocity')
 
-        for k, data in enumerate(full_data):
+        for k, data in enumerate(numpy.array(full_data).T):
             pixel = vtk.vtkPixel()
-            pixel.GetPointIds().InsertId(k,
+            pixel.GetPointIds().InsertId(0,
                                          poly_data.GetPoints().InsertNextPoint(data[0],
                                                                                data[1],
                                                                                data[2]))
             outtime.InsertNextValue(time[i])
             velocity.InsertNextTuple3(data[3], data[4], data[5])
+            poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
         poly_data.GetPointData().AddArray(outtime)
         poly_data.GetPointData().AddArray(velocity)
@@ -293,7 +294,7 @@ def ascii_to_polydata(filename, outfile):
                                         poly_data.GetPoints().InsertNextPoint(data[1],
                                                                               data[2],
                                                                               data[3]))
-        poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
+            poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
 
     poly_data.GetPointData().AddArray(outtime)
 

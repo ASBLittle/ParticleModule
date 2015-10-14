@@ -18,19 +18,22 @@ BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache('gyre')
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, tc=TEMP_CACHE, U=U, GP=GP,
-                                 filename='data.dat', boundary=BOUNDARY,
-                                 diameter=1e-3)
+                                 boundary=BOUNDARY, diameter=1e-3)
 
 TEMP_CACHE.data[1][0] = 100.0
 
+PD = pm.IO.PolyData('gyre.vtp')
+PD.append_data(PB)
+pm.IO.write_level_to_polydata(PB, 0, 'gyre')
 
-PB.write()
-for _ in range(300):
+for i in range(300):
     print PB.time
     print 'min, max: pos_x', PB.pos[:, 0].ravel().min(), PB.pos[:, 0].ravel().max()
     print 'min, max: vel_x', PB.vel[:, 0].ravel().min(), PB.vel[:, 0].ravel().max()
     PB.update()
-    PB.write()
-PB.outfile.flush()
+    PD.append_data(PB)
+    pm.IO.write_level_to_polydata(PB, i+1, 'gyre')
+PD.write()
+pm.IO.collision_list_to_polydata(PB.collisions(),'collisions.vtp')
 
 

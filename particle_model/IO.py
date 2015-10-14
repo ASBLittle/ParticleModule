@@ -14,6 +14,49 @@ TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
 TYPES_1D = [vtk.VTK_LINE]
 
+class PolyData(object):
+    """ Class storing a living vtkPolyData construction"""
+
+    def __init__(self, filename):
+        """ Initialize the PolyData instance"""
+
+        self.filename = filename
+        self.cell_ids = {}
+        self.poly_data = vtk.vtkPolyData()
+        self.pnts = vtk.vtkPoints()
+        self.pnts.Allocate(0)
+
+        self.arrays = {}
+        for name in ('Time',):
+            array = vtk.vtkDoubleArray()
+            array.SetName(name)
+            self.poly_data.GetPointData().AddArray(array)
+        
+    def append_data(self,bucket):
+        """ Add the data from the current time level"""
+
+        for particle in bucket.particles:
+            ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
+
+            id = self.pnts.InsertNextPoint(particle.p)
+
+            ids.InsertNextId(id)
+
+            self.poly_data.GetPointData().GetScalars('Time').InsertNextValue(bucket.time)
+            
+    def write(self):
+
+        self.poly_data.SetPoints(self.pnts)
+
+        self.poly_data.Allocate(len(self.cell_ids))
+        for cell_id in self.cell_ids.values():
+            self.poly_data.InsertNextCell(vtk.VTK_LINE, cell_id)
+
+        writer = vtk.vtkXMLPolyDataWriter()
+        writer.SetFileName(self.filename)
+        writer.SetInput(self.poly_data)
+        writer.Write()
+
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
     def __init__(self, filename):
@@ -261,6 +304,53 @@ def ascii_to_polydata_time_series(filename, basename):
         writer.SetFileName("%s_%d.vtp"%(basename, i))
         writer.SetInput(poly_data)
         writer.Write()
+
+def write_level_to_polydata(bucket, level, basename, **kwargs):
+
+     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
+
+    Each file contains one time level of the data, and are numbered sequentially.
+    Within each file, each particle is written to seperate pixel.
+
+    Args:
+        bucket   (ParticleBucket):
+        level    (int):
+        basename (str): String used in the construction of the file series.
+        The formula is of the form basename_0.vtp, basename_1.vtp,..."""
+
+     del kwargs
+     
+     poly_data = vtk.vtkPolyData()
+     pnts = vtk.vtkPoints()
+     pnts.Allocate(0)
+     poly_data.SetPoints(pnts)
+     poly_data.Allocate(bucket.pos.shape[0])
+    
+     outtime = vtk.vtkDoubleArray()
+     outtime.SetName('Time')
+     outtime.Allocate(bucket.pos.shape[0])
+    
+     velocity = vtk.vtkDoubleArray()
+     velocity.SetNumberOfComponents(3)
+     velocity.Allocate(bucket.pos.shape[0])
+     velocity.SetName('Particle Velocity')
+
+     for positions,vel in zip(bucket.pos, bucket.vel):
+         pixel = vtk.vtkPixel()
+         pixel.GetPointIds().InsertId(0,
+                                      poly_data.GetPoints().InsertNextPoint(positions[0],
+                                                                            positions[1],
+                                                                            positions[2]))
+         outtime.InsertNextValue(bucket.time)
+         velocity.InsertNextTuple3(vel[0], vel[1], vel[2])
+         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
+    
+     poly_data.GetPointData().AddArray(outtime)
+     poly_data.GetPointData().AddArray(velocity)
+     writer = vtk.vtkXMLPolyDataWriter()
+     writer.SetFileName("%s_%d.vtp"%(basename, level))
+     writer.SetInput(poly_data)
+     writer.Write()
 
 def ascii_to_polydata(filename, outfile):
     """Convert ascii file to a single vtkPolyData (.vtp) files.

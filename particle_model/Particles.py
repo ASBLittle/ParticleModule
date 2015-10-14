@@ -311,7 +311,7 @@ class ParticleBucket(object):
 
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""
-        return itertools.chain(*[p.collisions for p in self.particles])
+        return [i for i in itertools.chain(*[p.collisions for p in self.particles])]
 
 
     def write(self):

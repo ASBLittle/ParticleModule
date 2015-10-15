@@ -555,8 +555,14 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     mtime.SetName('Time')
 
     for i in range(len(mesh.nodes)):
-        vel.InsertNextTuple3(*velocity[i,:])
-        pres.InsertNextValue(pressure[i])
+        if hasattr(velocity, '__call__'):
+            vel.InsertNextTuple3(*velocity(ugrid.GetPoints().GetPoint(i)))
+        else:
+            vel.InsertNextTuple3(*velocity[i,:])
+        if hasattr(pressure, '__call__'):
+            pres.InsertNextValue(pressure(ugrid.GetPoints().GetPoint(i)))
+        else:
+            pres.InsertNextValue(pressure[i])
         mtime.InsertNextValue(time)
 
 

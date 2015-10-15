@@ -73,3 +73,10 @@ def test_make_unstructured_grid(tmpdir):
     assert ugrid.GetNumberOfPoints() == num
     assert ugrid.GetNumberOfCells() == len(mesh.elements)
     assert filecmp.cmpfiles(DATA_DIR, tmpdir.strpath, 'Structured.vtu')
+
+    ugrid = IO.make_unstructured_grid(mesh, lambda x: (0,0,0), lambda x: 0, time,
+                                      outfile=tmpdir.join('Structured.vtu').strpath)
+
+    assert ugrid.GetNumberOfPoints() == num
+    assert ugrid.GetNumberOfCells() == len(mesh.elements)
+    assert filecmp.cmpfiles(DATA_DIR, tmpdir.strpath, 'Structured.vtu')

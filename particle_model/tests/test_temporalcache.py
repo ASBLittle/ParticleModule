@@ -1,4 +1,4 @@
-""" Tests for the temporal cache."""
+""" Unit tests for the temporal cache."""
 import particle_model.TemporalCache as TC
 
 def test_basic_temporal_cache():

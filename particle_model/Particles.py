@@ -17,7 +17,8 @@ ARGI = vtk.mutable(0)
 ARGR = vtk.mutable(0.0)
 
 def invert(mat):
-    return numpy.array(((mat[1,1],-mat[0,1]),(mat[0,0],mat[1,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
+    return numpy.array(((mat[1,1], -mat[0,1]), 
+                        (-mat[1,0], mat[0,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
 
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""

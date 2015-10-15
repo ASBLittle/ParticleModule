@@ -4,7 +4,6 @@ the file system. Mostly vtk."""
 from particle_model import Collision
 
 import vtk
-import pylab as p
 import numpy
 import os
 import os.path
@@ -183,28 +182,6 @@ def extract_boundary(ugrid):
                 out_data.InsertNextTuple(cell_data.GetArray(j).GetTuple(i))
 
     return out_grid
-
-def plot_boundary(ugrid, **kwargs):
-
-    """Plot a boundary using matplotlib
-
-    Args:
-        ugrid (vtkUnstructuredGrid): The boundary mesh to plot
-
-    Other arguments are passed on to the matplotlib plot command"""
-
-    for i in range(ugrid.GetNumberOfCells()):
-        cell = ugrid.GetCell(i)
-
-        pos_x = []
-        pos_y = []
-
-        for j in range(cell.GetNumberOfPoints()):
-            pnt = cell.GetPoints().GetPoint(j)
-            pos_x.append(pnt[0])
-            pos_y.append(pnt[1])
-
-        p.plot(pos_x, pos_y, 'k', **kwargs)
 
 def get_ascii_data(filename='data.dat'):
 
@@ -437,20 +414,22 @@ def collision_list_to_polydata(col_list, outfile,
 
 def get_linear_cell(cell):
     """ Get equivalent linear cell to vtkCell cell"""
-    if cell.GetCellType() in (vtk.VTK_POLY_LINE, vtk.VTK_LINE):
+    if cell.GetCellType() in (vtk.VTK_POLY_LINE,):
         linear_cell = vtk.vtkLine()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
-    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TRIANGLE, vtk.VTK_TRIANGLE):
+    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TRIANGLE,):
         linear_cell = vtk.vtkTriangle()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
         linear_cell.GetPoints().SetPoint(2, cell.GetPoints().GetPoint(2))
-    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TETRA, vtk.VTK_TETRA):
+    elif cell.GetCellType() in (vtk.VTK_QUADRATIC_TETRA,):
         linear_cell = vtk.vtkTetra()
         linear_cell.GetPoints().SetPoint(0, cell.GetPoints().GetPoint(0))
         linear_cell.GetPoints().SetPoint(1, cell.GetPoints().GetPoint(1))
         linear_cell.GetPoints().SetPoint(2, cell.GetPoints().GetPoint(2))
         linear_cell.GetPoints().SetPoint(3, cell.GetPoints().GetPoint(3))
+    else:
+        linear_cell = cell
 
     return linear_cell

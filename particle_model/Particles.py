@@ -6,10 +6,18 @@ from particle_model import DragModels
 from particle_model import Collision
 
 import numpy
+from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 import vtk
 import scipy.linalg as la
 import itertools
 import copy
+
+ARGV = [0.0, 0.0, 0.0]
+ARGI = vtk.mutable(0)
+ARGR = vtk.mutable(0.0)
+
+def invert(mat):
+    return numpy.array(((mat[1,1],-mat[0,1]),(mat[0,0],mat[1,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
 
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
@@ -95,25 +103,32 @@ class Particle(object):
 
     def coriolis_force(self, particle_velocity):
         """ Return Coriolis force on particle."""
-        return -2.0 * numpy.cross(self.omega, particle_velocity)
+
+        def cross(x,y):
+            """Return cross product of 3-tuples x and y."""
+            z = numpy.zeros(3)
+            z[0] = x[1]*y[2]-x[2]*y[1]
+            z[1] = x[2]*y[0]-x[0]*y[2]
+            z[2] = x[0]*y[1]-x[1]*y[0]
+            return z
+
+        return -2.0 * cross(self.omega, particle_velocity)
 
     def centrifugal_force(self, position):
         """ Return centrifugal force on particle"""
-        return - numpy.cross(self.omega, numpy.cross(self.omega, position))
+        return - ( numpy.dot(self.omega, position) * self.omega 
+                   - numpy.dot(self.omega, self.omega) * position)
 
     def find_cell(self, locator, point=None):
         """ Use vtk rountines to find cell/element containing the point."""
         if point is None:
             point = self.p
-        arg1 = [0.0, 0.0, 0.0]
         cell_index = vtk.mutable(0)
-        arg3 = vtk.mutable(0)
-        arg4 = vtk.mutable(0.0)
 
-        locator.FindClosestPoint(point, arg1, cell_index, arg3, arg4)
+
+        locator.FindClosestPoint(point, ARGV, cell_index, ARGI, ARGR)
 
         return cell_index
-
 
     def picker(self, pos, time):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
@@ -126,15 +141,16 @@ class Particle(object):
             cell_index = self.find_cell(locator, pos)
             cell = infile.GetCell(cell_index)
             linear_cell = IO.get_linear_cell(cell)
+            pids = cell.GetPointIds()
 
             N = linear_cell.GetNumberOfPoints()-1
             x = numpy.zeros(linear_cell.GetNumberOfPoints())
-            args = [linear_cell.GetPoints().GetPoint(i)[:N] for i in range(N+1)]
+            dummy_func=linear_cell.GetPoints().GetPoint
+            args = [dummy_func(i)[:N] for i in range(N+1)]
             args.append(x)
             linear_cell.BarycentricCoords(pos[:N], *args)
 
 #           collision == Collision.testInCell(linear_cell, pos)
-            pids = cell.GetPointIds()
 
             data_u = infile.GetPointData().GetVectors('Velocity')
             data_p = infile.GetPointData().GetScalars('Pressure')
@@ -144,6 +160,7 @@ class Particle(object):
             df = numpy.zeros(N*cell.GetNumberOfPoints())
             cell.InterpolateFunctions(x, sf)
             cell.InterpolateDerivs(x, df)
+
 
             rhs = numpy.zeros(2)
             rhs[0] = data_p.GetValue(cell.GetPointId(1)) - data_p.GetValue(cell.GetPointId(0))
@@ -157,11 +174,12 @@ class Particle(object):
             mat[0, :] = (p1 - p0)[:2]
             mat[1, :] = (p2 - p0)[:2]
 
-            mat=la.inv(mat)
+#            mat=la.inv(mat)
+            mat=invert(mat)
 
-            out = numpy.zeros(3)
-            for i in range(cell.GetNumberOfPoints()):
-                out += sf[i]*numpy.array(data_u.GetTuple(pids.GetId(i)))
+            nvout=numpy.array([data_u.GetTuple(pids.GetId(i)) 
+                               for i in range(cell.GetNumberOfPoints())])
+            out = numpy.dot(sf, nvout)
 
             grad_p = numpy.zeros(3)
             grad_p[:2] = numpy.dot(mat, rhs)

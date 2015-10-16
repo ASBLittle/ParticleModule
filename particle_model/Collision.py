@@ -10,7 +10,7 @@ class CollisionException(Exception):
 
 class CollisionInfo(object):
     """ Utility class for collision information """
-    def __init__(self, particle, cell, angle, time):
+    def __init__(self, particle, cell, angle, time, normal):
         """ Initialise from particle collision information."""
         self.particle = copy.copy(particle)
         self.pos = copy.copy(particle.p)
@@ -18,6 +18,7 @@ class CollisionInfo(object):
         self.cell = cell
         self.angle = angle
         self.time = copy.copy(time)
+        self.normal = copy.copy(normal)
 
     def get_wear(self):
         """ Calculate wear induced by this collision"""

@@ -6,16 +6,20 @@ from particle_model import DragModels
 
 import vtk
 import numpy
+from numpy import pi, sin, cos
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 
-def temp_cache(fname='rightward_0.vtu'):
+MESH = IO.GmshMesh()
+MESH.read('particle_model/tests/data/Structured.msh')
+
+def temp_cache(fname='rightward_0.vtu',ldir='particle_model/tests/data'):
     """Mock temporal cache."""
     def fun(time):
         """Factory function to mock a temporal cache."""
         del time
         reader = vtk.vtkXMLUnstructuredGridReader()
-        reader.SetFileName('particle_model/tests/data/'+fname)
+        reader.SetFileName(ldir+'/'+fname)
         reader.Update()
 
         locator = vtk.vtkCellLocator()
@@ -83,7 +87,7 @@ def test_particle_bucket_step_do_nothing(tmpdir):
     assert all(bucket.particles[0].v == 0.0)
 
 
-def test_picker():
+def test_picker_constant():
     """Test vtk picker."""
 
     part = Particles.Particle(0, 0, tc=temp_cache())
@@ -91,6 +95,36 @@ def test_picker():
 
     assert all(fluid_velocity == numpy.array((1.0, 0.0, 0.0)))
     assert all(grad_p == numpy.array((0.0, 0.0, 0.0)))
+
+
+def test_picker_linear(tmpdir):
+    """Test vtk picker."""
+
+    X = ((0.5, 0.5, 0.0),
+         (0.25,0.75,0.0))
+
+    ERR = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
+    FNAME = tmpdir.join('linear.vtu').strpath
+
+    print FNAME
+
+    def vel(x):
+        return numpy.array(( x[0],
+                              x[1], 0))
+
+    def pres(x):
+        return x[0]
+
+    IO.make_unstructured_grid(MESH,vel,pres,0.0,FNAME)
+
+    part = Particles.Particle(0, 0, tc=temp_cache('linear.vtu',
+                                                  tmpdir.strpath))
+    for point in X:
+
+        fluid_velocity, grad_p = part.picker(point, 0.0)
+        
+        assert all(abs(fluid_velocity - vel(point)) < ERR)
+        assert all(grad_p == numpy.array((1.0, 0.0, 0.0)))
 
 
 
@@ -196,7 +230,7 @@ def test_gyre_collision():
 
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
-    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.17749677523046933) < 1.0e-8
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.18205645627433897 ) < 1.0e-8
 
 
 def test_coefficient_of_restitution():

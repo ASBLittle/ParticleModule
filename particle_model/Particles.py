@@ -21,7 +21,7 @@ def invert(mat):
         return numpy.array(((mat[1,1], -mat[0,1]), 
                             (-mat[1,0], mat[0,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
     else:
-        return numpy.array(((1, 0, 0),(0, 1, 0),(0, 0, 1)))
+        return la.inv(mat)
 
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
@@ -150,7 +150,8 @@ class Particle(object):
             N = linear_cell.GetNumberOfPoints()-1
             x = numpy.zeros(linear_cell.GetNumberOfPoints())
             dummy_func=linear_cell.GetPoints().GetPoint
-            args = [dummy_func(i)[:N] for i in range(N+1)]
+            args = [dummy_func(i)[:N] for i in range(1,N+1)]
+            args.append(dummy_func(0)[:N])
             args.append(x)
             linear_cell.BarycentricCoords(pos[:N], *args)
 
@@ -166,20 +167,16 @@ class Particle(object):
             cell.InterpolateDerivs(x[:3], df)
 
 
-            rhs = numpy.zeros(N)
-            rhs[0] = data_p.GetValue(cell.GetPointId(1)) - data_p.GetValue(cell.GetPointId(0))
-            rhs[1] = data_p.GetValue(cell.GetPointId(2)) - data_p.GetValue(cell.GetPointId(0))
+            rhs = numpy.array([data_p.GetValue(cell.GetPointId(i+1)) - data_p.GetValue(cell.GetPointId(0)) for i in range(N)])
 
             mat = numpy.zeros((N, N))
 
-            p0 = numpy.array(cell.GetPoints().GetPoint(0))
-            p1 = numpy.array(cell.GetPoints().GetPoint(1))
-            p2 = numpy.array(cell.GetPoints().GetPoint(2))
-            mat[0, :] = (p1 - p0)[:N]
-            mat[1, :] = (p2 - p0)[:N]
+            pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(N+1)])
+            for i in range(N):
+                mat[i, :] = pts[i+1,:N] - pts[0,:N]
 
 #            mat=la.inv(mat)
-            mat=invert(mat)
+            mat = invert(mat)
 
             nvout=numpy.array([data_u.GetTuple(pids.GetId(i)) 
                                for i in range(cell.GetNumberOfPoints())])
@@ -225,7 +222,7 @@ class Particle(object):
         cell_index = vtk.mutable(0)
 
         intersect = self.boundary.bndl.IntersectWithLine(pa, p,
-                                                         1.0e-8, s,
+                                                         1.0e-6, s,
                                                          x, arg6, arg7, cell_index)
 
         if s != -1.0:
@@ -234,15 +231,31 @@ class Particle(object):
 
             cell = self.boundary.bnd.GetCell(cell_index)
 
-            p0 = numpy.array(cell.GetPoints().GetPoint(0))
-            p1 = numpy.array(cell.GetPoints().GetPoint(1))
-
             normal = numpy.zeros(3)
 
-            normal[0] = (p1-p0)[1]
-            normal[1] = (p0-p1)[0]
+            vec1 = (numpy.array(cell.GetPoints().GetPoint(1))
+                    -numpy.array(cell.GetPoints().GetPoint(0)))
 
-            normal = normal / numpy.sqrt(sum(normal**2))
+            if cell.GetCellType() == vtk.VTK_TRIANGLE:
+                vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
+                        -numpy.array(cell.GetPoints().GetPoint(0)))
+            else:
+                
+                vec2  = numpy.array((( x - pa )[1]*vec1[2]-( x - pa )[2]*vec1[1],
+                                     ( x - pa )[2]*vec1[0]-( x - pa )[0]*vec1[2],
+                                     ( x - pa )[0]*vec1[1]-( x - pa )[1]*vec1[0]))
+
+            normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
+            normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
+            normal[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
+
+
+            if sum(normal**2) > 1.0e-32:
+                normal = normal / numpy.sqrt(sum(normal**2))
+            else:
+                print normal
+                print vec1, vec2
+                raise Collision.CollisionException
 
             normal = normal * numpy.sign(numpy.dot(normal, (p-pa)))
 
@@ -265,7 +278,7 @@ class Particle(object):
             par_col.v = vs
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index, theta,
-                                                  self.t + s * dt))
+                                                  self.t + s * dt, normal))
             vs += -(1.0 + self.e)* normal * numpy.dot(normal, vs)
 
 #            print 'After V1:', pa, p, n, vs, f

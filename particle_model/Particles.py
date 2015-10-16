@@ -17,8 +17,11 @@ ARGI = vtk.mutable(0)
 ARGR = vtk.mutable(0.0)
 
 def invert(mat):
-    return numpy.array(((mat[1,1], -mat[0,1]), 
-                        (-mat[1,0], mat[0,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
+    if mat.shape == (2, 2):
+        return numpy.array(((mat[1,1], -mat[0,1]), 
+                            (-mat[1,0], mat[0,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
+    else:
+        return numpy.array(((1, 0, 0),(0, 1, 0),(0, 0, 1)))
 
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
@@ -159,21 +162,21 @@ class Particle(object):
 
             sf = numpy.zeros(cell.GetNumberOfPoints())
             df = numpy.zeros(N*cell.GetNumberOfPoints())
-            cell.InterpolateFunctions(x, sf)
-            cell.InterpolateDerivs(x, df)
+            cell.InterpolateFunctions(x[:3], sf)
+            cell.InterpolateDerivs(x[:3], df)
 
 
-            rhs = numpy.zeros(2)
+            rhs = numpy.zeros(N)
             rhs[0] = data_p.GetValue(cell.GetPointId(1)) - data_p.GetValue(cell.GetPointId(0))
             rhs[1] = data_p.GetValue(cell.GetPointId(2)) - data_p.GetValue(cell.GetPointId(0))
 
-            mat = numpy.zeros((2, 2))
+            mat = numpy.zeros((N, N))
 
             p0 = numpy.array(cell.GetPoints().GetPoint(0))
             p1 = numpy.array(cell.GetPoints().GetPoint(1))
             p2 = numpy.array(cell.GetPoints().GetPoint(2))
-            mat[0, :] = (p1 - p0)[:2]
-            mat[1, :] = (p2 - p0)[:2]
+            mat[0, :] = (p1 - p0)[:N]
+            mat[1, :] = (p2 - p0)[:N]
 
 #            mat=la.inv(mat)
             mat=invert(mat)
@@ -183,7 +186,7 @@ class Particle(object):
             out = numpy.dot(sf, nvout)
 
             grad_p = numpy.zeros(3)
-            grad_p[:2] = numpy.dot(mat, rhs)
+            grad_p[:N] = numpy.dot(mat, rhs)
 
             return out, grad_p
 

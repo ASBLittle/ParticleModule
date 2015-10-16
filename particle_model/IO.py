@@ -7,6 +7,7 @@ import vtk
 import numpy
 import os
 import os.path
+from scipy.interpolate import griddata, Rbf
 
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
@@ -476,6 +477,9 @@ def collision_list_to_polydata(col_list, outfile,
     time.SetName('Time')
     wear = vtk.vtkDoubleArray()
     wear.SetName('Wear')
+    normal = vtk.vtkDoubleArray()
+    normal.SetNumberOfComponents(3)
+    normal.SetName('Normal')
 
     for col in col_list:
         pixel = vtk.vtkPixel()
@@ -485,10 +489,12 @@ def collision_list_to_polydata(col_list, outfile,
                                                                            col.pos[2]))
         time.InsertNextValue(col.time)
         wear.InsertNextValue(model(col, **kwargs))
+        normal.InsertNextTuple3(*col.normal)
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
     poly_data.GetPointData().AddArray(time)
     poly_data.GetPointData().AddArray(wear)
+    poly_data.GetPointData().AddArray(normal)
 
     writer = vtk.vtkXMLPolyDataWriter()
     writer.SetFileName(outfile)
@@ -517,7 +523,6 @@ def get_linear_cell(cell):
         linear_cell = cell
 
     return linear_cell
-
 
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     """Given a mesh (in Gmsh format), velocity and pressure fields, and a time level, store the data in a vtkUnstructuredGridFormat.""" 
@@ -580,3 +585,27 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
 
 
     
+def interpolate_collision_data(col_list, ugrid, method='nearest'):
+    """ Interpolate the wear data from col_list onto the surface described in the vtkUnstructuredGrid ugrid """
+
+    out_pts = numpy.array([ ugrid.GetPoint(i) for i  in range(ugrid.GetNumberOfPoints())])
+
+    data_pts = numpy.array([c.pos for c in col_list])
+    wear_pts = numpy.array([c.get_wear() for c in col_list])
+
+    print data_pts, numpy.isfinite(data_pts).all()
+    print wear_pts, numpy.isfinite(wear_pts).all()
+
+    wear_on_grid = griddata(data_pts, wear_pts, out_pts, method=method)
+#    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts, function='gaussian', epsilon=0.1,smooth=3.0)
+#    wear_on_grid = rbfi(out_pts[:,0], out_pts[:, 1], out_pts[:, 2])
+
+    print wear_on_grid.max()
+
+    wear_vtk = vtk.vtkDoubleArray()
+    wear_vtk.SetName('Wear')
+
+    for wear in wear_on_grid:
+        wear_vtk.InsertNextValue(wear)
+
+    ugrid.GetPointData().AddArray(wear_vtk)

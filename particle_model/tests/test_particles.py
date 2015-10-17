@@ -12,6 +12,8 @@ BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 
 MESH = IO.GmshMesh()
 MESH.read('particle_model/tests/data/Structured.msh')
+MESH3D = IO.GmshMesh()
+MESH3D.read('particle_model/tests/data/Structured_cube.msh')
 
 def temp_cache(fname='rightward_0.vtu',ldir='particle_model/tests/data'):
     """Mock temporal cache."""
@@ -109,8 +111,7 @@ def test_picker_linear(tmpdir):
     print FNAME
 
     def vel(x):
-        return numpy.array(( x[0],
-                              x[1], 0))
+        return numpy.array((x[0], x[1], 0))
 
     def pres(x):
         return x[0]
@@ -118,6 +119,34 @@ def test_picker_linear(tmpdir):
     IO.make_unstructured_grid(MESH,vel,pres,0.0,FNAME)
 
     part = Particles.Particle(0, 0, tc=temp_cache('linear.vtu',
+                                                  tmpdir.strpath))
+    for point in X:
+
+        fluid_velocity, grad_p = part.picker(point, 0.0)
+        
+        assert all(abs(fluid_velocity - vel(point)) < ERR)
+        assert all(grad_p == numpy.array((1.0, 0.0, 0.0)))
+
+def test_picker_linear_3d(tmpdir):
+    """Test vtk picker in 3D."""
+
+    X = ((0.5, 0.5, 0.5),
+         (0.25,0.75,0.25))
+
+    ERR = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
+    FNAME = tmpdir.join('linear3D.vtu').strpath
+
+    print FNAME
+
+    def vel(x):
+        return numpy.array((x[0], x[1], x[2]))
+
+    def pres(x):
+        return x[0]
+
+    IO.make_unstructured_grid(MESH3D,vel,pres,0.0,FNAME)
+
+    part = Particles.Particle(0, 0, tc=temp_cache('linear3D.vtu',
                                                   tmpdir.strpath))
     for point in X:
 

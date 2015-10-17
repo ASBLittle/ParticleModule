@@ -2,6 +2,8 @@
 import particle_model as pm
 import numpy
 
+S = '160'
+
 N = 400
 
 X = 0.5+0.25*(numpy.random.random((N, 3))-0.5)
@@ -14,17 +16,19 @@ V[:, 1] = numpy.pi*numpy.cos(numpy.pi*X[:, 0])*numpy.sin(2.0*numpy.pi*X[:, 1])
 U = numpy.zeros((N, 3))
 GP = numpy.zeros((N, 3))
 
+NAME = 'gyre%sx%s'%(S,S)
+
 BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
-TEMP_CACHE = pm.TemporalCache.TemporalCache('gyre')
+TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, tc=TEMP_CACHE, U=U, GP=GP,
                                  boundary=BOUNDARY, diameter=1e-3)
 
 TEMP_CACHE.data[1][0] = 100.0
 
-PD = pm.IO.PolyData('gyre.vtp')
+PD = pm.IO.PolyData(NAME+'.vtp')
 PD.append_data(PB)
-pm.IO.write_level_to_polydata(PB, 0, 'gyreA')
+pm.IO.write_level_to_polydata(PB, 0, NAME)
 
 for i in range(300):
     print PB.time
@@ -32,8 +36,8 @@ for i in range(300):
     print 'min, max: vel_x', PB.vel[:, 0].ravel().min(), PB.vel[:, 0].ravel().max()
     PB.update()
     PD.append_data(PB)
-    pm.IO.write_level_to_polydata(PB, i+1, 'gyreA')
+    pm.IO.write_level_to_polydata(PB, i+1, NAME)
 PD.write()
-pm.IO.collision_list_to_polydata(PB.collisions(), 'collisionsA.vtp')
+pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
 
 

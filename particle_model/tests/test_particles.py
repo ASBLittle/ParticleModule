@@ -9,6 +9,7 @@ import numpy
 from numpy import pi, sin, cos
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
+BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
 
 MESH = IO.GmshMesh()
 MESH.read('particle_model/tests/data/Structured.msh')
@@ -234,6 +235,25 @@ def test_diagonal_collision():
     assert all(part.collisions[0].vel == numpy.array((1., 1., 0.)))
     assert part.collisions[0].angle - numpy.pi / 4.0 < 1e-10
 
+def test_diagonal_collision_3D():
+    """Test a collision at an angle"""
+
+    pos = numpy.array((0.9995, 0.4995, 0.4995))
+    vel = numpy.array((1.0, 1.0, 1.0))
+
+    part = Particles.Particle(pos, vel, dt=0.001, diameter=numpy.infty,
+                              tc=temp_cache('cube_0.vtu'), boundary=BOUNDARY3D, e=1.0)
+    part.update()
+    assert all(abs(part.p - numpy.array((0.9995, 0.5005, 0.5005))) < 1.0e-8)
+    assert all(part.v == numpy.array((-1., 1.0, 1.0)))
+    assert part.t == 0.001
+
+    assert len(part.collisions) == 1
+    assert all(part.collisions[0].pos - numpy.array((1., 0.5, 0.5)) < 1.0e-8)
+    assert part.collisions[0].time - 0.0005 < 1e-8
+    assert all(part.collisions[0].vel == numpy.array((1., 1., 1.)))
+    assert part.collisions[0].angle - numpy.pi / 4.0 < 1e-10
+
 
 def test_gyre_collision():
     """Regression test for Mclaury coefficient"""
@@ -260,6 +280,8 @@ def test_gyre_collision():
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
     assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.18205645627433897 ) < 1.0e-8
+
+
 
 
 def test_coefficient_of_restitution():

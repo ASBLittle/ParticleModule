@@ -103,7 +103,7 @@ class Particle(object):
                 + self.drag(fluid_velocity, particle_velocity, self.diameter)
                 + self.coriolis_force(particle_velocity)
                 + self.g
-                - self.centrifugal_force(position))
+                + self.centrifugal_force(position))
 
     def coriolis_force(self, particle_velocity):
         """ Return Coriolis force on particle."""
@@ -221,12 +221,17 @@ class Particle(object):
         arg7 = vtk.mutable(0)
         cell_index = vtk.mutable(0)
 
+        EPSILON=1.0e-10
+
         intersect = self.boundary.bndl.IntersectWithLine(pa, p,
                                                          1.0e-6, s,
                                                          x, arg6, arg7, cell_index)
 
-        if s != -1.0:
-            print 'collision', intersect,cell_index, s, x
+        if intersect:
+            data, alpha = self.tc(self.t)
+            assert Collision.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
+
+            print 'collision', intersect,cell_index, s, x, p, pa
             x = numpy.array(x)
 
             cell = self.boundary.bnd.GetCell(cell_index)
@@ -241,9 +246,9 @@ class Particle(object):
                         -numpy.array(cell.GetPoints().GetPoint(0)))
             else:
                 
-                vec2  = numpy.array((( x - pa )[1]*vec1[2]-( x - pa )[2]*vec1[1],
-                                     ( x - pa )[2]*vec1[0]-( x - pa )[0]*vec1[2],
-                                     ( x - pa )[0]*vec1[1]-( x - pa )[1]*vec1[0]))
+                vec2  = numpy.array((( p - pa )[1]*vec1[2]-( p - pa )[2]*vec1[1],
+                                     ( p - pa )[2]*vec1[0]-( p - pa )[0]*vec1[2],
+                                     ( p - pa )[0]*vec1[1]-( p - pa )[1]*vec1[0]))
 
             normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
             normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]

@@ -35,7 +35,16 @@ STANDARD_MATERIAL = {'n': 2, 'k': 1., 'H':1., 'F_s': 1., 'F_B':1.}
 
 def test_in_cell(cell, position):
     """ Check if point is in vtk cell"""
-    return cell.GetParametricDistance(position) == 0
+
+    N = cell.GetNumberOfPoints()-1
+    x = numpy.zeros(cell.GetNumberOfPoints())
+    dummy_func=cell.GetPoints().GetPoint
+    args = [dummy_func(i)[:N] for i in range(1,N+1)]
+    args.append(dummy_func(0)[:N])
+    args.append(x)
+    cell.BarycentricCoords(position[:N], *args)
+
+    return cell.GetParametricDistance(x[:3]) == 0
 
 def mclaury_mass_coeff(collision, material=None):
     """ Wear rate coefficient of collision from Mclaury correlation"""

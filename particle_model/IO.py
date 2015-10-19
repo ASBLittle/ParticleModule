@@ -9,6 +9,8 @@ import os
 import os.path
 from scipy.interpolate import griddata, Rbf
 
+from vtk.util.numpy_support import numpy_to_vtk
+
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
@@ -414,8 +416,78 @@ def write_level_to_polydata(bucket, level, basename, **kwargs):
     writer.SetInput(poly_data)
     writer.Write()
 
+
+def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
+    """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.
+
+    Particle volumes are averaged over the cells in the model using a control volume
+    approach."""
+
+    ugrid=vtk.vtkUnstructuredGrid()
+    ugrid.DeepCopy(model)
+
+    volume = numpy.zeros(ugrid.GetNumberOfPoints())
+    velocity = numpy.zeros((ugrid.GetNumberOfPoints(),3))
+
+    mass = numpy.zeros(ugrid.GetNumberOfPoints())
+
+    for _ in range(ugrid.GetNumberOfCells()):
+        cell = ugrid.GetCell(_)
+        dummy = cell.GetPoints().GetPoint
+        dummy_id = cell.GetPointIds().GetId
+
+        measure = abs(cell.TriangleArea(dummy(0), dummy(1), dummy(2)))
+
+        for k in range(cell.GetNumberOfPoints()):
+            mass[dummy_id(k)] += measure/cell.GetNumberOfPoints()
+
+    print mass.min()
+
+    locator=vtk.vtkPointLocator()
+    locator.SetDataSet(ugrid)
+    locator.BuildLocator()
+
+    for particle in bucket.particles:
+#        point_index = locator.FindClosestPoint(particle.p)
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(0.05, particle.p, point_list)
+
+        for k in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(k)
+            r0=numpy.array(ugrid.GetPoints().GetPoint(point_index))
+
+            r=numpy.sum((r0-particle.p)**2)
+
+            volume[ point_index ] += 1.0/6.0*numpy.pi*particle.diameter**3*numpy.exp(-(r/(500*particle.diameter))**2)
+            velocity[ point_index, :] += particle.v*1.0/6.0*numpy.pi*particle.diameter**3*numpy.exp(-(r/(500*particle.diameter))**2)
+
+    print volume.min(), volume.max()
+
+#    volume = volume/mass
+    volume_vtk=vtk.vtkDoubleArray()
+    volume_vtk.SetName('SolidVolumeFraction')
+    velocity_vtk=vtk.vtkDoubleArray()
+    velocity_vtk.SetName('SolidVolumeVelocity')
+    velocity_vtk.SetNumberOfComponents(3)
+
+    for k in range(ugrid.GetNumberOfPoints()):
+        volume_vtk.InsertNextValue(volume[k])
+        if volume[k] > 1.0e-12:
+            velocity_vtk.InsertNextTuple3(*(velocity[k]/volume[k]))
+        else:
+            velocity_vtk.InsertNextTuple3(*(0*velocity[k]))
+        ugrid.GetPointData().GetScalars('Time').SetValue(k,bucket.time)
+
+    ugrid.GetPointData().AddArray(volume_vtk)
+    ugrid.GetPointData().AddArray(velocity_vtk)
+
+    writer=vtk.vtkXMLUnstructuredGridWriter()
+    writer.SetFileName("%s_out_%d.vtu"%(basename, level))
+    writer.SetInput(ugrid)
+    writer.Write()
+
 def ascii_to_polydata(filename, outfile):
-    """Convert ascii file to a single vtkPolyData (.vtp) files.
+    """Convert ascii file to a single vtkXMLPolyData (.vtp) files.
 
     Each particle is written to seperate cell.
 

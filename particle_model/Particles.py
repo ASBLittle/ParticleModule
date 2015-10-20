@@ -6,7 +6,6 @@ from particle_model import DragModels
 from particle_model import Collision
 
 import numpy
-from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 import vtk
 import scipy.linalg as la
 import itertools
@@ -17,9 +16,11 @@ ARGI = vtk.mutable(0)
 ARGR = vtk.mutable(0.0)
 
 def invert(mat):
+    """ Hard coded 2D matrix inverse."""
     if mat.shape == (2, 2):
-        return numpy.array(((mat[1,1], -mat[0,1]), 
-                            (-mat[1,0], mat[0,0])))/(mat[0,0]*mat[1,1]-mat[0,1]*mat[1,0])
+        return (numpy.array(((mat[1, 1], -mat[0, 1]),
+                             (-mat[1, 0], mat[0, 0])))
+                /(mat[0, 0]*mat[1, 1]-mat[0, 1]*mat[1, 0]))
     else:
         return la.inv(mat)
 
@@ -65,7 +66,7 @@ class Particle(object):
         step, col, vel = self.collide(kap2[0], 0.5 * self.dt, v=self.v, f=kap2[1])
         kap3 = (self.v+0.5 * self.dt * kap2[1], self.force(self.p + step,
                                                            self.v + vel,
-                                                           self.t + 0.5*self.dt))   
+                                                           self.t + 0.5*self.dt))
 
         step, col, vel = self.collide(kap3[0], self.dt, v=self.v, f=kap3[1])
         kap4 = (self.v + self.dt * kap3[1], self.force(self.p + step,
@@ -108,20 +109,20 @@ class Particle(object):
     def coriolis_force(self, particle_velocity):
         """ Return Coriolis force on particle."""
 
-        def cross(x,y):
+        def cross(vec1, vec2):
             """Return cross product of 3-tuples x and y."""
-            z = numpy.zeros(3)
-            z[0] = x[1]*y[2]-x[2]*y[1]
-            z[1] = x[2]*y[0]-x[0]*y[2]
-            z[2] = x[0]*y[1]-x[1]*y[0]
-            return z
+            out = numpy.zeros(3)
+            out[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
+            out[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
+            out[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
+            return out
 
         return -2.0 * cross(self.omega, particle_velocity)
 
     def centrifugal_force(self, position):
         """ Return centrifugal force on particle"""
-        return - ( numpy.dot(self.omega, position) * self.omega 
-                   - numpy.dot(self.omega, self.omega) * position)
+        return - (numpy.dot(self.omega, position) * self.omega
+                  - numpy.dot(self.omega, self.omega) * position)
 
     def find_cell(self, locator, point=None):
         """ Use vtk rountines to find cell/element containing the point."""
@@ -147,13 +148,13 @@ class Particle(object):
             linear_cell = IO.get_linear_cell(cell)
             pids = cell.GetPointIds()
 
-            N = linear_cell.GetNumberOfPoints()-1
-            x = numpy.zeros(linear_cell.GetNumberOfPoints())
-            dummy_func=linear_cell.GetPoints().GetPoint
-            args = [dummy_func(i)[:N] for i in range(1,N+1)]
-            args.append(dummy_func(0)[:N])
-            args.append(x)
-            linear_cell.BarycentricCoords(pos[:N], *args)
+            dim = linear_cell.GetNumberOfPoints()-1
+            upos = numpy.zeros(linear_cell.GetNumberOfPoints())
+            dummy_func = linear_cell.GetPoints().GetPoint
+            args = [dummy_func(i+1)[:dim] for i in range(dim)]
+            args.append(dummy_func(0)[:dim])
+            args.append(upos)
+            linear_cell.BarycentricCoords(pos[:dim], *args)
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
@@ -161,29 +162,31 @@ class Particle(object):
             data_p = infile.GetPointData().GetScalars('Pressure')
 
 
-            sf = numpy.zeros(cell.GetNumberOfPoints())
-            df = numpy.zeros(N*cell.GetNumberOfPoints())
-            cell.InterpolateFunctions(x[:3], sf)
-            cell.InterpolateDerivs(x[:3], df)
+            shape_funs = numpy.zeros(cell.GetNumberOfPoints())
+            deriv_funs = numpy.zeros(dim*cell.GetNumberOfPoints())
+            cell.InterpolateFunctions(upos[:3], shape_funs)
+            cell.InterpolateDerivs(upos[:3], deriv_funs)
 
 
-            rhs = numpy.array([data_p.GetValue(cell.GetPointId(i+1)) - data_p.GetValue(cell.GetPointId(0)) for i in range(N)])
+            rhs = numpy.array([data_p.GetValue(cell.GetPointId(i+1))
+                               -data_p.GetValue(cell.GetPointId(0))
+                               for i in range(dim)])
 
-            mat = numpy.zeros((N, N))
+            mat = numpy.zeros((dim, dim))
 
-            pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(N+1)])
-            for i in range(N):
-                mat[i, :] = pts[i+1,:N] - pts[0,:N]
+            pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(dim+1)])
+            for i in range(dim):
+                mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
 
 #            mat=la.inv(mat)
             mat = invert(mat)
 
-            nvout=numpy.array([data_u.GetTuple(pids.GetId(i)) 
-                               for i in range(cell.GetNumberOfPoints())])
-            out = numpy.dot(sf, nvout)
+            nvout = numpy.array([data_u.GetTuple(pids.GetId(i))
+                                 for i in range(cell.GetNumberOfPoints())])
+            out = numpy.dot(shape_funs, nvout)
 
             grad_p = numpy.zeros(3)
-            grad_p[:N] = numpy.dot(mat, rhs)
+            grad_p[:dim] = numpy.dot(mat, rhs)
 
             return out, grad_p
 
@@ -221,17 +224,15 @@ class Particle(object):
         arg7 = vtk.mutable(0)
         cell_index = vtk.mutable(0)
 
-        EPSILON=1.0e-10
-
         intersect = self.boundary.bndl.IntersectWithLine(pa, p,
                                                          1.0e-6, s,
                                                          x, arg6, arg7, cell_index)
 
         if intersect:
-            data, alpha = self.tc(self.t)
+            data, _ = self.tc(self.t)
             assert Collision.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
 
-            print 'collision', intersect,cell_index, s, x, p, pa
+            print 'collision', intersect, cell_index, s, x, p, pa
             x = numpy.array(x)
 
             cell = self.boundary.bnd.GetCell(cell_index)
@@ -245,10 +246,9 @@ class Particle(object):
                 vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
                         -numpy.array(cell.GetPoints().GetPoint(0)))
             else:
-                
-                vec2  = numpy.array((( p - pa )[1]*vec1[2]-( p - pa )[2]*vec1[1],
-                                     ( p - pa )[2]*vec1[0]-( p - pa )[0]*vec1[2],
-                                     ( p - pa )[0]*vec1[1]-( p - pa )[1]*vec1[0]))
+                vec2 = numpy.array(((p-pa)[1]*vec1[2]-(p-pa)[2]*vec1[1],
+                                    (p-pa)[2]*vec1[0]-(p-pa)[0]*vec1[2],
+                                    (p-pa)[0]*vec1[1]-(p-pa)[1]*vec1[0]))
 
             normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
             normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
@@ -281,9 +281,10 @@ class Particle(object):
             par_col = copy.copy(self)
             par_col.p = x
             par_col.v = vs
+            par_col.t = self.t + s * dt
 
-            coldat.append(Collision.CollisionInfo(par_col, cell_index, theta,
-                                                  self.t + s * dt, normal))
+            coldat.append(Collision.CollisionInfo(par_col, cell_index,
+                                                  theta, normal))
             vs += -(1.0 + self.e)* normal * numpy.dot(normal, vs)
 
 #            print 'After V1:', pa, p, n, vs, f
@@ -308,7 +309,7 @@ class ParticleBucket(object):
     def __init__(self, X, V, t=0, dt=1.0e-3, filename=None,
                  base_name='', U=None, GP=None, rho=2.5e3, g=numpy.zeros(3),
                  omega=numpy.zeros(3), diameter=40.e-6, boundary=None, e=0.99, tc=None):
-        """Initialize the bucket 
+        """Initialize the bucket
 
         Args:
             X (float): Initial particle positions.

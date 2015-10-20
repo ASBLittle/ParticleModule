@@ -6,7 +6,6 @@ from particle_model import DragModels
 
 import vtk
 import numpy
-from numpy import pi, sin, cos
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
@@ -16,7 +15,7 @@ MESH.read('particle_model/tests/data/Structured.msh')
 MESH3D = IO.GmshMesh()
 MESH3D.read('particle_model/tests/data/Structured_cube.msh')
 
-def temp_cache(fname='rightward_0.vtu',ldir='particle_model/tests/data'):
+def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
     """Mock temporal cache."""
     def fun(time):
         """Factory function to mock a temporal cache."""
@@ -103,57 +102,61 @@ def test_picker_constant():
 def test_picker_linear(tmpdir):
     """Test vtk picker."""
 
-    X = ((0.5, 0.5, 0.0),
-         (0.25,0.75,0.0))
+    pos = ((0.5, 0.5, 0.0),
+           (0.25, 0.75, 0.0))
 
-    ERR = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
-    FNAME = tmpdir.join('linear.vtu').strpath
+    err = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
+    fname = tmpdir.join('linear.vtu').strpath
 
-    print FNAME
+    print fname
 
-    def vel(x):
-        return numpy.array((x[0], x[1], 0))
+    def vel(pos):
+        """Fluid velocity"""
+        return numpy.array((pos[0], pos[1], 0))
 
-    def pres(x):
-        return x[0]
+    def pres(pos):
+        """Fluid pressure"""
+        return pos[0]
 
-    IO.make_unstructured_grid(MESH,vel,pres,0.0,FNAME)
+    IO.make_unstructured_grid(MESH, vel, pres, 0.0, fname)
 
     part = Particles.Particle(0, 0, tc=temp_cache('linear.vtu',
                                                   tmpdir.strpath))
-    for point in X:
+    for point in pos:
 
         fluid_velocity, grad_p = part.picker(point, 0.0)
-        
-        assert all(abs(fluid_velocity - vel(point)) < ERR)
+
+        assert all(abs(fluid_velocity - vel(point)) < err)
         assert all(grad_p == numpy.array((1.0, 0.0, 0.0)))
 
 def test_picker_linear_3d(tmpdir):
     """Test vtk picker in 3D."""
 
-    X = ((0.5, 0.5, 0.5),
-         (0.25,0.75,0.25))
+    pos = ((0.5, 0.5, 0.5),
+           (0.25, 0.75, 0.25))
 
-    ERR = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
-    FNAME = tmpdir.join('linear3D.vtu').strpath
+    err = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
+    fname = tmpdir.join('linear3D.vtu').strpath
 
-    print FNAME
+    print fname
 
-    def vel(x):
-        return numpy.array((x[0], x[1], x[2]))
+    def vel(pos):
+        """ Fluid velocity"""
+        return numpy.array((pos[0], pos[1], pos[2]))
 
-    def pres(x):
-        return x[0]
+    def pres(pos):
+        """ Fluid pressure"""
+        return pos[0]
 
-    IO.make_unstructured_grid(MESH3D,vel,pres,0.0,FNAME)
+    IO.make_unstructured_grid(MESH3D, vel, pres, 0.0, fname)
 
     part = Particles.Particle(0, 0, tc=temp_cache('linear3D.vtu',
                                                   tmpdir.strpath))
-    for point in X:
+    for point in pos:
 
         fluid_velocity, grad_p = part.picker(point, 0.0)
-        
-        assert all(abs(fluid_velocity - vel(point)) < ERR)
+
+        assert all(abs(fluid_velocity - vel(point)) < err)
         assert all(grad_p == numpy.array((1.0, 0.0, 0.0)))
 
 
@@ -279,7 +282,7 @@ def test_gyre_collision():
 
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
-    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.18205645627433897 ) < 1.0e-8
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.18205645627433897) < 1.0e-8
 
 
 

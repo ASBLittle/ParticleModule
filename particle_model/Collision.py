@@ -10,14 +10,14 @@ class CollisionException(Exception):
 
 class CollisionInfo(object):
     """ Utility class for collision information """
-    def __init__(self, particle, cell, angle, time, normal):
+    def __init__(self, particle, cell, angle, normal):
         """ Initialise from particle collision information."""
         self.particle = copy.copy(particle)
         self.pos = copy.copy(particle.p)
         self.vel = copy.copy(particle.v)
+        self.time = copy.copy(particle.t)
         self.cell = cell
-        self.angle = angle
-        self.time = copy.copy(time)
+        self.angle = copy.copy(angle)
         self.normal = copy.copy(normal)
 
     def get_wear(self):
@@ -36,25 +36,25 @@ STANDARD_MATERIAL = {'n': 2, 'k': 1., 'H':1., 'F_s': 1., 'F_B':1.}
 def test_in_cell(cell, position):
     """ Check if point is in vtk cell"""
 
-    N = cell.GetNumberOfPoints()-1
-    x = numpy.zeros(cell.GetNumberOfPoints())
-    dummy_func=cell.GetPoints().GetPoint
-    args = [dummy_func(i)[:N] for i in range(1,N+1)]
-    args.append(dummy_func(0)[:N])
-    args.append(x)
-    cell.BarycentricCoords(position[:N], *args)
+    dim = cell.GetNumberOfPoints()-1
+    ppos = numpy.zeros(cell.GetNumberOfPoints())
+    dummy_func = cell.GetPoints().GetPoint
+    args = [dummy_func(i)[:dim] for i in range(1, dim+1)]
+    args.append(dummy_func(0)[:dim])
+    args.append(ppos)
+    cell.BarycentricCoords(position[:dim], *args)
 
-    return cell.GetParametricDistance(x[:3]) == 0
+    return cell.GetParametricDistance(ppos[:3]) == 0
 
 def mclaury_mass_coeff(collision, material=None):
     """ Wear rate coefficient of collision from Mclaury correlation"""
     material = material or STANDARD_MATERIAL
 
     n_exp = material['n']
-    k = material['k']
-    H = material['H']
-    F_s = material['F_s']
-    F_B = material['F_s']
+    coeff = material['k']
+    hardness = material['H']
+    sharpness_factor = material['F_s']
+    penetration_factor = material['F_B']
 
     def fun(theta):
         """ Mclaury angle response function"""
@@ -65,4 +65,4 @@ def mclaury_mass_coeff(collision, material=None):
 
     vel = numpy.sqrt(numpy.sum(collision.vel**2))
 
-    return k*H*F_s*F_B*vel**n_exp*fun(collision.angle)
+    return coeff*hardness*sharpness_factor*penetration_factor*vel**n_exp*fun(collision.angle)

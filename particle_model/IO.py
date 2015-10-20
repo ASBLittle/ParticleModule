@@ -7,10 +7,7 @@ import vtk
 import numpy
 import os
 import os.path
-from scipy.interpolate import griddata, Rbf
-
-from vtk.util.numpy_support import numpy_to_vtk
-
+from scipy.interpolate import griddata
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
@@ -18,6 +15,9 @@ TYPES_1D = [vtk.VTK_LINE]
 
 TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
+
+WRITER = {vtk.VTK_UNSTRUCTURED_GRID:vtk.vtkXMLUnstructuredGridWriter,
+          vtk.VTK_POLY_DATA:vtk.vtkXMLPolyDataWriter,}
 
 class GmshMesh(object):
     """This is a class for storing nodes and elements.
@@ -117,20 +117,21 @@ class PolyData(object):
             array = vtk.vtkDoubleArray()
             array.SetName(name)
             self.poly_data.GetPointData().AddArray(array)
-        
+
     def append_data(self, bucket):
         """ Add the data from the current time level"""
 
         for particle in bucket.particles:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
 
-            id = self.pnts.InsertNextPoint(particle.p)
+            part_id = self.pnts.InsertNextPoint(particle.p)
 
-            ids.InsertNextId(id)
+            ids.InsertNextId(part_id)
 
             self.poly_data.GetPointData().GetScalars('Time').InsertNextValue(bucket.time)
-            
+
     def write(self):
+        """ Write the staged vtkPolyData to a file."""
 
         self.poly_data.SetPoints(self.pnts)
 
@@ -352,7 +353,7 @@ def ascii_to_polydata_time_series(filename, basename):
         velocity.Allocate(ascii_data[1].shape[0])
         velocity.SetName('Particle Velocity')
 
-        for k, data in enumerate(numpy.array(full_data).T):
+        for data in numpy.array(full_data).T:
             pixel = vtk.vtkPixel()
             pixel.GetPointIds().InsertId(0,
                                          poly_data.GetPoints().InsertNextPoint(data[0],
@@ -372,10 +373,10 @@ def ascii_to_polydata_time_series(filename, basename):
 def write_level_to_polydata(bucket, level, basename, **kwargs):
 
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
-    
+
     Each file contains one time level of the data, and are numbered sequentially.
     Within each file, each particle is written to seperate pixel.
-    
+
     Args:
          bucket   (ParticleBucket):
         level    (int):
@@ -399,7 +400,7 @@ def write_level_to_polydata(bucket, level, basename, **kwargs):
     velocity.Allocate(bucket.pos.shape[0])
     velocity.SetName('Particle Velocity')
 
-    for positions,vel in zip(bucket.pos, bucket.vel):
+    for positions, vel in zip(bucket.pos, bucket.vel):
         pixel = vtk.vtkPixel()
         pixel.GetPointIds().InsertId(0,
                                      poly_data.GetPoints().InsertNextPoint(positions[0],
@@ -423,29 +424,28 @@ def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
     Particle volumes are averaged over the cells in the model using a control volume
     approach."""
 
-    ugrid=vtk.vtkUnstructuredGrid()
+    del kwargs
+
+    ugrid = vtk.vtkUnstructuredGrid()
     ugrid.DeepCopy(model)
 
-    volume = numpy.zeros(ugrid.GetNumberOfPoints())
-    velocity = numpy.zeros((ugrid.GetNumberOfPoints(),3))
+#    mass = numpy.zeros(ugrid.GetNumberOfPoints())
+#    for _ in range(ugrid.GetNumberOfCells()):
+#        cell = ugrid.GetCell(_)
+#        dummy = cell.GetPoints().GetPoint
+#        dummy_id = cell.GetPointIds().GetId
+#
+#        measure = abs(cell.TriangleArea(dummy(0), dummy(1), dummy(2)))
+#
+#        for k in range(cell.GetNumberOfPoints()):
+#            mass[dummy_id(k)] += measure/cell.GetNumberOfPoints()
 
-    mass = numpy.zeros(ugrid.GetNumberOfPoints())
-
-    for _ in range(ugrid.GetNumberOfCells()):
-        cell = ugrid.GetCell(_)
-        dummy = cell.GetPoints().GetPoint
-        dummy_id = cell.GetPointIds().GetId
-
-        measure = abs(cell.TriangleArea(dummy(0), dummy(1), dummy(2)))
-
-        for k in range(cell.GetNumberOfPoints()):
-            mass[dummy_id(k)] += measure/cell.GetNumberOfPoints()
-
-    print mass.min()
-
-    locator=vtk.vtkPointLocator()
+    locator = vtk.vtkPointLocator()
     locator.SetDataSet(ugrid)
     locator.BuildLocator()
+
+    volume = numpy.zeros(ugrid.GetNumberOfPoints())
+    velocity = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
     for particle in bucket.particles:
 #        point_index = locator.FindClosestPoint(particle.p)
@@ -454,37 +454,34 @@ def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
 
         for k in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(k)
-            r0=numpy.array(ugrid.GetPoints().GetPoint(point_index))
 
-            r=numpy.sum((r0-particle.p)**2)
+            rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
+                              -particle.p)**2)
 
-            volume[ point_index ] += 1.0/6.0*numpy.pi*particle.diameter**3*numpy.exp(-(r/(500*particle.diameter))**2)
-            velocity[ point_index, :] += particle.v*1.0/6.0*numpy.pi*particle.diameter**3*numpy.exp(-(r/(500*particle.diameter))**2)
+            volume[point_index] += (1.0/6.0*numpy.pi*particle.diameter**3
+                                    *numpy.exp(-(rad2/(500*particle.diameter))**2))
+            velocity[point_index, :] += (particle.v*1.0/6.0*numpy.pi
+                                         *particle.diameter**3
+                                         *numpy.exp(-(rad2/(500*particle.diameter))**2))
 
-    print volume.min(), volume.max()
-
-#    volume = volume/mass
-    volume_vtk=vtk.vtkDoubleArray()
-    volume_vtk.SetName('SolidVolumeFraction')
-    velocity_vtk=vtk.vtkDoubleArray()
-    velocity_vtk.SetName('SolidVolumeVelocity')
-    velocity_vtk.SetNumberOfComponents(3)
+    data = [vtk.vtkDoubleArray()]
+    data[0].SetName('SolidVolumeFraction')
+    data.append(vtk.vtkDoubleArray())
+    data[1].SetName('SolidVolumeVelocity')
+    data[1].SetNumberOfComponents(3)
 
     for k in range(ugrid.GetNumberOfPoints()):
-        volume_vtk.InsertNextValue(volume[k])
+        data[0].InsertNextValue(volume[k])
         if volume[k] > 1.0e-12:
-            velocity_vtk.InsertNextTuple3(*(velocity[k]/volume[k]))
+            data[1].InsertNextTuple3(*(velocity[k]/volume[k]))
         else:
-            velocity_vtk.InsertNextTuple3(*(0*velocity[k]))
-        ugrid.GetPointData().GetScalars('Time').SetValue(k,bucket.time)
+            data[1].InsertNextTuple3(*(0*velocity[k]))
+        ugrid.GetPointData().GetScalars('Time').SetValue(k, bucket.time)
 
-    ugrid.GetPointData().AddArray(volume_vtk)
-    ugrid.GetPointData().AddArray(velocity_vtk)
+    for _ in data:
+        ugrid.GetPointData().AddArray(data)
 
-    writer=vtk.vtkXMLUnstructuredGridWriter()
-    writer.SetFileName("%s_out_%d.vtu"%(basename, level))
-    writer.SetInput(ugrid)
-    writer.Write()
+    write_to_file(ugrid, "%s_out_%d.vtu"%(basename, level))
 
 def ascii_to_polydata(filename, outfile):
     """Convert ascii file to a single vtkXMLPolyData (.vtp) files.
@@ -596,71 +593,74 @@ def get_linear_cell(cell):
 
     return linear_cell
 
+def write_to_file(vtk_data, outfile):
+    """ Wrapper around the various VTK writer routines"""
+
+    writer = WRITER[vtk_data.GetDataObjectType()]()
+    writer.SetFileName(outfile)
+    writer.SetInput(vtk_data)
+    writer.Write()
+
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
-    """Given a mesh (in Gmsh format), velocity and pressure fields, and a time level, store the data in a vtkUnstructuredGridFormat.""" 
+    """Given a mesh (in Gmsh format), velocity and pressure fields, and a
+    time level, store the data in a vtkUnstructuredGridFormat."""
 
     pnts = vtk.vtkPoints()
-    node2id = {}
-    element2id = {}
     pnts.Allocate(len(mesh.nodes))
-    
+
+    node2id = {}
     for k, point in mesh.nodes.items():
         node2id[k] = pnts.InsertNextPoint(point)
 
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pnts)
 
-    for k, element in mesh.elements.items():
+    for element in mesh.elements.values():
         id_list = vtk.vtkIdList()
-
         for node in element[2]:
             id_list.InsertNextId(node2id[node])
 
-        element2id[k] = ugrid.InsertNextCell(TYPE_DICT[element[0]],id_list)
-    
-    vel = vtk.vtkDoubleArray()
-    vel.SetNumberOfComponents(3)
-    vel.Allocate(3*pnts.GetNumberOfPoints())
-    vel.SetName('Velocity')
-    
-    pres = vtk.vtkDoubleArray()
-    pres.Allocate(pnts.GetNumberOfPoints())
-    pres.SetName('Pressure')
+        ugrid.InsertNextCell(TYPE_DICT[element[0]], id_list)
 
-    mtime = vtk.vtkDoubleArray()
-    mtime.Allocate(pnts.GetNumberOfPoints())
-    mtime.SetName('Time')
+    data = []
+    data.append(vtk.vtkDoubleArray())
+    data[0].SetNumberOfComponents(3)
+    data[0].Allocate(3*pnts.GetNumberOfPoints())
+    data[0].SetName('Velocity')
 
-    for i in range(len(mesh.nodes)):
+    data.append(vtk.vtkDoubleArray())
+    data[1].Allocate(pnts.GetNumberOfPoints())
+    data[1].SetName('Pressure')
+
+    data.append(vtk.vtkDoubleArray())
+    data[2].Allocate(pnts.GetNumberOfPoints())
+    data[2].SetName('Time')
+
+    for k in range(len(mesh.nodes)):
         if hasattr(velocity, '__call__'):
-            vel.InsertNextTuple3(*velocity(ugrid.GetPoints().GetPoint(i)))
+            data[0].InsertNextTuple3(*velocity(ugrid.GetPoints().GetPoint(k)))
         else:
-            vel.InsertNextTuple3(*velocity[i,:])
+            data[0].InsertNextTuple3(*velocity[k, :])
         if hasattr(pressure, '__call__'):
-            pres.InsertNextValue(pressure(ugrid.GetPoints().GetPoint(i)))
+            data[1].InsertNextValue(pressure(ugrid.GetPoints().GetPoint(k)))
         else:
-            pres.InsertNextValue(pressure[i])
-        mtime.InsertNextValue(time)
+            data[1].InsertNextValue(pressure[k])
+        data[2].InsertNextValue(time)
 
 
-    ugrid.GetPointData().AddArray(vel)
-    ugrid.GetPointData().AddArray(pres)
-    ugrid.GetPointData().AddArray(mtime)
+    for _ in data:
+        ugrid.GetPointData().AddArray(_)
 
     if outfile:
-        writer = vtk.vtkXMLUnstructuredGridWriter()
-        writer.SetFileName(outfile)
-        writer.SetInput(ugrid)
-        writer.Write()
+        write_to_file(ugrid, outfile)
 
     return ugrid
 
-
-    
 def interpolate_collision_data(col_list, ugrid, method='nearest'):
-    """ Interpolate the wear data from col_list onto the surface described in the vtkUnstructuredGrid ugrid """
+    """ Interpolate the wear data from col_list onto the surface described
+    in the vtkUnstructuredGrid ugrid """
 
-    out_pts = numpy.array([ ugrid.GetPoint(i) for i  in range(ugrid.GetNumberOfPoints())])
+    out_pts = numpy.array([ugrid.GetPoint(i) for i in range(ugrid.GetNumberOfPoints())])
 
     data_pts = numpy.array([c.pos for c in col_list])
     wear_pts = numpy.array([c.get_wear() for c in col_list])
@@ -669,7 +669,8 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
     print wear_pts, numpy.isfinite(wear_pts).all()
 
     wear_on_grid = griddata(data_pts, wear_pts, out_pts, method=method)
-#    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts, function='gaussian', epsilon=0.1,smooth=3.0)
+#    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts,
+#    function='gaussian', epsilon=0.1,smooth=3.0)
 #    wear_on_grid = rbfi(out_pts[:,0], out_pts[:, 1], out_pts[:, 2])
 
     print wear_on_grid.max()

@@ -16,7 +16,7 @@ V[:, 1] = numpy.pi*numpy.cos(numpy.pi*X[:, 0])*numpy.sin(2.0*numpy.pi*X[:, 1])
 U = numpy.zeros((N, 3))
 GP = numpy.zeros((N, 3))
 
-NAME = 'gyre%sx%s'%(S,S)
+NAME = 'gyre%sx%s'%(S, S)
 
 BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)

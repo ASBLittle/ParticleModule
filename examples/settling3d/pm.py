@@ -20,7 +20,8 @@ NAME = 'cylinder'
 BOUNDARY = pm.IO.BoundaryData('cylinder_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
 
-PB = pm.Particles.ParticleBucket(X, V, 0.0, 5.0e-3, tc=TEMP_CACHE, U=U, GP=GP,
+PB = pm.Particles.ParticleBucket(X, V, 0.0, 5.0e-3, temporal_cache=TEMP_CACHE,
+                                 U=U, GP=GP,
                                  boundary=BOUNDARY, e=0.99, diameter=400e-6,
                                  g=numpy.array((0, 0, -1)))
 

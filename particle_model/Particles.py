@@ -308,7 +308,7 @@ class ParticleBucket(object):
 
     def __init__(self, X, V, t=0, dt=1.0e-3, filename=None,
                  base_name='', U=None, GP=None, rho=2.5e3, g=numpy.zeros(3),
-                 omega=numpy.zeros(3), diameter=40.e-6, boundary=None, e=0.99, tc=None):
+                 omega=numpy.zeros(3), diameter=40.e-6, boundary=None, e=0.99, temporal_cache=None):
         """Initialize the bucket
 
         Args:
@@ -317,10 +317,10 @@ class ParticleBucket(object):
         """
 
 
-        if tc:
-            self.tc = tc
+        if temporal_cache:
+            self.temporal_cache = temporal_cache
         else:
-            self.tc = TemporalCache.TemporalCache(base_name)
+            self.temporal_cache = TemporalCache.TemporalCache(base_name)
         self.particles = []
 
         if U is None:
@@ -329,7 +329,7 @@ class ParticleBucket(object):
             GP = [None for _ in range(X.shape[0])]
 
         for pos, vel, fluid_vel, grad_p in zip(X, V, U, GP):
-            self.particles.append(Particle(pos, vel, t, dt, tc=self.tc, u=fluid_vel,
+            self.particles.append(Particle(pos, vel, t, dt, tc=self.temporal_cache, u=fluid_vel,
                                            gp=grad_p, rho=rho, g=g, omega=omega,
                                            diameter=diameter, boundary=boundary, e=e))
         self.time = t
@@ -344,7 +344,7 @@ class ParticleBucket(object):
 
     def update(self):
         """ Update all the particles in the bucket to the next time level."""
-        self.tc.range(self.time, self.time + self.delta_t)
+        self.temporal_cache.range(self.time, self.time + self.delta_t)
         for part in self.particles:
             part.update()
 

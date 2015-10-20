@@ -2,7 +2,7 @@
 import particle_model as pm
 import numpy
 
-S = '160'
+S = '40'
 
 N = 400
 
@@ -37,6 +37,7 @@ for i in range(300):
     PB.update()
     PD.append_data(PB)
     pm.IO.write_level_to_polydata(PB, i+1, NAME)
+    pm.IO.write_level_to_unstructured_grid(PB, i+1, NAME, PB.tc.data[0][2])
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
 

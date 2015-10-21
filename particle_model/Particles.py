@@ -4,6 +4,7 @@ from particle_model import TemporalCache
 from particle_model import IO
 from particle_model import DragModels
 from particle_model import Collision
+from particle_model import System
 
 import numpy
 import vtk
@@ -28,8 +29,8 @@ class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
 
     def __init__(self, p, v, t=0.0, dt=1.0, tc=None, u=numpy.zeros(3),
-                 gp=numpy.zeros(3), rho=2.5e3, g=numpy.zeros(3),
-                 omega=numpy.zeros(3), diameter=40e-6, boundary=None,
+                 gp=numpy.zeros(3), rho=2.5e3,
+                 diameter=40e-6, system=System.System(),
                  e=0.99, drag=DragModels.transitional_drag):
 
         self.p = p
@@ -38,13 +39,10 @@ class Particle(object):
         self.dt = dt
         self.collisions = []
         self.tc = tc
-        self.rho = 2.0e3
-        self.g = g
-        self.omega = omega
         self.diameter = diameter
         self.u = u
         self.gp = gp
-        self.boundary = boundary
+        self.system = system
         self.e = e
         self.rho = rho
         self.drag = drag
@@ -103,7 +101,7 @@ class Particle(object):
         return (grad_p / self.rho
                 + self.drag(fluid_velocity, particle_velocity, self.diameter)
                 + self.coriolis_force(particle_velocity)
-                + self.g
+                + self.system.gravity
                 + self.centrifugal_force(position))
 
     def coriolis_force(self, particle_velocity):
@@ -117,12 +115,12 @@ class Particle(object):
             out[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
             return out
 
-        return -2.0 * cross(self.omega, particle_velocity)
+        return -2.0 * cross(self.system.omega, particle_velocity)
 
     def centrifugal_force(self, position):
         """ Return centrifugal force on particle"""
-        return - (numpy.dot(self.omega, position) * self.omega
-                  - numpy.dot(self.omega, self.omega) * position)
+        return - (numpy.dot(self.system.omega, position) * self.system.omega
+                  - numpy.dot(self.system.omega, self.system.omega) * position)
 
     def find_cell(self, locator, point=None):
         """ Use vtk rountines to find cell/element containing the point."""
@@ -224,9 +222,11 @@ class Particle(object):
         arg7 = vtk.mutable(0)
         cell_index = vtk.mutable(0)
 
-        intersect = self.boundary.bndl.IntersectWithLine(pa, p,
-                                                         1.0e-6, s,
-                                                         x, arg6, arg7, cell_index)
+        bndl = self.system.boundary.bndl
+
+        intersect = bndl.IntersectWithLine(pa, p,
+                                           1.0e-6, s,
+                                           x, arg6, arg7, cell_index)
 
         if intersect:
             data, _ = self.tc(self.t)
@@ -235,7 +235,7 @@ class Particle(object):
             print 'collision', intersect, cell_index, s, x, p, pa
             x = numpy.array(x)
 
-            cell = self.boundary.bnd.GetCell(cell_index)
+            cell = self.system.boundary.bnd.GetCell(cell_index)
 
             normal = numpy.zeros(3)
 
@@ -307,8 +307,9 @@ class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
     def __init__(self, X, V, t=0, dt=1.0e-3, filename=None,
-                 base_name='', U=None, GP=None, rho=2.5e3, g=numpy.zeros(3),
-                 omega=numpy.zeros(3), diameter=40.e-6, boundary=None, e=0.99, temporal_cache=None):
+                 base_name='', U=None, GP=None, rho=2.5e3,
+                 diameter=40.e-6, e=0.99,
+                 temporal_cache=None, system=System.System()):
         """Initialize the bucket
 
         Args:
@@ -328,17 +329,21 @@ class ParticleBucket(object):
         if GP is None:
             GP = [None for _ in range(X.shape[0])]
 
-        for pos, vel, fluid_vel, grad_p in zip(X, V, U, GP):
-            self.particles.append(Particle(pos, vel, t, dt, tc=self.temporal_cache, u=fluid_vel,
-                                           gp=grad_p, rho=rho, g=g, omega=omega,
-                                           diameter=diameter, boundary=boundary, e=e))
+        self.system = system
+
+        for dummy_pos, dummy_vel, dummy_fluid_vel, dummy_grad_p in zip(X, V,
+                                                                       U, GP):
+            self.particles.append(Particle(dummy_pos, dummy_vel, t, dt,
+                                           tc=self.temporal_cache, 
+                                           u=dummy_fluid_vel, gp=dummy_grad_p,
+                                           system=self.system,
+                                           rho=rho, diameter=diameter, e=e))
         self.time = t
         self.pos = X
         self.vel = V
         self.fluid_vel = U
         self.grad_p = GP
         self.delta_t = dt
-        self.boundary = boundary
         if filename:
             self.outfile = open(filename, 'w')
 

@@ -19,12 +19,13 @@ GP = numpy.zeros((N, 3))
 
 NAME = 'cube'
 
-BOUNDARY = pm.IO.BoundaryData('cube_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
+BOUNDARY = pm.IO.BoundaryData('cube_boundary.vtu')
+SYSTEM = pm.System.System(BOUNDARY)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
-                                 U=U, GP=GP,
-                                 boundary=BOUNDARY, diameter=1e-3)
+                                 U=U, GP=GP, system=SYSTEM,
+                                 diameter=1e-3)
 
 TEMP_CACHE.data[1][0] = 100.0
 

@@ -418,7 +418,7 @@ def write_level_to_polydata(bucket, level, basename, **kwargs):
     writer.Write()
 
 
-def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
+def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.
 
     Particle volumes are averaged over the cells in the model using a control volume
@@ -447,22 +447,22 @@ def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
     volume = numpy.zeros(ugrid.GetNumberOfPoints())
     velocity = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
-    for particle in bucket.particles:
+    for dummy_particle in bucket.particles:
 #        point_index = locator.FindClosestPoint(particle.p)
         point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(0.05, particle.p, point_list)
+        locator.FindPointsWithinRadius(0.05, dummy_particle.p, point_list)
 
-        for k in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(k)
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
 
             rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
-                              -particle.p)**2)
+                              -dummy_particle.p)**2)
 
-            volume[point_index] += (1.0/6.0*numpy.pi*particle.diameter**3
-                                    *numpy.exp(-(rad2/(500*particle.diameter))**2))
-            velocity[point_index, :] += (particle.v*1.0/6.0*numpy.pi
-                                         *particle.diameter**3
-                                         *numpy.exp(-(rad2/(500*particle.diameter))**2))
+            volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.diameter**3
+                                    *numpy.exp(-(rad2/(500*dummy_particle.diameter))**2))
+            velocity[point_index, :] += (dummy_particle.v*1.0/6.0*numpy.pi
+                                         *dummy_particle.diameter**3
+                                         *numpy.exp(-(rad2/(500*dummy_particle.diameter))**2))
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -470,13 +470,13 @@ def write_level_to_unstructured_grid(bucket, level, basename, model, **kwargs):
     data[1].SetName('SolidVolumeVelocity')
     data[1].SetNumberOfComponents(3)
 
-    for k in range(ugrid.GetNumberOfPoints()):
-        data[0].InsertNextValue(volume[k])
-        if volume[k] > 1.0e-12:
-            data[1].InsertNextTuple3(*(velocity[k]/volume[k]))
+    for _ in range(ugrid.GetNumberOfPoints()):
+        data[0].InsertNextValue(volume[_])
+        if volume[_] > 1.0e-12:
+            data[1].InsertNextTuple3(*(velocity[_]/volume[_]))
         else:
-            data[1].InsertNextTuple3(*(0*velocity[k]))
-        ugrid.GetPointData().GetScalars('Time').SetValue(k, bucket.time)
+            data[1].InsertNextTuple3(*(0*velocity[_]))
+        ugrid.GetPointData().GetScalars('Time').SetValue(_, bucket.time)
 
     for _ in data:
         ugrid.GetPointData().AddArray(data)

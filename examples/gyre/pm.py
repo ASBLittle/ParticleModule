@@ -18,12 +18,13 @@ GP = numpy.zeros((N, 3))
 
 NAME = 'gyre%sx%s'%(S, S)
 
-BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
+BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
+SYSTEM = pm.System.System(BOUNDARY)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
-                                 U=U, GP=GP,
-                                 boundary=BOUNDARY, diameter=1e-3)
+                                 U=U, GP=GP, system=SYSTEM,
+                                 diameter=1e-3)
 
 TEMP_CACHE.data[1][0] = 100.0
 
@@ -38,7 +39,7 @@ for i in range(300):
     PB.update()
     PD.append_data(PB)
     pm.IO.write_level_to_polydata(PB, i+1, NAME)
-    pm.IO.write_level_to_unstructured_grid(PB, i+1, NAME, PB.temporal_cache.data[0][2])
+    pm.IO.write_level_to_ugrid(PB, i+1, NAME, PB.temporal_cache.data[0][2])
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
 

@@ -16,14 +16,14 @@ GP = numpy.zeros((N, 3))
 
 NAME = 'cylinder'
 
-BOUNDARY = pm.IO.BoundaryData('cylinder_boundary.vtu')
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
+BOUNDARY = pm.IO.BoundaryData('cylinder_boundary.vtu')
+SYSTEM = pm.System.System(BOUNDARY, gravity=numpy.array((0, 0, -1)),
+                          omega=numpy.array((0, 0, 2*pi)))
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
-                                 U=U, GP=GP,
-                                 boundary=BOUNDARY, e=0.99, diameter=40e-5,
-                                 g=numpy.array((0, 0, -1)),
-                                 omega=numpy.array((0, 0, 2*pi)))
+                                 U=U, GP=GP, system=SYSTEM,
+                                 e=0.99, diameter=40e-5)
 
 TEMP_CACHE.data[1][0] = 100.0
 

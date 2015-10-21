@@ -22,10 +22,11 @@ NAME = 'cube'
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
 BOUNDARY = pm.IO.BoundaryData('cube_boundary.vtu')
 SYSTEM = pm.System.System(BOUNDARY)
+PAR = pm.Particles.PhysicalParticle(diameter=1e-3)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
                                  U=U, GP=GP, system=SYSTEM,
-                                 diameter=1e-3)
+                                 parameters=PAR)
 
 TEMP_CACHE.data[1][0] = 100.0
 

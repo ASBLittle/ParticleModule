@@ -13,12 +13,12 @@ class CollisionInfo(object):
     def __init__(self, particle, cell, angle, normal):
         """ Initialise from particle collision information."""
         self.particle = copy.copy(particle)
-        self.pos = copy.copy(particle.p)
-        self.vel = copy.copy(particle.v)
-        self.time = copy.copy(particle.t)
+        self.pos = copy.deepcopy(particle.pos)
+        self.vel = copy.deepcopy(particle.vel)
+        self.time = copy.deepcopy(particle.time)
         self.cell = cell
-        self.angle = copy.copy(angle)
-        self.normal = copy.copy(normal)
+        self.angle = copy.deepcopy(angle)
+        self.normal = copy.deepcopy(normal)
 
     def get_wear(self):
         """ Calculate wear induced by this collision"""

@@ -124,7 +124,7 @@ class PolyData(object):
         for particle in bucket.particles:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
 
-            part_id = self.pnts.InsertNextPoint(particle.p)
+            part_id = self.pnts.InsertNextPoint(particle.pos)
 
             ids.InsertNextId(part_id)
 
@@ -450,19 +450,20 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     for dummy_particle in bucket.particles:
 #        point_index = locator.FindClosestPoint(particle.p)
         point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(0.05, dummy_particle.p, point_list)
+        locator.FindPointsWithinRadius(0.05, dummy_particle.pos, point_list)
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
             rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
-                              -dummy_particle.p)**2)
+                              -dummy_particle.pos)**2)
+            rad2 /= 500*dummy_particle.parameters.diameter
 
             volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.diameter**3
-                                    *numpy.exp(-(rad2/(500*dummy_particle.diameter))**2))
-            velocity[point_index, :] += (dummy_particle.v*1.0/6.0*numpy.pi
-                                         *dummy_particle.diameter**3
-                                         *numpy.exp(-(rad2/(500*dummy_particle.diameter))**2))
+                                    *numpy.exp(-rad2**2))
+            velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
+                                         *dummy_particle.parameters.diameter**3
+                                         *numpy.exp(-rad2**2))
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')

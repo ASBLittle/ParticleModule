@@ -25,26 +25,69 @@ def invert(mat):
     else:
         return la.inv(mat)
 
+class PhysicalParticle(object):
+    """ Class describing the physical properties of a particle drawn from a known distribution."""
+
+    def __init__(self, diameter=40.0e-6, rho=2.5e3,
+                 distribution=None, material_name='Sand', **kwargs):
+        """Initialize physical particle state."""
+
+        self.diameter = diameter
+        self.base_diameter = diameter
+        self.rho = rho
+
+        self.distribution = distribution
+        self.material_name = material_name
+        self.data_dict = kwargs
+
+    def __call__(self, key='diameter'):
+        """Get attributes."""
+        if key == 'diameter':
+            return self.diameter
+        elif key == 'rho':
+            return self.rho
+        else:
+            return self.data_dict[key]
+
+    def get_volume(self):
+        """Return particle volume."""
+        return 1.0/6.0*numpy.pi*self.diameter**3
+
+    def get_mass(self):
+        """Return particle mass."""
+        return self.rho*self.get_volume()
+
+    def randomize(self):
+        """Update particle parameters from the given distribution"""
+
+        if self.distribution:
+            new_particle = copy.deepcopy(self)
+            new_particle.diameter = self.distribution(self.base_diameter)
+        else:
+            new_particle = self
+
+        return new_particle
+
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
 
-    def __init__(self, p, v, t=0.0, dt=1.0, tc=None, u=numpy.zeros(3),
-                 gp=numpy.zeros(3), rho=2.5e3,
-                 diameter=40e-6, system=System.System(),
+    def __init__(self, pos, vel, time=0.0, delta_t=1.0, temporal_cache=None,
+                 u=numpy.zeros(3), gp=numpy.zeros(3),
+                 parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
+                 system=System.System(),
                  e=0.99, drag=DragModels.transitional_drag):
 
-        self.p = p
-        self.v = v
-        self.t = t
-        self.dt = dt
+        self.pos = pos
+        self.vel = vel
+        self.time = time
+        self.delta_t = delta_t
         self.collisions = []
-        self.tc = tc
-        self.diameter = diameter
+        self.temporal_cache = temporal_cache
+        self.parameters = parameters
         self.u = u
         self.gp = gp
         self.system = system
         self.e = e
-        self.rho = rho
         self.drag = drag
 
     def update(self):
@@ -52,37 +95,46 @@ class Particle(object):
 
         The method uses relatively simple RK4 time integration."""
 
-        kap1 = (self.v, self.force(self.p,
-                                   self.v,
-                                   self.t))
+        kap1 = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time))
 
-        step, col, vel = self.collide(kap1[0], 0.5 * self.dt, self.v, f=kap1[1])
-        kap2 = (self.v + 0.5*self.dt * kap1[1], self.force(self.p + step,
-                                                           self.v + vel,
-                                                           self.t + 0.5 * self.dt))
+        step, col, vel = self.collide(kap1[0], 0.5 * self.delta_t,
+                                      self.vel,
+                                      force=kap1[1])
 
-        step, col, vel = self.collide(kap2[0], 0.5 * self.dt, v=self.v, f=kap2[1])
-        kap3 = (self.v+0.5 * self.dt * kap2[1], self.force(self.p + step,
-                                                           self.v + vel,
-                                                           self.t + 0.5*self.dt))
+        kap2 = (self.vel + 0.5*self.delta_t * kap1[1],
+                self.force(self.pos + step,
+                           self.vel + vel,
+                           self.time + 0.5 * self.delta_t))
 
-        step, col, vel = self.collide(kap3[0], self.dt, v=self.v, f=kap3[1])
-        kap4 = (self.v + self.dt * kap3[1], self.force(self.p + step,
-                                                       self.v + vel,
-                                                       self.t + self.dt))
+        step, col, vel = self.collide(kap2[0], 0.5 * self.delta_t,
+                                      vel=self.vel, force=kap2[1])
+        kap3 = (self.vel+0.5 * self.delta_t * kap2[1],
+                self.force(self.pos + step,
+                           self.vel + vel,
+                           self.time + 0.5*self.delta_t))
+
+        step, col, vel = self.collide(kap3[0], self.delta_t,
+                                      vel=self.vel,
+                                      force=kap3[1])
+        kap4 = (self.vel + self.delta_t * kap3[1],
+                self.force(self.pos + step,
+                           self.vel + vel,
+                           self.time + self.delta_t))
 
 
         step, col, vel = self.collide((kap1[0] + 2.0 * (kap2[0] + kap3[0]) + kap4[0]) / 6.0,
-                                      self.dt, v=self.v,
-                                      f=(kap1[1] + 2.0 * (kap2[1] + kap3[1]) + kap4[1])/6.0)
-        self.p += step
-        self.v += vel
+                                      self.delta_t, vel=self.vel,
+                                      force=(kap1[1] + 2.0 * (kap2[1] + kap3[1]) + kap4[1])/6.0)
+        self.pos += step
+        self.vel += vel
         if col:
             self.collisions += col
 
 
-        self.t += self.dt
-        self.u[:], self.gp[:] = self.picker(self.p, self.t)
+        self.time += self.delta_t
+        self.u[:], self.gp[:] = self.picker(self.pos, self.time)
 
     def force(self, position, particle_velocity, time):
         """Calculate the sum of the forces on the particle.
@@ -98,8 +150,8 @@ class Particle(object):
 #        if collision:
 #            raise collisionException
 
-        return (grad_p / self.rho
-                + self.drag(fluid_velocity, particle_velocity, self.diameter)
+        return (grad_p / self.parameters.rho
+                + self.drag(fluid_velocity, particle_velocity, self.parameters.diameter)
                 + self.coriolis_force(particle_velocity)
                 + self.system.gravity
                 + self.centrifugal_force(position))
@@ -125,7 +177,7 @@ class Particle(object):
     def find_cell(self, locator, point=None):
         """ Use vtk rountines to find cell/element containing the point."""
         if point is None:
-            point = self.p
+            point = self.pos
         cell_index = vtk.mutable(0)
 
 
@@ -188,7 +240,7 @@ class Particle(object):
 
             return out, grad_p
 
-        data, alpha = self.tc(time)
+        data, alpha = self.temporal_cache(time)
 
         vel0, grad_p0 = fpick(data[0][2], data[0][3])
         vel1, grad_p1 = fpick(data[1][2], data[1][3])
@@ -197,7 +249,7 @@ class Particle(object):
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
 
 
-    def collide(self, k, dt, v=None, f=None, pa=None, level=0):
+    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0):
         """Collision detection routine.
 
         Args:
@@ -209,30 +261,28 @@ class Particle(object):
             level (int) count to control maximum depth
         """
         if pa  is None:
-            pa = self.p
+            pa = self.pos
 
         if level == 10:
-            return k * dt, None, v - self.v
+            return k * delta_t, None, vel - self.vel
 
-        p = pa+dt*k
+        pos = pa+delta_t*k
 
         s = vtk.mutable(-1.0)
         x = [0.0, 0.0, 0.0]
-        arg6 = [0.0, 0.0, 0.0]
-        arg7 = vtk.mutable(0)
         cell_index = vtk.mutable(0)
 
         bndl = self.system.boundary.bndl
 
-        intersect = bndl.IntersectWithLine(pa, p,
+        intersect = bndl.IntersectWithLine(pa, pos,
                                            1.0e-6, s,
-                                           x, arg6, arg7, cell_index)
+                                           x, ARGV, ARGI, cell_index)
 
         if intersect:
-            data, _ = self.tc(self.t)
+            data, _ = self.temporal_cache(self.time)
             assert Collision.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
 
-            print 'collision', intersect, cell_index, s, x, p, pa
+            print 'collision', intersect, cell_index, s, x, pos, pa
             x = numpy.array(x)
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
@@ -246,9 +296,9 @@ class Particle(object):
                 vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
                         -numpy.array(cell.GetPoints().GetPoint(0)))
             else:
-                vec2 = numpy.array(((p-pa)[1]*vec1[2]-(p-pa)[2]*vec1[1],
-                                    (p-pa)[2]*vec1[0]-(p-pa)[0]*vec1[2],
-                                    (p-pa)[0]*vec1[1]-(p-pa)[1]*vec1[0]))
+                vec2 = numpy.array(((pos-pa)[1]*vec1[2]-(pos-pa)[2]*vec1[1],
+                                    (pos-pa)[2]*vec1[0]-(pos-pa)[0]*vec1[2],
+                                    (pos-pa)[0]*vec1[1]-(pos-pa)[1]*vec1[0]))
 
             normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
             normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
@@ -262,53 +312,49 @@ class Particle(object):
                 print vec1, vec2
                 raise Collision.CollisionException
 
-            normal = normal * numpy.sign(numpy.dot(normal, (p-pa)))
+            normal = normal * numpy.sign(numpy.dot(normal, (pos-pa)))
 
-            p = x + dt * (k - (1.0 + self.e) * normal * (numpy.dot(normal, k)))
+            pos = x + delta_t * (k - (1.0 + self.e) * normal * (numpy.dot(normal, k)))
 
             theta = abs(numpy.arcsin(numpy.dot(normal, (x-pa))
                                      / numpy.sqrt(numpy.dot(x - pa, x - pa))))
 
             coldat = []
 
-            if any(v):
-                vs = v + s * dt * f
+            if any(vel):
+                vels = vel + s * delta_t * force
             else:
-                vs = self.v + s * dt * f
-
-#            print 'Before', p0, p, vs
+                vels = self.vel + s * delta_t * force
 
             par_col = copy.copy(self)
-            par_col.p = x
-            par_col.v = vs
-            par_col.t = self.t + s * dt
+            par_col.pos = x
+            par_col.vel = vels
+            par_col.time = self.time + s * delta_t
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index,
                                                   theta, normal))
-            vs += -(1.0 + self.e)* normal * numpy.dot(normal, vs)
+            vels += -(1.0 + self.e)* normal * numpy.dot(normal, vels)
 
-#            print 'After V1:', pa, p, n, vs, f
-
-            px, col, vo = self.collide(vs, (1 - s) * dt,
-                                       v=vs, f=f, pa=x + 1.0e-10 * vs,
-                                       level=level + 1)
-            p = px + x + 1.0e-10 * vs
-
-#            print 'After V2:', pa, p, n, vs, f
+            px, col, velo = self.collide(vels, (1 - s) * delta_t,
+                                         vel=vels, force=force,
+                                         pa=x + 1.0e-10 * vels,
+                                         level=level + 1)
+            pos = px + x + 1.0e-10 * vels
 
             if col:
                 coldat += col
 
-            return p - pa, coldat, vo
+            return pos - pa, coldat, velo
 
-        return p - pa, None, v + dt * f - self.v
+        return pos - pa, None, vel + delta_t * force - self.vel
 
 class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
-    def __init__(self, X, V, t=0, dt=1.0e-3, filename=None,
-                 base_name='', U=None, GP=None, rho=2.5e3,
-                 diameter=40.e-6, e=0.99,
+    def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
+                 base_name='', U=None, GP=None,
+                 parameters=PhysicalParticle(),
+                 e=0.99,
                  temporal_cache=None, system=System.System()):
         """Initialize the bucket
 
@@ -333,17 +379,18 @@ class ParticleBucket(object):
 
         for dummy_pos, dummy_vel, dummy_fluid_vel, dummy_grad_p in zip(X, V,
                                                                        U, GP):
-            self.particles.append(Particle(dummy_pos, dummy_vel, t, dt,
-                                           tc=self.temporal_cache, 
+            self.particles.append(Particle(dummy_pos, dummy_vel, time, delta_t,
+                                           temporal_cache=self.temporal_cache,
                                            u=dummy_fluid_vel, gp=dummy_grad_p,
                                            system=self.system,
-                                           rho=rho, diameter=diameter, e=e))
-        self.time = t
+                                           parameters=parameters.randomize(),
+                                           e=e))
+        self.time = time
         self.pos = X
         self.vel = V
         self.fluid_vel = U
         self.grad_p = GP
-        self.delta_t = dt
+        self.delta_t = delta_t
         if filename:
             self.outfile = open(filename, 'w')
 

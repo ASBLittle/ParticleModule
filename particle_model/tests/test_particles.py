@@ -190,9 +190,11 @@ def test_step_spin_up_turbulent_drag():
     pos = numpy.array((0.1, 0.5, 0.0))
     vel = numpy.array((0.0, 0.0, 0.0))
 
+    phys_par = Particles.PhysicalParticle(drag=DragModels.turbulent_drag)
+
     part = Particles.Particle(pos, vel, delta_t=0.001, temporal_cache=temp_cache(),
                               system=SYSTEM,
-                              drag=DragModels.turbulent_drag)
+                              parameters=phys_par)
     part.update()
     assert all(abs(part.pos - numpy.array((0.100345, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
@@ -209,6 +211,32 @@ def test_step_spin_up_transitional_drag():
     assert all(abs(part.pos - numpy.array((0.10373956, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
 
+def test_stokes_terminal_velocity():
+    """Test stokes terminal"""
+
+    bndc = IO.BoundaryData('particle_model/tests/data/boundary_circle.vtu')
+    system = System.System(bndc, gravity=numpy.array((0.0, -1.0, 0.0)),
+                           rho=0.0, viscosity=1.0)
+    diameter = 1e-3
+    delta_t = 1.0e-8
+
+    par = Particles.PhysicalParticle(diameter=diameter,
+                                     drag=DragModels.stokes_drag)
+
+    pos = numpy.zeros((1, 3))
+    vel = numpy.zeros((1, 3))
+
+    bucket = Particles.ParticleBucket(pos, vel, 0.0, delta_t=delta_t,
+                                      parameters=par,
+                                      base_name='particle_model/tests/data/circle',
+                                      system=system)
+
+    bucket.run(100*delta_t, write=False)
+    assert abs(bucket.time - 100*delta_t) < 1.0e-8
+    assert all(abs(bucket.particles[0].vel
+                   - numpy.array((0,
+                                  -1.0/18./system.viscosity*par.diameter**2,
+                                  0))) < 1.e-8)
 
 def test_step_head_on_collision():
     """ Test a head-on collision."""

@@ -594,6 +594,20 @@ def get_linear_cell(cell):
 
     return linear_cell
 
+def test_in_cell(cell, position):
+    """ Check if point is in vtk cell"""
+
+    linear_cell = get_linear_cell(cell)
+    dim = linear_cell.GetNumberOfPoints()-1
+    ppos = numpy.zeros(linear_cell.GetNumberOfPoints())
+    dummy_func = cell.GetPoints().GetPoint
+    args = [dummy_func(i)[:dim] for i in range(1, dim+1)]
+    args.append(dummy_func(0)[:dim])
+    args.append(ppos)
+    linear_cell.BarycentricCoords(position[:dim], *args)
+
+    return cell.GetParametricDistance(ppos[:3]) == 0
+
 def write_to_file(vtk_data, outfile):
     """ Wrapper around the various VTK writer routines"""
 

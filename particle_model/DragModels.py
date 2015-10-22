@@ -5,7 +5,7 @@ import numpy
 def stokes_drag(fluid_velocity, particle_velocity, diameter, fluid_viscosity, **kwargs):
     """ Return Stokes drag force for particle parameters"""
     del kwargs ## supress argument unused warning
-    return 9./(2.*diameter)*fluid_viscosity*(fluid_velocity-particle_velocity)
+    return 18./diameter**2*fluid_viscosity*(fluid_velocity-particle_velocity)
 
 def turbulent_drag(fluid_velocity, particle_velocity, diameter, **kwargs):
     """ Return turbulent drag force for particle parameters"""

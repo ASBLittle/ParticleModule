@@ -39,6 +39,7 @@ class PhysicalParticle(object):
         self.distribution = distribution
         self.material_name = material_name
         self.data_dict = kwargs
+        self.drag = kwargs.get('drag', DragModels.transitional_drag)
 
     def __call__(self, key='diameter'):
         """Get attributes."""
@@ -75,7 +76,7 @@ class Particle(object):
                  u=numpy.zeros(3), gp=numpy.zeros(3),
                  parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
                  system=System.System(),
-                 e=0.99, drag=DragModels.transitional_drag):
+                 e=0.99):
 
         self.pos = pos
         self.vel = vel
@@ -85,10 +86,13 @@ class Particle(object):
         self.temporal_cache = temporal_cache
         self.parameters = parameters
         self.u = u
+        if self.u is None:
+            self.u = numpy.zeros(3)
         self.gp = gp
+        if self.gp is None:
+            self.gp = numpy.zeros(3)
         self.system = system
         self.e = e
-        self.drag = drag
 
     def update(self):
         """Update the state of the particle to the next time level
@@ -151,7 +155,10 @@ class Particle(object):
 #            raise collisionException
 
         return (grad_p / self.parameters.rho
-                + self.drag(fluid_velocity, particle_velocity, self.parameters.diameter)
+                + self.parameters.drag(fluid_velocity,
+                                       particle_velocity,
+                                       self.parameters.diameter,
+                                       fluid_viscosity=self.system.viscosity)
                 + self.coriolis_force(particle_velocity)
                 + self.system.gravity
                 + self.centrifugal_force(position))
@@ -280,7 +287,7 @@ class Particle(object):
 
         if intersect:
             data, _ = self.temporal_cache(self.time)
-            assert Collision.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
+            assert IO.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
 
             print 'collision', intersect, cell_index, s, x, pos, pa
             x = numpy.array(x)
@@ -420,9 +427,11 @@ class ParticleBucket(object):
 
         self.outfile.write('\n')
 
-    def run(self, time):
+    def run(self, time, write=True):
         """Drive particles forward until a given time."""
-        while self.time < time:
+        while self.time - time < -1.0e-15:
             self.update()
-            self.write()
-        self.outfile.flush()
+            if write:
+                self.write()
+        if write:
+            self.outfile.flush()

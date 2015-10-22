@@ -5,7 +5,7 @@ from numpy import array
 def test_stokes_drag():
     """Test Stokes drag law"""
     assert DM.stokes_drag(fluid_velocity=1.0, particle_velocity=0.0,
-                          diameter=1.0, fluid_viscosity=1.0) == 9.0 / 2.
+                          diameter=1.0, fluid_viscosity=1.0) == 18.0
 
 
 def test_turbulent_drag():

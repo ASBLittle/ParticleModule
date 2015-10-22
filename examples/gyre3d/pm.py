@@ -1,4 +1,4 @@
-"""Example of particles in double gyre hitting wall."""
+"""Example of particles in a 3d double gyre hitting wall."""
 import particle_model as pm
 import numpy
 from numpy import pi, sin, cos

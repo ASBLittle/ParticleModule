@@ -15,6 +15,7 @@ class System(object):
         self.omega = kwargs.get('omega', zeros(3))
         self.rho = kwargs.get('rho', 1.0e3)
         self.viscosity = kwargs.get('viscosity', 1.0e-3)
+        self.coeff = kwargs.get('coeff', 0.99)
 
 
     def get_rossby(self, velocity, length):
@@ -27,3 +28,11 @@ class System(object):
         """ Get the Reynolds number of the system for a given lenght scale
         and velocity."""
         return self.rho*norm(velocity)*length/ self.viscosity
+
+    def coefficient_of_restitution(self, particle, cell=None):
+        """ Get coefficent of restitution."""
+
+        del particle
+        del cell
+
+        return self.coeff

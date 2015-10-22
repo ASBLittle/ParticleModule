@@ -10,8 +10,8 @@ import numpy
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
-SYSTEM = System.System(BOUNDARY)
-SYSTEM3D = System.System(BOUNDARY3D)
+SYSTEM = System.System(BOUNDARY, coeff=1.0)
+SYSTEM3D = System.System(BOUNDARY3D, coeff=1.0)
 
 MESH = IO.GmshMesh()
 MESH.read('particle_model/tests/data/Structured.msh')
@@ -245,7 +245,7 @@ def test_step_head_on_collision():
     vel = numpy.array((1.0, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM, e=1.0)
+                              temporal_cache=temp_cache(), system=SYSTEM)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5, 0.0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 0., 0.)))
@@ -264,7 +264,7 @@ def test_diagonal_collision():
     vel = numpy.array((1.0, 1.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM, e=1.0)
+                              temporal_cache=temp_cache(), system=SYSTEM)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5005, 0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 1.0, 0.0)))
@@ -283,8 +283,8 @@ def test_diagonal_collision_3D():
     vel = numpy.array((1.0, 1.0, 1.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache('cube_0.vtu'), system=SYSTEM3D,
-                              e=1.0)
+                              temporal_cache=temp_cache('cube_0.vtu'),
+                              system=SYSTEM3D)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5005, 0.5005))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 1.0, 1.0)))
@@ -301,7 +301,7 @@ def test_gyre_collision():
     """Regression test for Mclaury coefficient"""
 
     bndg = IO.BoundaryData('particle_model/tests/data/gyre_boundary.vtu')
-    system = System.System(bndg)
+    system = System.System(bndg, coeff=1.0)
 
     from math import pi
 
@@ -309,8 +309,8 @@ def test_gyre_collision():
     vel = numpy.array((2.0 * pi, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR1,
-                              temporal_cache=temp_cache('gyre_0.vtu'), system=system,
-                              e=1.0)
+                              temporal_cache=temp_cache('gyre_0.vtu'),
+                              system=system)
 
     for i in range(100):
         del i
@@ -334,9 +334,10 @@ def test_coefficient_of_restitution():
     pos = numpy.array((0.95, 0.5, 0.0))
     vel = numpy.array((1.0, 0.0, 0.0))
 
+    system = System.System(BOUNDARY, coeff=0.5)
+
     part = Particles.Particle(pos, vel, delta_t=0.1, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM,
-                              e=0.5)
+                              temporal_cache=temp_cache(), system=system)
     part.update()
     assert all(abs(part.pos-numpy.array((0.975, 0.5, 0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-0.5, 0, 0)))

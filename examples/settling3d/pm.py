@@ -1,4 +1,4 @@
-"""Example of particles in double gyre hitting wall."""
+"""Example of particles settling under gravity."""
 import particle_model as pm
 import numpy
 
@@ -24,7 +24,7 @@ PAR = pm.Particles.PhysicalParticle(diameter=400e-6)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 5.0e-3, temporal_cache=TEMP_CACHE,
                                  U=U, GP=GP, system=SYSTEM,
-                                 e=0.99, parameters=PAR)
+                                 parameters=PAR)
 
 TEMP_CACHE.data[1][0] = 100.0
 

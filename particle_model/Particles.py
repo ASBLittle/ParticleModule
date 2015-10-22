@@ -75,8 +75,7 @@ class Particle(object):
     def __init__(self, pos, vel, time=0.0, delta_t=1.0, temporal_cache=None,
                  u=numpy.zeros(3), gp=numpy.zeros(3),
                  parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
-                 system=System.System(),
-                 e=0.99):
+                 system=System.System()):
 
         self.pos = pos
         self.vel = vel
@@ -92,7 +91,6 @@ class Particle(object):
         if self.gp is None:
             self.gp = numpy.zeros(3)
         self.system = system
-        self.e = e
 
     def update(self):
         """Update the state of the particle to the next time level
@@ -321,7 +319,9 @@ class Particle(object):
 
             normal = normal * numpy.sign(numpy.dot(normal, (pos-pa)))
 
-            pos = x + delta_t * (k - (1.0 + self.e) * normal * (numpy.dot(normal, k)))
+            coeff = self.system.coefficient_of_restitution(self, cell)
+
+            pos = x + delta_t * (k - (1.0 + coeff) * normal * (numpy.dot(normal, k)))
 
             theta = abs(numpy.arcsin(numpy.dot(normal, (x-pa))
                                      / numpy.sqrt(numpy.dot(x - pa, x - pa))))
@@ -340,7 +340,7 @@ class Particle(object):
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index,
                                                   theta, normal))
-            vels += -(1.0 + self.e)* normal * numpy.dot(normal, vels)
+            vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels)
 
             px, col, velo = self.collide(vels, (1 - s) * delta_t,
                                          vel=vels, force=force,
@@ -361,7 +361,6 @@ class ParticleBucket(object):
     def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
                  base_name='', U=None, GP=None,
                  parameters=PhysicalParticle(),
-                 e=0.99,
                  temporal_cache=None, system=System.System()):
         """Initialize the bucket
 
@@ -390,8 +389,7 @@ class ParticleBucket(object):
                                            temporal_cache=self.temporal_cache,
                                            u=dummy_fluid_vel, gp=dummy_grad_p,
                                            system=self.system,
-                                           parameters=parameters.randomize(),
-                                           e=e))
+                                           parameters=parameters.randomize()))
         self.time = time
         self.pos = X
         self.vel = V

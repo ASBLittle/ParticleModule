@@ -24,6 +24,25 @@ def invert(mat):
     else:
         return la.inv(mat)
 
+class ParticleBase(object):
+    """ An easily picklable base class for checkpointing and parallel computation. """
+
+    def __init__(self, pos, vel, time=0.0, delta_t=1.0,):
+
+        self.pos = pos
+        self.vel = vel
+        self.time = time
+        self.delta_t = delta_t
+
+    def update(self):
+        """ Core method updating the particle."""
+        raise NotImplementedError
+
+    def exchange(self):
+        """ A helper function for parallel coding"""
+        raise NotImplementedError
+
+
 class PhysicalParticle(object):
     """ Class describing the physical properties of a particle drawn from a known distribution."""
 
@@ -68,17 +87,15 @@ class PhysicalParticle(object):
 
         return new_particle
 
-class Particle(object):
+class Particle(ParticleBase):
     """Class representing a single Lagrangian particle with mass"""
 
-    def __init__(self, pos, vel, time=0.0, delta_t=1.0,
-                 parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
-                 system=System.System()):
+    def __init__(self, data,
+                 parameters=PhysicalParticle(),
+                 system=System.System(), **kwargs):
 
-        self.pos = pos
-        self.vel = vel
-        self.time = time
-        self.delta_t = delta_t
+        super(Particle, self).__init__(*data, **kwargs)
+
         self.collisions = []
         self.parameters = parameters
         self.system = system
@@ -371,16 +388,16 @@ class ParticleBucket(object):
 
         self.particles = []
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
-            self.particles.append(Particle(dummy_pos, dummy_vel, time, delta_t,
+            self.particles.append(Particle((dummy_pos, dummy_vel, time, delta_t),
                                            system=self.system,
                                            parameters=parameters.randomize()))
             if self.system.temporal_cache:
                 self.fluid_velocity[_, :], self.grad_p[_, :] = \
                     self.particles[-1].get_fluid_properties()
         self.time = time
+        self.delta_t = delta_t
         self.pos = X
         self.vel = V
-        self.delta_t = delta_t
         if filename:
             self.outfile = open(filename, 'w')
 

@@ -11,6 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   _sources/particle_model
 
 
 Indices and tables

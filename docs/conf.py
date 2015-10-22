@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.abspath('../particle_model/'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.napoleon',
     'sphinx.ext.doctest',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',

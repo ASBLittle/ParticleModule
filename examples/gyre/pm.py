@@ -13,8 +13,6 @@ X[:, 2] = 0
 V = numpy.zeros((N, 3))
 V[:, 0] = -2.0*numpy.pi*numpy.sin(numpy.pi*X[:, 0])*numpy.cos(2.0*numpy.pi*X[:, 1])
 V[:, 1] = numpy.pi*numpy.cos(numpy.pi*X[:, 0])*numpy.sin(2.0*numpy.pi*X[:, 1])
-U = numpy.zeros((N, 3))
-GP = numpy.zeros((N, 3))
 
 NAME = 'gyre%sx%s'%(S, S)
 
@@ -24,7 +22,7 @@ SYSTEM = pm.System.System(BOUNDARY, temporal_cache=TEMP_CACHE)
 PAR = pm.Particles.PhysicalParticle(diameter=1e-3)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3,
-                                 U=U, GP=GP, system=SYSTEM,
+                                 system=SYSTEM,
                                  parameters=PAR)
 
 TEMP_CACHE.data[1][0] = 100.0

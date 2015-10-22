@@ -11,8 +11,6 @@ X = 0.5*(numpy.random.random((N, 3))-0.5)
 X[:, 2] += 1.0
 
 V = numpy.zeros((N, 3))
-U = numpy.zeros((N, 3))
-GP = numpy.zeros((N, 3))
 
 NAME = 'cylinder'
 
@@ -24,7 +22,7 @@ SYSTEM = pm.System.System(BOUNDARY, gravity=numpy.array((0, 0, -1)),
 PAR = pm.Particles.PhysicalParticle(diameter=400e-6)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3,
-                                 U=U, GP=GP, system=SYSTEM,
+                                 system=SYSTEM,
                                  parameters=PAR)
 
 TEMP_CACHE.data[1][0] = 100.0

@@ -14,8 +14,6 @@ V = numpy.zeros((N, 3))
 V[:, 0] = -2.0*pi*sin(pi*X[:, 0])*sin(2.0*pi*(X[:, 1]+ X[:, 2]))
 V[:, 1] = pi*cos(pi*X[:, 0])*sin(2.0*pi*X[:, 1])*sin(2.0*pi*X[:, 2])
 V[:, 2] = pi*cos(pi*X[:, 0])*sin(2.0*pi*X[:, 1])*sin(2.0*pi*X[:, 2])
-U = numpy.zeros((N, 3))
-GP = numpy.zeros((N, 3))
 
 NAME = 'cube'
 
@@ -25,7 +23,7 @@ SYSTEM = pm.System.System(BOUNDARY, temporal_cache=TEMP_CACHE)
 PAR = pm.Particles.PhysicalParticle(diameter=1e-3)
 
 PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3,
-                                 U=U, GP=GP, system=SYSTEM,
+                                 system=SYSTEM,
                                  parameters=PAR)
 
 TEMP_CACHE.data[1][0] = 100.0

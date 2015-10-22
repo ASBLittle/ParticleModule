@@ -72,7 +72,6 @@ class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
 
     def __init__(self, pos, vel, time=0.0, delta_t=1.0,
-                 u=numpy.zeros(3), gp=numpy.zeros(3),
                  parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
                  system=System.System()):
 
@@ -82,12 +81,6 @@ class Particle(object):
         self.delta_t = delta_t
         self.collisions = []
         self.parameters = parameters
-        self.u = u
-        if self.u is None:
-            self.u = numpy.zeros(3)
-        self.gp = gp
-        if self.gp is None:
-            self.gp = numpy.zeros(3)
         self.system = system
 
     def update(self):
@@ -134,7 +127,12 @@ class Particle(object):
 
 
         self.time += self.delta_t
-        self.u[:], self.gp[:] = self.picker(self.pos, self.time)
+
+
+    def get_fluid_properties(self):
+        """ Get the fluid velocity and pressure gradient at the particle
+        location."""
+        return self.picker(self.pos, self.time)
 
     def force(self, position, particle_velocity, time):
         """Calculate the sum of the forces on the particle.
@@ -357,7 +355,6 @@ class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
     def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
-                 U=None, GP=None,
                  parameters=PhysicalParticle(),
                  system=System.System()):
         """Initialize the bucket
@@ -367,25 +364,22 @@ class ParticleBucket(object):
             V (float): Initial velocities
         """
 
-        if U is None:
-            U = [None for _ in range(X.shape[0])]
-        if GP is None:
-            GP = [None for _ in range(X.shape[0])]
-
         self.system = system
 
+        self.fluid_velocity = numpy.zeros(X.shape)
+        self.grad_p = numpy.zeros(X.shape)
+
         self.particles = []
-        for dummy_pos, dummy_vel, dummy_fluid_vel, dummy_grad_p in zip(X, V,
-                                                                       U, GP):
+        for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             self.particles.append(Particle(dummy_pos, dummy_vel, time, delta_t,
-                                           u=dummy_fluid_vel, gp=dummy_grad_p,
                                            system=self.system,
                                            parameters=parameters.randomize()))
+            if self.system.temporal_cache:
+                self.fluid_velocity[_, :], self.grad_p[_, :] = \
+                    self.particles[-1].get_fluid_properties()
         self.time = time
         self.pos = X
         self.vel = V
-        self.fluid_vel = U
-        self.grad_p = GP
         self.delta_t = delta_t
         if filename:
             self.outfile = open(filename, 'w')
@@ -393,9 +387,11 @@ class ParticleBucket(object):
     def update(self):
         """ Update all the particles in the bucket to the next time level."""
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
-        for part in self.particles:
+        for k, part in enumerate(self.particles):
             part.update()
-
+            if self.system.temporal_cache:
+                self.fluid_velocity[k, :], self.grad_p[k, :] = \
+                    part.get_fluid_properties()
         self.time += self.delta_t
 
     def collisions(self):

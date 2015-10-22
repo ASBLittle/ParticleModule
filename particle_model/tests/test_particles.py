@@ -83,11 +83,8 @@ def test_particle_bucket_step_do_nothing(tmpdir):
 
     pres = zeros((num, 3))
     vel = zeros((num, 3))
-    fluid_vel = zeros((num, 3))
-    grad_p = zeros((num, 3))
 
     bucket = Particles.ParticleBucket(pres, vel, 0.0, delta_t=0.5,
-                                      U=fluid_vel, GP=grad_p,
                                       filename=tmpdir.join('data.dat').strpath,
                                       system=system)
 

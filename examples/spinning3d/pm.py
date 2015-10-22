@@ -19,10 +19,11 @@ NAME = 'cylinder'
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
 BOUNDARY = pm.IO.BoundaryData('cylinder_boundary.vtu')
 SYSTEM = pm.System.System(BOUNDARY, gravity=numpy.array((0, 0, -1)),
-                          omega=numpy.array((0, 0, 2*pi)))
+                          omega=numpy.array((0, 0, 2*pi)),
+                          temporal_cache=TEMP_CACHE,)
 PAR = pm.Particles.PhysicalParticle(diameter=400e-6)
 
-PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
+PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3,
                                  U=U, GP=GP, system=SYSTEM,
                                  parameters=PAR)
 

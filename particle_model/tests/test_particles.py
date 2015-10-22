@@ -8,19 +8,6 @@ from particle_model import System
 import vtk
 import numpy
 
-BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
-BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
-SYSTEM = System.System(BOUNDARY, coeff=1.0)
-SYSTEM3D = System.System(BOUNDARY3D, coeff=1.0)
-
-MESH = IO.GmshMesh()
-MESH.read('particle_model/tests/data/Structured.msh')
-MESH3D = IO.GmshMesh()
-MESH3D.read('particle_model/tests/data/Structured_cube.msh')
-
-PAR0 = Particles.PhysicalParticle(diameter=numpy.infty)
-PAR1 = Particles.PhysicalParticle(diameter=100.0e-4)
-
 def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
     """Mock temporal cache."""
     def fun(time):
@@ -38,6 +25,20 @@ def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
                 [1.0, fname, reader.GetOutput(), locator]], 0.0
 
     return fun
+
+BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
+BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
+SYSTEM = System.System(BOUNDARY, coeff=1.0, temporal_cache=temp_cache())
+SYSTEM3D = System.System(BOUNDARY3D, coeff=1.0,
+                         temporal_cache=temp_cache('cube_0.vtu'))
+
+MESH = IO.GmshMesh()
+MESH.read('particle_model/tests/data/Structured.msh')
+MESH3D = IO.GmshMesh()
+MESH3D.read('particle_model/tests/data/Structured_cube.msh')
+
+PAR0 = Particles.PhysicalParticle(diameter=numpy.infty)
+PAR1 = Particles.PhysicalParticle(diameter=100.0e-4)
 
 def test_tests():
     """ Test test structure with a minimal test."""
@@ -75,7 +76,7 @@ def test_particle_bucket_step_do_nothing(tmpdir):
     from numpy import zeros
 
     bndc = IO.BoundaryData('particle_model/tests/data/boundary_circle.vtu')
-    system = System.System(bndc)
+    system = System.System(bndc, base_name='particle_model/tests/data/circle')
 
 
     num = 1
@@ -85,8 +86,8 @@ def test_particle_bucket_step_do_nothing(tmpdir):
     fluid_vel = zeros((num, 3))
     grad_p = zeros((num, 3))
 
-    bucket = Particles.ParticleBucket(pres, vel, 0.0, delta_t=0.5, U=fluid_vel, GP=grad_p,
-                                      base_name='particle_model/tests/data/circle',
+    bucket = Particles.ParticleBucket(pres, vel, 0.0, delta_t=0.5,
+                                      U=fluid_vel, GP=grad_p,
                                       filename=tmpdir.join('data.dat').strpath,
                                       system=system)
 
@@ -100,7 +101,7 @@ def test_particle_bucket_step_do_nothing(tmpdir):
 def test_picker_constant():
     """Test vtk picker."""
 
-    part = Particles.Particle(0, 0, temporal_cache=temp_cache())
+    part = Particles.Particle(0, 0, system=SYSTEM)
     fluid_velocity, grad_p = part.picker((0.5, 0.5, 0.0), 0.0)
 
     assert all(fluid_velocity == numpy.array((1.0, 0.0, 0.0)))
@@ -128,8 +129,11 @@ def test_picker_linear(tmpdir):
 
     IO.make_unstructured_grid(MESH, vel, pres, 0.0, fname)
 
-    part = Particles.Particle(0, 0, temporal_cache=temp_cache('linear.vtu',
-                                                              tmpdir.strpath))
+    system = System.System(temporal_cache=temp_cache('linear.vtu',
+                                                     tmpdir.strpath))
+
+    part = Particles.Particle(0, 0, system=system)
+
     for point in pos:
 
         fluid_velocity, grad_p = part.picker(point, 0.0)
@@ -158,8 +162,11 @@ def test_picker_linear_3d(tmpdir):
 
     IO.make_unstructured_grid(MESH3D, vel, pres, 0.0, fname)
 
-    part = Particles.Particle(0, 0, temporal_cache=temp_cache('linear3D.vtu',
-                                                              tmpdir.strpath))
+    system = System.System(temporal_cache=temp_cache('linear3D.vtu',
+                                                     tmpdir.strpath))
+
+    part = Particles.Particle(0, 0, system=system)
+
     for point in pos:
 
         fluid_velocity, grad_p = part.picker(point, 0.0)
@@ -176,7 +183,7 @@ def test_step_constant_velocity():
     vel = numpy.array((1.0, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.1, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM)
+                              system=SYSTEM)
     part.update()
     assert all(part.pos == numpy.array((0.6, 0.5, 0.0)))
     assert part.time == 0.1
@@ -192,7 +199,7 @@ def test_step_spin_up_turbulent_drag():
 
     phys_par = Particles.PhysicalParticle(drag=DragModels.turbulent_drag)
 
-    part = Particles.Particle(pos, vel, delta_t=0.001, temporal_cache=temp_cache(),
+    part = Particles.Particle(pos, vel, delta_t=0.001,
                               system=SYSTEM,
                               parameters=phys_par)
     part.update()
@@ -206,7 +213,7 @@ def test_step_spin_up_transitional_drag():
     vel = numpy.array((0.0, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001,
-                              temporal_cache=temp_cache(), system=SYSTEM)
+                              system=SYSTEM)
     part.update()
     assert all(abs(part.pos - numpy.array((0.10373956, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
@@ -215,7 +222,8 @@ def test_stokes_terminal_velocity():
     """Test stokes terminal"""
 
     bndc = IO.BoundaryData('particle_model/tests/data/boundary_circle.vtu')
-    system = System.System(bndc, gravity=numpy.array((0.0, -1.0, 0.0)),
+    system = System.System(bndc, base_name='particle_model/tests/data/circle',
+                           gravity=numpy.array((0.0, -1.0, 0.0)),
                            rho=0.0, viscosity=1.0)
     diameter = 1e-3
     delta_t = 1.0e-8
@@ -228,7 +236,6 @@ def test_stokes_terminal_velocity():
 
     bucket = Particles.ParticleBucket(pos, vel, 0.0, delta_t=delta_t,
                                       parameters=par,
-                                      base_name='particle_model/tests/data/circle',
                                       system=system)
 
     bucket.run(100*delta_t, write=False)
@@ -245,7 +252,7 @@ def test_step_head_on_collision():
     vel = numpy.array((1.0, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM)
+                              system=SYSTEM)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5, 0.0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 0., 0.)))
@@ -264,7 +271,7 @@ def test_diagonal_collision():
     vel = numpy.array((1.0, 1.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=SYSTEM)
+                              system=SYSTEM)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5005, 0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 1.0, 0.0)))
@@ -283,7 +290,6 @@ def test_diagonal_collision_3D():
     vel = numpy.array((1.0, 1.0, 1.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR0,
-                              temporal_cache=temp_cache('cube_0.vtu'),
                               system=SYSTEM3D)
     part.update()
     assert all(abs(part.pos - numpy.array((0.9995, 0.5005, 0.5005))) < 1.0e-8)
@@ -301,7 +307,8 @@ def test_gyre_collision():
     """Regression test for Mclaury coefficient"""
 
     bndg = IO.BoundaryData('particle_model/tests/data/gyre_boundary.vtu')
-    system = System.System(bndg, coeff=1.0)
+    system = System.System(bndg, coeff=1.0,
+                           temporal_cache=temp_cache('gyre_0.vtu'))
 
     from math import pi
 
@@ -309,7 +316,6 @@ def test_gyre_collision():
     vel = numpy.array((2.0 * pi, 0.0, 0.0))
 
     part = Particles.Particle(pos, vel, delta_t=0.001, parameters=PAR1,
-                              temporal_cache=temp_cache('gyre_0.vtu'),
                               system=system)
 
     for i in range(100):
@@ -334,10 +340,10 @@ def test_coefficient_of_restitution():
     pos = numpy.array((0.95, 0.5, 0.0))
     vel = numpy.array((1.0, 0.0, 0.0))
 
-    system = System.System(BOUNDARY, coeff=0.5)
+    system = System.System(BOUNDARY, coeff=0.5, temporal_cache=temp_cache())
 
     part = Particles.Particle(pos, vel, delta_t=0.1, parameters=PAR0,
-                              temporal_cache=temp_cache(), system=system)
+                              system=system)
     part.update()
     assert all(abs(part.pos-numpy.array((0.975, 0.5, 0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-0.5, 0, 0)))

@@ -20,10 +20,10 @@ NAME = 'gyre%sx%s'%(S, S)
 
 TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME)
 BOUNDARY = pm.IO.BoundaryData('Gyre_boundary.vtu')
-SYSTEM = pm.System.System(BOUNDARY)
+SYSTEM = pm.System.System(BOUNDARY, temporal_cache=TEMP_CACHE)
 PAR = pm.Particles.PhysicalParticle(diameter=1e-3)
 
-PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3, temporal_cache=TEMP_CACHE,
+PB = pm.Particles.ParticleBucket(X, V, 0.0, 1.0e-3,
                                  U=U, GP=GP, system=SYSTEM,
                                  parameters=PAR)
 
@@ -40,7 +40,8 @@ for i in range(300):
     PB.update()
     PD.append_data(PB)
     pm.IO.write_level_to_polydata(PB, i+1, NAME)
-    pm.IO.write_level_to_ugrid(PB, i+1, NAME, PB.temporal_cache.data[0][2])
+    pm.IO.write_level_to_ugrid(PB, i+1, NAME,
+                               PB.system.temporal_cache.data[0][2])
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
 

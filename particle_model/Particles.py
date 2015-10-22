@@ -1,6 +1,5 @@
 """ Baseline module for the package. Contains the main classes, particle and particle_bucket. """
 
-from particle_model import TemporalCache
 from particle_model import IO
 from particle_model import DragModels
 from particle_model import Collision
@@ -72,7 +71,7 @@ class PhysicalParticle(object):
 class Particle(object):
     """Class representing a single Lagrangian particle with mass"""
 
-    def __init__(self, pos, vel, time=0.0, delta_t=1.0, temporal_cache=None,
+    def __init__(self, pos, vel, time=0.0, delta_t=1.0,
                  u=numpy.zeros(3), gp=numpy.zeros(3),
                  parameters=PhysicalParticle(diameter=40e-6, rho=2.5e3),
                  system=System.System()):
@@ -82,7 +81,6 @@ class Particle(object):
         self.time = time
         self.delta_t = delta_t
         self.collisions = []
-        self.temporal_cache = temporal_cache
         self.parameters = parameters
         self.u = u
         if self.u is None:
@@ -245,7 +243,7 @@ class Particle(object):
 
             return out, grad_p
 
-        data, alpha = self.temporal_cache(time)
+        data, alpha = self.system.temporal_cache(time)
 
         vel0, grad_p0 = fpick(data[0][2], data[0][3])
         vel1, grad_p1 = fpick(data[1][2], data[1][3])
@@ -284,7 +282,7 @@ class Particle(object):
                                            x, ARGV, ARGI, cell_index)
 
         if intersect:
-            data, _ = self.temporal_cache(self.time)
+            data, _ = self.system.temporal_cache(self.time)
             assert IO.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
 
             print 'collision', intersect, cell_index, s, x, pos, pa
@@ -359,22 +357,15 @@ class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
     def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
-                 base_name='', U=None, GP=None,
+                 U=None, GP=None,
                  parameters=PhysicalParticle(),
-                 temporal_cache=None, system=System.System()):
+                 system=System.System()):
         """Initialize the bucket
 
         Args:
             X (float): Initial particle positions.
             V (float): Initial velocities
         """
-
-
-        if temporal_cache:
-            self.temporal_cache = temporal_cache
-        else:
-            self.temporal_cache = TemporalCache.TemporalCache(base_name)
-        self.particles = []
 
         if U is None:
             U = [None for _ in range(X.shape[0])]
@@ -383,10 +374,10 @@ class ParticleBucket(object):
 
         self.system = system
 
+        self.particles = []
         for dummy_pos, dummy_vel, dummy_fluid_vel, dummy_grad_p in zip(X, V,
                                                                        U, GP):
             self.particles.append(Particle(dummy_pos, dummy_vel, time, delta_t,
-                                           temporal_cache=self.temporal_cache,
                                            u=dummy_fluid_vel, gp=dummy_grad_p,
                                            system=self.system,
                                            parameters=parameters.randomize()))
@@ -401,7 +392,7 @@ class ParticleBucket(object):
 
     def update(self):
         """ Update all the particles in the bucket to the next time level."""
-        self.temporal_cache.range(self.time, self.time + self.delta_t)
+        self.system.temporal_cache.range(self.time, self.time + self.delta_t)
         for part in self.particles:
             part.update()
 

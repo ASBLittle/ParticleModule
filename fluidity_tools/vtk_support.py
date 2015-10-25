@@ -43,7 +43,6 @@ def fluidity_to_ugrid(state):
             for k in range(ugrid.GetNumberOfPoints()):
                 data.InsertNextValue(scalar[k])
 
-        print name, ugrid.GetNumberOfPoints(), data.GetNumberOfTuples()
         ugrid.GetPointData().AddArray(data)
 
     for name, vector in state.vector_fields.items():
@@ -63,10 +62,26 @@ def fluidity_to_ugrid(state):
                 lval[:vector.val.shape[1]] = vector.node_val(k)
                 data.InsertNextTuple3(*(lval))
 
-        print name, ugrid.GetNumberOfPoints(), data.GetNumberOfTuples()
         ugrid.GetPointData().AddArray(data)
 
+    for name, tensor in state.tensor_fields.items():
+        
+        data = vtk.vtkDoubleArray()
+        data.SetName(name)
+        data.SetNumberOfComponents(9)
 
+        if vector.node_count == 1:
+            for k in range(ugrid.GetNumberOfPoints()):
+                lval=numpy.zeros((3, 3))
+                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(0)
+                data.InsertNextTuple9(*(lval.ravel()))
+        else:
+            for k in range(ugrid.GetNumberOfPoints()):
+                lval=numpy.zeros((3, 3))
+                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(k)
+                data.InsertNextTuple9(*(lval.ravel()))
+
+        ugrid.GetPointData().AddArray(data)
 
     return ugrid
 

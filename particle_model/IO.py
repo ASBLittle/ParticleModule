@@ -445,23 +445,45 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     locator.BuildLocator()
 
     volume = numpy.zeros(ugrid.GetNumberOfPoints())
+    temperature = numpy.zeros(ugrid.GetNumberOfPoints())
     velocity = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
+    LENGTH=0.1
+
     for dummy_particle in bucket.particles:
-#        point_index = locator.FindClosestPoint(particle.p)
         point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(0.05, dummy_particle.pos, point_list)
+        locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
             rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
                               -dummy_particle.pos)**2)
-            rad2 /= 500*dummy_particle.parameters.diameter
+            rad2 /= LENGTH
 
-            volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.diameter**3
+            volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.parameters.diameter**3
                                     *numpy.exp(-rad2**2))
             velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
+                                         *dummy_particle.parameters.diameter**3
+                                         *numpy.exp(-rad2**2))
+        
+    volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+    velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+
+    for dummy_particle in bucket.particles:
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
+
+        rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
+                              -dummy_particle.pos)**2)
+        rad2 /= LENGTH
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+            c = numpy.sum((dummy_particle.vel-velocity[point_index, :])**2)
+
+        
+            temperature [point_index] += (c*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
                                          *numpy.exp(-rad2**2))
 
@@ -470,17 +492,20 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     data.append(vtk.vtkDoubleArray())
     data[1].SetName('SolidVolumeVelocity')
     data[1].SetNumberOfComponents(3)
+    data.append(vtk.vtkDoubleArray())
+    data[2].SetName('GranularTemperature')
 
     for _ in range(ugrid.GetNumberOfPoints()):
         data[0].InsertNextValue(volume[_])
-        if volume[_] > 1.0e-12:
+        if volume[_] > 1.0e-20:
             data[1].InsertNextTuple3(*(velocity[_]/volume[_]))
         else:
             data[1].InsertNextTuple3(*(0*velocity[_]))
+        data[2].InsertNextValue(temperature[_])
         ugrid.GetPointData().GetScalars('Time').SetValue(_, bucket.time)
 
     for _ in data:
-        ugrid.GetPointData().AddArray(data)
+        ugrid.GetPointData().AddArray(_)
 
     write_to_file(ugrid, "%s_out_%d.vtu"%(basename, level))
 

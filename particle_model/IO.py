@@ -365,12 +365,172 @@ def ascii_to_polydata_time_series(filename, basename):
 
         poly_data.GetPointData().AddArray(outtime)
         poly_data.GetPointData().AddArray(velocity)
-        writer = vtk.vtkXMLPolyDataWriter()
-        writer.SetFileName("%s_%d.vtp"%(basename, i))
-        writer.SetInput(poly_data)
-        writer.Write()
 
-def write_level_to_polydata(bucket, level, basename, **kwargs):
+        write_to_file(poly_data, "%s_%d.vtp"%(basename, i))
+
+def write_bucket_to_polydata(bucket):
+    
+    """ Output the points of a bucket to a vtkPoints object. """
+
+    poly_data = vtk.vtkPolyData()
+    pnts = vtk.vtkPoints()
+    pnts.Allocate(0)
+    poly_data.SetPoints(pnts)
+    poly_data.Allocate(bucket.pos.shape[0])
+
+    for positions, in bucket.pos :
+        pixel = vtk.vtkPixel()
+        pixel.GetPointIds().InsertId(0,
+                                     poly_data.GetPoints().InsertNextPoint(*positions))
+        poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
+
+    return poly_data
+
+def write_bucket_to_points(bucket):
+    
+    """ Output the basic data of a bucket to a vtkPolyData object. """
+
+    pnts = vtk.vtkPoints()
+    pnts.Allocate(bucket.pos.shape[0])
+
+    for positions in bucket.pos:
+        pts.InsertNextPoint(*positions)
+
+    return pts
+
+def radial_distribution_function(alpha):
+
+    ALPHA0 =0.6
+
+    return 1.0/(1.0-(alpha/ALPHA0)**(1.0/3.0))
+
+def rdf_deriv(alpha):
+
+
+    ALPHA_MAX = 0.59999
+
+    ALPHA0 = 0.6
+
+    if alpha > ALPHA_MAX:
+        alpha = ALPHA_MAX
+
+    return -1.0/(3.0*ALPHA0)*(alpha/ALPHA0)**(-2.0/3.0)/(1.0-(alpha/ALPHA0)**(1.0/3.0))**2
+
+
+def distance2(pnt1,pnt2):
+
+    return vtk.vtkMath().Distance2BetweenPoints(pnt1,pnt2)
+
+def calculate_averaged_properties(poly_data, bucket):
+
+    """ Calculate a volume fraction estimate at the level of the particles."""
+
+    locator = vtk.vtkPointLocator()
+    locator.SetDataSet(poly_data)
+    locator.BuildLocator()
+
+    LENGTH = 0.02
+    MODIFIER = 3e3
+
+    volume = numpy.zeros(poly_data.GetNumberOfPoints())
+    temperature = numpy.zeros(poly_data.GetNumberOfPoints())
+    solid_pressure = numpy.zeros(poly_data.GetNumberOfPoints())
+    velocity = numpy.zeros((poly_data.GetNumberOfPoints(), 3))
+    solid_pressure_gradient = numpy.zeros((poly_data.GetNumberOfPoints(),3))
+
+    for ipnt, particle in enumerate(bucket.particles):
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
+        
+        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+
+            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 /= LENGTH**2
+            
+            gamma = beta*numpy.exp(-rad2)*MODIFIER
+
+            volume[point_index] += gamma
+
+            velocity[point_index, :] += particle.vel*gamma
+
+    volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+    velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+
+    for particle in bucket.particles:
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
+
+        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+
+            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 /= LENGTH**2
+
+            gamma = beta*numpy.exp(-rad2)*MODIFIER
+
+            c = distance2(particle.vel, velocity[point_index, :])
+
+            temperature[point_index] += c*gamma
+
+
+    for particle in bucket.particles:
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
+
+        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+
+            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 /= LENGTH **2
+
+            gamma = beta*numpy.exp(-rad2)*MODIFIER
+
+            c = distance2(particle.vel, velocity[point_index, :])
+
+            val = (bucket.particles[point_index].pos-particle.pos)/LENGTH**2
+                              
+            spg = ((radial_distribution_function(volume[point_index])
+                   +volume[point_index]*rdf_deriv(volume[point_index]))*temperature[point_index]
+                   +c*volume[point_index]*radial_distribution_function(volume[point_index]))
+
+            solid_pressure_gradient[point_index, :] += (val*spg*gamma)
+
+    for _ in range(poly_data.GetNumberOfPoints()):
+
+        solid_pressure[_] = (bucket.particles[0].parameters.rho*volume[_]
+                             *radial_distribution_function(volume[_])*temperature[_])
+
+    data = [vtk.vtkDoubleArray()]
+    data[0].SetName('SolidVolumeFraction')
+    data.append(vtk.vtkDoubleArray())
+    data[1].SetName('SolidVolumeVelocity')
+    data[1].SetNumberOfComponents(3)
+    data.append(vtk.vtkDoubleArray())
+    data[2].SetName('GranularTemperature')
+    data.append(vtk.vtkDoubleArray())
+    data[3].SetName('SolidPressure')
+    data.append(vtk.vtkDoubleArray())
+    data[4].SetName('SolidPressureGradient')
+    data[4].SetNumberOfComponents(3)
+
+    for _ in range(poly_data.GetNumberOfPoints()):
+        data[0].InsertNextValue(volume[_])
+        data[1].InsertNextTuple3(*velocity[_])
+        data[2].InsertNextValue(temperature[_])
+        data[3].InsertNextValue(solid_pressure[_])
+        data[4].InsertNextTuple3(*solid_pressure_gradient[_])
+
+    for _ in data:
+        poly_data.GetPointData().AddArray(_)
+
+def write_level_to_polydata(bucket, level, basename, do_average=False,  **kwargs):
 
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
@@ -412,11 +572,13 @@ def write_level_to_polydata(bucket, level, basename, **kwargs):
 
     poly_data.GetPointData().AddArray(outtime)
     poly_data.GetPointData().AddArray(velocity)
-    writer = vtk.vtkXMLPolyDataWriter()
-    writer.SetFileName("%s_%d.vtp"%(basename, level))
-    writer.SetInput(poly_data)
-    writer.Write()
 
+    print do_average
+
+    if do_average:
+        calculate_averaged_properties(poly_data,bucket)
+
+    write_to_file(poly_data, "%s_%d.vtp"%(basename, level))
 
 def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.
@@ -446,9 +608,11 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
 
     volume = numpy.zeros(ugrid.GetNumberOfPoints())
     temperature = numpy.zeros(ugrid.GetNumberOfPoints())
+    solid_pressure = numpy.zeros(ugrid.GetNumberOfPoints())
     velocity = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
-    LENGTH=0.1
+    LENGTH = 0.1
+    MULTIPLIER = 1.e3
 
     for dummy_particle in bucket.particles:
         point_list = vtk.vtkIdList()
@@ -462,10 +626,10 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
             rad2 /= LENGTH
 
             volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.parameters.diameter**3
-                                    *numpy.exp(-rad2**2))
+                                    *numpy.exp(-rad2**2)*MULTIPLIER)
             velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2))
+                                         *numpy.exp(-rad2**2)*MULTIPLIER)
         
     volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
     velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
@@ -485,7 +649,13 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
         
             temperature [point_index] += (c*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2))
+                                         *numpy.exp(-rad2**2)*MULTIPLIER)
+
+    for _ in range(ugrid.GetNumberOfPoints()):
+
+        solid_pressure[_] = (dummy_particle.parameters.rho*volume[_]
+                             *radial_distribution_function(volume[_])*temperature[_])
+            
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -494,6 +664,8 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     data[1].SetNumberOfComponents(3)
     data.append(vtk.vtkDoubleArray())
     data[2].SetName('GranularTemperature')
+    data.append(vtk.vtkDoubleArray())
+    data[3].SetName('SolidPressure')
 
     for _ in range(ugrid.GetNumberOfPoints()):
         data[0].InsertNextValue(volume[_])
@@ -502,6 +674,7 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
         else:
             data[1].InsertNextTuple3(*(0*velocity[_]))
         data[2].InsertNextValue(temperature[_])
+        data[3].InsertNextValue(solid_pressure[_])
         ugrid.GetPointData().GetScalars('Time').SetValue(_, bucket.time)
 
     for _ in data:
@@ -545,11 +718,7 @@ def ascii_to_polydata(filename, outfile):
 
     poly_data.GetPointData().AddArray(outtime)
 
-    writer = vtk.vtkXMLPolyDataWriter()
-    writer.SetFileName(outfile)
-    writer.SetInput(poly_data)
-
-    writer.Write()
+    write_to_file(poly_data, outfile)
 
 def collision_list_to_polydata(col_list, outfile,
                                model=Collision.mclaury_mass_coeff, **kwargs):
@@ -591,11 +760,8 @@ def collision_list_to_polydata(col_list, outfile,
     poly_data.GetPointData().AddArray(wear)
     poly_data.GetPointData().AddArray(normal)
 
-    writer = vtk.vtkXMLPolyDataWriter()
-    writer.SetFileName(outfile)
-    writer.SetInput(poly_data)
+    write_to_file(poly_data, outfile)
 
-    writer.Write()
 
 def get_linear_cell(cell):
     """ Get equivalent linear cell to vtkCell cell"""

@@ -4,7 +4,7 @@ import numpy
 
 S = '40'
 
-N = 400
+N = 2000
 
 X = 0.5+0.25*(numpy.random.random((N, 3))-0.5)
 X[:, 0] += 0.2
@@ -29,7 +29,7 @@ TEMP_CACHE.data[1][0] = 100.0
 
 PD = pm.IO.PolyData(NAME+'.vtp')
 PD.append_data(PB)
-pm.IO.write_level_to_polydata(PB, 0, NAME)
+pm.IO.write_level_to_polydata(PB, 0, NAME, do_average=True)
 
 for i in range(300):
     print PB.time
@@ -37,9 +37,9 @@ for i in range(300):
     print 'min, max: vel_x', PB.vel[:, 0].ravel().min(), PB.vel[:, 0].ravel().max()
     PB.update()
     PD.append_data(PB)
-    pm.IO.write_level_to_polydata(PB, i+1, NAME)
-    pm.IO.write_level_to_ugrid(PB, i+1, NAME,
-                               PB.system.temporal_cache.data[0][2])
+    pm.IO.write_level_to_polydata(PB, i+1, NAME, do_average=True)
+#    pm.IO.write_level_to_ugrid(PB, i+1, NAME,
+#                               PB.system.temporal_cache.data[0][2])
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
 

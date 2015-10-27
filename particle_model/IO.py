@@ -400,7 +400,12 @@ def write_bucket_to_points(bucket):
 
 def radial_distribution_function(alpha):
 
+    ALPHA_MAX = 0.59999
+
     ALPHA0 =0.6
+
+    if alpha > ALPHA_MAX:
+        alpha = ALPHA_MAX
 
     return 1.0/(1.0-(alpha/ALPHA0)**(1.0/3.0))
 
@@ -459,7 +464,10 @@ def calculate_averaged_properties(poly_data, bucket):
     volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
     velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
 
-    for particle in bucket.particles:
+    for i in range(3):
+        velocity[:,i] /= volume
+
+    for k, particle in enumerate(bucket.particles):
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
 
@@ -473,7 +481,7 @@ def calculate_averaged_properties(poly_data, bucket):
 
             gamma = beta*numpy.exp(-rad2)*MODIFIER
 
-            c = distance2(particle.vel, velocity[point_index, :])
+            c = distance2(particle.vel, velocity[k, :])
 
             temperature[point_index] += c*gamma
 

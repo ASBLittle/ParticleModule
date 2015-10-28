@@ -1,0 +1,791 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>particle_model.IO &mdash; Particle Model 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Particle Model 0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Particle Model 0.1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for particle_model.IO</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot; Module containing input-output routines between the particle model and</span>
+<span class="sd">the file system. Mostly vtk.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">particle_model</span> <span class="kn">import</span> <span class="n">Collision</span>
+
+<span class="kn">import</span> <span class="nn">vtk</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="kn">import</span> <span class="n">griddata</span>
+
+<span class="n">TYPES_3D</span> <span class="o">=</span> <span class="p">[</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_TETRA</span><span class="p">,</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_QUADRATIC_TETRA</span><span class="p">]</span>
+<span class="n">TYPES_2D</span> <span class="o">=</span> <span class="p">[</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_TRIANGLE</span><span class="p">,</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_QUADRATIC_TRIANGLE</span><span class="p">]</span>
+<span class="n">TYPES_1D</span> <span class="o">=</span> <span class="p">[</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_LINE</span><span class="p">]</span>
+
+<span class="n">TYPE_DICT</span> <span class="o">=</span> <span class="p">{</span><span class="mi">1</span> <span class="p">:</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_LINE</span><span class="p">,</span> <span class="mi">2</span> <span class="p">:</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_TRIANGLE</span><span class="p">,</span> <span class="mi">4</span> <span class="p">:</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_TETRA</span><span class="p">,</span>
+             <span class="mi">15</span> <span class="p">:</span> <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_PIXEL</span><span class="p">}</span>
+
+<span class="n">WRITER</span> <span class="o">=</span> <span class="p">{</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_UNSTRUCTURED_GRID</span><span class="p">:</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLUnstructuredGridWriter</span><span class="p">,</span>
+          <span class="n">vtk</span><span class="o">.</span><span class="n">VTK_POLY_DATA</span><span class="p">:</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">,}</span>
+
+<div class="viewcode-block" id="GmshMesh"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.GmshMesh">[docs]</a><span class="k">class</span> <span class="nc">GmshMesh</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is a class for storing nodes and elements.</span>
+
+<span class="sd">    Members:</span>
+<span class="sd">    nodes -- A dict of the form { nodeID: [ xcoord, ycoord, zcoord] }</span>
+<span class="sd">    elements -- A dict of the form { elemID: (type, [tags], [nodeIDs]) }</span>
+
+<span class="sd">    Methods:</span>
+<span class="sd">    read(file) -- Parse a Gmsh version 1.0 or 2.0 mesh file</span>
+<span class="sd">    write(file) -- Output a Gmsh version 2.0 mesh file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elements</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="GmshMesh.read"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.GmshMesh.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Read a Gmsh .msh file.</span>
+
+<span class="sd">        Reads Gmsh format 1.0 and 2.0 mesh files, storing the nodes and</span>
+<span class="sd">        elements in the appropriate dicts.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">mshfile</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+
+        <span class="n">mode_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;$NOD&#39;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#39;$Nodes&#39;</span> <span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                     <span class="s">&#39;$ELM&#39;</span> <span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+                     <span class="s">&#39;$Elements&#39;</span> <span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
+
+        <span class="n">readmode</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">mshfile</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;$&#39;</span><span class="p">):</span>
+                <span class="n">readmode</span> <span class="o">=</span> <span class="n">mode_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">line</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">readmode</span><span class="p">:</span>
+                <span class="n">columns</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">readmode</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
+                    <span class="c"># Version 1.0 or 2.0 Nodes</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">])]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="n">readmode</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">elif</span> <span class="n">readmode</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">:</span>
+                    <span class="c"># Version 1.0 or 2.0 Elements</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">columns</span><span class="p">]</span>
+                    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                        <span class="n">readmode</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="p">(</span><span class="n">ele_id</span><span class="p">,</span> <span class="n">ele_type</span><span class="p">)</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="k">if</span> <span class="n">readmode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                            <span class="c"># Version 1.0 Elements</span>
+                            <span class="n">tags</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>
+                            <span class="n">nodes</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">5</span><span class="p">:]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="c"># Version 2.0 Elements</span>
+                            <span class="n">ntags</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                            <span class="n">tags</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">3</span><span class="o">+</span><span class="n">ntags</span><span class="p">]</span>
+                            <span class="n">nodes</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">3</span><span class="o">+</span><span class="n">ntags</span><span class="p">:]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">[</span><span class="n">ele_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">ele_type</span><span class="p">,</span> <span class="n">tags</span><span class="p">,</span> <span class="n">nodes</span><span class="p">)</span>
+
+        <span class="n">mshfile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="GmshMesh.write"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.GmshMesh.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Dump the mesh out to a Gmsh 2.0 msh file.&quot;&quot;&quot;</span>
+
+        <span class="n">mshfile</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+
+        <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39;$MeshFormat</span><span class="se">\n</span><span class="s">2.0 0 8</span><span class="se">\n</span><span class="s">$EndMeshFormat&#39;</span>
+        <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39;$Nodes</span><span class="se">\n</span><span class="si">%d</span><span class="s">&#39;</span><span class="o">%</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="n">node_id</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span>  <span class="n">coord</span><span class="p">])</span>
+        <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39;$EndNodes&#39;</span>
+        <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39;$Elements</span><span class="se">\n</span><span class="si">%d</span><span class="s">&#39;</span><span class="o">%</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ele_id</span><span class="p">,</span> <span class="n">elem</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="p">(</span><span class="n">ele_type</span><span class="p">,</span> <span class="n">tags</span><span class="p">,</span> <span class="n">nodes</span><span class="p">)</span> <span class="o">=</span> <span class="n">elem</span>
+            <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="n">ele_id</span><span class="p">,</span> <span class="n">ele_type</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span>
+            <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">tags</span><span class="p">])</span>
+            <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">])</span>
+        <span class="k">print</span> <span class="o">&gt;&gt;</span><span class="n">mshfile</span><span class="p">,</span> <span class="s">&#39;$EndElements&#39;</span>
+</div></div>
+<div class="viewcode-block" id="PolyData"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.PolyData">[docs]</a><span class="k">class</span> <span class="nc">PolyData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Class storing a living vtkPolyData construction&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Initialize the PolyData instance&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell_ids</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyData</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">arrays</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">,):</span>
+            <span class="n">array</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+            <span class="n">array</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">array</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PolyData.append_data"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.PolyData.append_data">[docs]</a>    <span class="k">def</span> <span class="nf">append_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bucket</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Add the data from the current time level&quot;&quot;&quot;</span>
+
+        <span class="k">for</span> <span class="n">particle</span> <span class="ow">in</span> <span class="n">bucket</span><span class="o">.</span><span class="n">particles</span><span class="p">:</span>
+            <span class="n">ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_ids</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">particle</span><span class="p">,</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkIdList</span><span class="p">())</span>
+
+            <span class="n">part_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pnts</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">particle</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+
+            <span class="n">ids</span><span class="o">.</span><span class="n">InsertNextId</span><span class="p">(</span><span class="n">part_id</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">GetScalars</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="PolyData.write"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.PolyData.write">[docs]</a>    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Write the staged vtkPolyData to a file.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pnts</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_ids</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">cell_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_ids</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_LINE</span><span class="p">,</span> <span class="n">cell_id</span><span class="p">)</span>
+
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">()</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poly_data</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+</div></div>
+<div class="viewcode-block" id="BoundaryData"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.BoundaryData">[docs]</a><span class="k">class</span> <span class="nc">BoundaryData</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Class storing the boundary data for the problem&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Class containing the information about the boundary of the domain.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            filename (str): Name of the file containing the</span>
+<span class="sd">            vtkUnstructuredGrid denoting the boundary of the domain.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">geom_filter</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkGeometryFilter</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reader</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLUnstructuredGridReader</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bnd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bndl</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkCellLocator</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_boundary_file</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BoundaryData.update_boundary_file"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.BoundaryData.update_boundary_file">[docs]</a>    <span class="k">def</span> <span class="nf">update_boundary_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Update the boundary data from the file.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+            <span class="k">print</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+            <span class="k">raise</span> <span class="ne">OSError</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bnd</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">geom_filter</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bnd</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">geom_filter</span><span class="o">.</span><span class="n">Update</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">bndl</span><span class="o">.</span><span class="n">SetDataSet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">geom_filter</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bndl</span><span class="o">.</span><span class="n">BuildLocator</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="BoundaryData.rebuild_locator"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.BoundaryData.rebuild_locator">[docs]</a>    <span class="k">def</span> <span class="nf">rebuild_locator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Rebuild the locator information&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bndl</span><span class="o">.</span><span class="n">BuildLocator</span><span class="p">()</span>
+
+
+</div></div>
+<div class="viewcode-block" id="clean_unstructured_grid"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.clean_unstructured_grid">[docs]</a><span class="k">def</span> <span class="nf">clean_unstructured_grid</span><span class="p">(</span><span class="n">ugrid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Collapse a vtu produced from a discontinuous grid back down to the continuous space.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">    ugrid (vtkUnstructuredGrid): the input discontinuous grid</span>
+
+<span class="sd">    Results</span>
+<span class="sd">    out_grid (vtkUnstructuredGrid): A continuous grid&quot;&quot;&quot;</span>
+
+    <span class="n">merge_points</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkMergePoints</span><span class="p">()</span>
+    <span class="n">out_grid</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkUnstructuredGrid</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">()):</span>
+        <span class="n">merge_points</span><span class="o">.</span><span class="n">InsertUniquePoint</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+    <span class="n">merge_points</span><span class="o">.</span><span class="n">BuildLocator</span><span class="p">()</span>
+
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pts</span><span class="o">.</span><span class="n">DeepCopy</span><span class="p">(</span><span class="n">merge_points</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">())</span>
+    <span class="n">out_grid</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfCells</span><span class="p">()):</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">GetCell</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="n">cell_ids</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">()):</span>
+
+            <span class="n">original_point</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+            <span class="n">cell_ids</span><span class="o">.</span><span class="n">SetId</span><span class="p">(</span><span class="n">j</span><span class="p">,</span>
+                           <span class="n">merge_points</span><span class="o">.</span><span class="n">FindClosestInsertedPoint</span><span class="p">(</span><span class="n">original_point</span><span class="p">))</span>
+
+        <span class="n">out_grid</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+
+
+    <span class="n">out_grid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">DeepCopy</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">out_grid</span>
+</div>
+<div class="viewcode-block" id="extract_boundary"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.extract_boundary">[docs]</a><span class="k">def</span> <span class="nf">extract_boundary</span><span class="p">(</span><span class="n">ugrid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Extract the boundary elements from an unstructured grid, provided it already contains them.</span>
+
+<span class="sd">    Args:</span>
+
+<span class="sd">    ugrid (vtkUnstructuredGrid): The grid with which to work.</span>
+
+<span class="sd">    Results:</span>
+
+<span class="sd">    out_grid (vtkUnstructuredGrid): Grid containing the boundary of ugrid&quot;&quot;&quot;</span>
+
+    <span class="n">out_grid</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkUnstructuredGrid</span><span class="p">()</span>
+    <span class="n">pts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pts</span><span class="o">.</span><span class="n">DeepCopy</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">())</span>
+    <span class="n">out_grid</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pts</span><span class="p">)</span>
+    <span class="n">out_grid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">CopyStructure</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">())</span>
+
+    <span class="n">celltypes</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkCellTypes</span><span class="p">()</span>
+
+    <span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellTypes</span><span class="p">(</span><span class="n">celltypes</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">celltypes</span><span class="o">.</span><span class="n">IsType</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span> <span class="k">for</span> <span class="n">ct</span> <span class="ow">in</span> <span class="n">TYPES_3D</span><span class="p">]):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="k">elif</span> <span class="nb">any</span><span class="p">([</span><span class="n">celltypes</span><span class="o">.</span><span class="n">IsType</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span> <span class="k">for</span> <span class="n">ct</span> <span class="ow">in</span> <span class="n">TYPES_2D</span><span class="p">]):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">elif</span> <span class="nb">any</span><span class="p">([</span><span class="n">celltypes</span><span class="o">.</span><span class="n">IsType</span><span class="p">(</span><span class="n">ct</span><span class="p">)</span> <span class="k">for</span> <span class="n">ct</span> <span class="ow">in</span> <span class="n">TYPES_1D</span><span class="p">]):</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">print</span> <span class="n">dim</span>
+
+    <span class="n">ncells</span> <span class="o">=</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfCells</span><span class="p">()</span>
+    <span class="n">ncda</span> <span class="o">=</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">GetNumberOfArrays</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncda</span><span class="p">):</span>
+        <span class="n">out_grid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">GetArray</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">GetArray</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">GetName</span><span class="p">())</span>
+
+    <span class="n">cell_data</span> <span class="o">=</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncells</span><span class="p">):</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">GetCell</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="o">&gt;</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetCellDimension</span><span class="p">():</span>
+            <span class="n">out_grid</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span>
+                                    <span class="n">cell</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncda</span><span class="p">):</span>
+                <span class="n">out_data</span> <span class="o">=</span> <span class="n">out_grid</span><span class="o">.</span><span class="n">GetCellData</span><span class="p">()</span><span class="o">.</span><span class="n">GetArray</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+                <span class="n">out_data</span><span class="o">.</span><span class="n">InsertNextTuple</span><span class="p">(</span><span class="n">cell_data</span><span class="o">.</span><span class="n">GetArray</span><span class="p">(</span><span class="n">j</span><span class="p">)</span><span class="o">.</span><span class="n">GetTuple</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">out_grid</span>
+</div>
+<div class="viewcode-block" id="get_ascii_data"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.get_ascii_data">[docs]</a><span class="k">def</span> <span class="nf">get_ascii_data</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s">&#39;data.dat&#39;</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Read the ascii output file and output as numpy data arrays</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str) The file to interogate</span>
+
+<span class="sd">    Results:</span>
+<span class="sd">        t (ndarray): Time</span>
+<span class="sd">        x (ndarray): x coordinate of particle position</span>
+<span class="sd">        y (ndarray): y coordinate of particle position</span>
+<span class="sd">        z (ndarray): z coordinate of particle position</span>
+<span class="sd">        u (ndarray): u coordinate of particle velocity</span>
+<span class="sd">        v (ndarray): v coordinate of particle velocity</span>
+<span class="sd">        w (ndarray): w coordinate of particle velocity&quot;&quot;&quot;</span>
+
+    <span class="n">infile</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+
+    <span class="n">time</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pos_x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pos_y</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pos_z</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">vel_u</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">vel_v</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">vel_w</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">infile</span><span class="o">.</span><span class="n">readlines</span><span class="p">():</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">M</span><span class="p">)</span> <span class="k">for</span> <span class="n">M</span> <span class="ow">in</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+
+        <span class="n">time</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="o">/</span><span class="mi">6</span>
+        <span class="n">pos_x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">3</span><span class="p">][:</span><span class="n">num</span><span class="p">])</span>
+        <span class="n">vel_u</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">3</span><span class="p">][</span><span class="n">num</span><span class="p">:])</span>
+        <span class="n">pos_y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">::</span><span class="mi">3</span><span class="p">][:</span><span class="n">num</span><span class="p">])</span>
+        <span class="n">vel_v</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">::</span><span class="mi">3</span><span class="p">][</span><span class="n">num</span><span class="p">:])</span>
+        <span class="n">pos_z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">::</span><span class="mi">3</span><span class="p">][:</span><span class="n">num</span><span class="p">])</span>
+        <span class="n">vel_w</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">::</span><span class="mi">3</span><span class="p">][</span><span class="n">num</span><span class="p">:])</span>
+
+    <span class="n">pos_x</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos_x</span><span class="p">)</span>
+    <span class="n">pos_y</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos_y</span><span class="p">)</span>
+    <span class="n">pos_z</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos_z</span><span class="p">)</span>
+    <span class="n">vel_u</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vel_u</span><span class="p">)</span>
+    <span class="n">vel_v</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vel_v</span><span class="p">)</span>
+    <span class="n">vel_w</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">vel_w</span><span class="p">)</span>
+
+    <span class="n">infile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">time</span><span class="p">,</span> <span class="n">pos_x</span><span class="p">,</span> <span class="n">pos_y</span><span class="p">,</span> <span class="n">pos_z</span><span class="p">,</span> <span class="n">vel_u</span><span class="p">,</span> <span class="n">vel_v</span><span class="p">,</span> <span class="n">vel_w</span>
+
+</div>
+<div class="viewcode-block" id="ascii_to_polydata_time_series"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.ascii_to_polydata_time_series">[docs]</a><span class="k">def</span> <span class="nf">ascii_to_polydata_time_series</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">basename</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Convert ascii file to a series of vtkPolyData (.vtp) files.</span>
+
+<span class="sd">    Each file contains one time level of the data, and are numbered sequentially.</span>
+<span class="sd">    Within each file, each dataset is written to seperate pixel.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): Filename/path of the ascii file containing the data.</span>
+<span class="sd">        basename (str): String used in the construction of the file series.</span>
+<span class="sd">        The formula is of the form basename_0.vtp, basename_1.vtp,...&quot;&quot;&quot;</span>
+
+    <span class="n">ascii_data</span> <span class="o">=</span> <span class="n">get_ascii_data</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">ascii_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">full_data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">ascii_data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ascii_data</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">ascii_data</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+                                      <span class="n">ascii_data</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">ascii_data</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">ascii_data</span><span class="p">[</span><span class="mi">6</span><span class="p">])):</span>
+        <span class="n">poly_data</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyData</span><span class="p">()</span>
+        <span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+        <span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pnts</span><span class="p">)</span>
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">ascii_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">outtime</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+        <span class="n">outtime</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">ascii_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">outtime</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+
+        <span class="n">velocity</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+        <span class="n">velocity</span><span class="o">.</span><span class="n">SetNumberOfComponents</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">velocity</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">ascii_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">velocity</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Particle Velocity&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">full_data</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">:</span>
+            <span class="n">pixel</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPixel</span><span class="p">()</span>
+            <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">()</span><span class="o">.</span><span class="n">InsertId</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>
+                                         <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                                               <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                                               <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+            <span class="n">outtime</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">time</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">velocity</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+            <span class="n">poly_data</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">pixel</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span> <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">outtime</span><span class="p">)</span>
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">velocity</span><span class="p">)</span>
+        <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">()</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s">_</span><span class="si">%d</span><span class="s">.vtp&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">basename</span><span class="p">,</span> <span class="n">i</span><span class="p">))</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="n">poly_data</span><span class="p">)</span>
+        <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="write_level_to_polydata"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.write_level_to_polydata">[docs]</a><span class="k">def</span> <span class="nf">write_level_to_polydata</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">basename</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Output a time level of a particle bucket to a vtkPolyData (.vtp) files.</span>
+
+<span class="sd">    Each file contains one time level of the data, and are numbered sequentially.</span>
+<span class="sd">    Within each file, each particle is written to seperate pixel.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">         bucket   (ParticleBucket):</span>
+<span class="sd">        level    (int):</span>
+<span class="sd">        basename (str): String used in the construction of the file series.</span>
+<span class="sd">        The formula is of the form basename_0.vtp, basename_1.vtp,...&quot;&quot;&quot;</span>
+
+    <span class="k">del</span> <span class="n">kwargs</span>
+
+    <span class="n">poly_data</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyData</span><span class="p">()</span>
+    <span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pnts</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">outtime</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">outtime</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+    <span class="n">outtime</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">velocity</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">velocity</span><span class="o">.</span><span class="n">SetNumberOfComponents</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">velocity</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">pos</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">velocity</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Particle Velocity&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">positions</span><span class="p">,</span> <span class="n">vel</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">bucket</span><span class="o">.</span><span class="n">vel</span><span class="p">):</span>
+        <span class="n">pixel</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPixel</span><span class="p">()</span>
+        <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">()</span><span class="o">.</span><span class="n">InsertId</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>
+                                     <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">positions</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                                           <span class="n">positions</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                                           <span class="n">positions</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">outtime</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">bucket</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">velocity</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="n">vel</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">vel</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">vel</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">pixel</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span> <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">outtime</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">velocity</span><span class="p">)</span>
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">()</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%s</span><span class="s">_</span><span class="si">%d</span><span class="s">.vtp&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">basename</span><span class="p">,</span> <span class="n">level</span><span class="p">))</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="n">poly_data</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+
+</div>
+<div class="viewcode-block" id="write_level_to_ugrid"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.write_level_to_ugrid">[docs]</a><span class="k">def</span> <span class="nf">write_level_to_ugrid</span><span class="p">(</span><span class="n">bucket</span><span class="p">,</span> <span class="n">level</span><span class="p">,</span> <span class="n">basename</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.</span>
+
+<span class="sd">    Particle volumes are averaged over the cells in the model using a control volume</span>
+<span class="sd">    approach.&quot;&quot;&quot;</span>
+
+    <span class="k">del</span> <span class="n">kwargs</span>
+
+    <span class="n">ugrid</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkUnstructuredGrid</span><span class="p">()</span>
+    <span class="n">ugrid</span><span class="o">.</span><span class="n">DeepCopy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+<span class="c">#    mass = numpy.zeros(ugrid.GetNumberOfPoints())</span>
+<span class="c">#    for _ in range(ugrid.GetNumberOfCells()):</span>
+<span class="c">#        cell = ugrid.GetCell(_)</span>
+<span class="c">#        dummy = cell.GetPoints().GetPoint</span>
+<span class="c">#        dummy_id = cell.GetPointIds().GetId</span>
+<span class="c">#</span>
+<span class="c">#        measure = abs(cell.TriangleArea(dummy(0), dummy(1), dummy(2)))</span>
+<span class="c">#</span>
+<span class="c">#        for k in range(cell.GetNumberOfPoints()):</span>
+<span class="c">#            mass[dummy_id(k)] += measure/cell.GetNumberOfPoints()</span>
+
+    <span class="n">locator</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPointLocator</span><span class="p">()</span>
+    <span class="n">locator</span><span class="o">.</span><span class="n">SetDataSet</span><span class="p">(</span><span class="n">ugrid</span><span class="p">)</span>
+    <span class="n">locator</span><span class="o">.</span><span class="n">BuildLocator</span><span class="p">()</span>
+
+    <span class="n">volume</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())</span>
+    <span class="n">velocity</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">(),</span> <span class="mi">3</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">dummy_particle</span> <span class="ow">in</span> <span class="n">bucket</span><span class="o">.</span><span class="n">particles</span><span class="p">:</span>
+<span class="c">#        point_index = locator.FindClosestPoint(particle.p)</span>
+        <span class="n">point_list</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkIdList</span><span class="p">()</span>
+        <span class="n">locator</span><span class="o">.</span><span class="n">FindPointsWithinRadius</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">dummy_particle</span><span class="o">.</span><span class="n">pos</span><span class="p">,</span> <span class="n">point_list</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">point_list</span><span class="o">.</span><span class="n">GetNumberOfIds</span><span class="p">()):</span>
+            <span class="n">point_index</span> <span class="o">=</span> <span class="n">point_list</span><span class="o">.</span><span class="n">GetId</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+
+            <span class="n">rad2</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">point_index</span><span class="p">))</span>
+                              <span class="o">-</span><span class="n">dummy_particle</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">rad2</span> <span class="o">/=</span> <span class="mi">500</span><span class="o">*</span><span class="n">dummy_particle</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">diameter</span>
+
+            <span class="n">volume</span><span class="p">[</span><span class="n">point_index</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">6.0</span><span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">dummy_particle</span><span class="o">.</span><span class="n">diameter</span><span class="o">**</span><span class="mi">3</span>
+                                    <span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">rad2</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">velocity</span><span class="p">[</span><span class="n">point_index</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+=</span> <span class="p">(</span><span class="n">dummy_particle</span><span class="o">.</span><span class="n">vel</span><span class="o">*</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">6.0</span><span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">pi</span>
+                                         <span class="o">*</span><span class="n">dummy_particle</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">diameter</span><span class="o">**</span><span class="mi">3</span>
+                                         <span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">rad2</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()]</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;SolidVolumeFraction&#39;</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;SolidVolumeVelocity&#39;</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">SetNumberOfComponents</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">()):</span>
+        <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">volume</span><span class="p">[</span><span class="n">_</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">volume</span><span class="p">[</span><span class="n">_</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mf">1.0e-12</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">velocity</span><span class="p">[</span><span class="n">_</span><span class="p">]</span><span class="o">/</span><span class="n">volume</span><span class="p">[</span><span class="n">_</span><span class="p">]))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="mi">0</span><span class="o">*</span><span class="n">velocity</span><span class="p">[</span><span class="n">_</span><span class="p">]))</span>
+        <span class="n">ugrid</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">GetScalars</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">SetValue</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">bucket</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="n">ugrid</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="n">write_to_file</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">_out_</span><span class="si">%d</span><span class="s">.vtu&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">basename</span><span class="p">,</span> <span class="n">level</span><span class="p">))</span>
+</div>
+<div class="viewcode-block" id="ascii_to_polydata"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.ascii_to_polydata">[docs]</a><span class="k">def</span> <span class="nf">ascii_to_polydata</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">outfile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert ascii file to a single vtkXMLPolyData (.vtp) files.</span>
+
+<span class="sd">    Each particle is written to seperate cell.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): Filename/path of the ascii file containing the data.</span>
+<span class="sd">        outfile (str):  Filename of the output PolyDataFile. The extension .vtp</span>
+<span class="sd">        is NOT added automatically.&quot;&quot;&quot;</span>
+
+    <span class="n">poly_data</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyData</span><span class="p">()</span>
+    <span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pnts</span><span class="p">)</span>
+    <span class="n">full_data</span> <span class="o">=</span> <span class="n">get_ascii_data</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">full_data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">pos_x</span> <span class="o">=</span> <span class="n">full_data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">pos_y</span> <span class="o">=</span> <span class="n">full_data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">pos_z</span> <span class="o">=</span> <span class="n">full_data</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">pos_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">outtime</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">outtime</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">positions</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pos_x</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">pos_y</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">pos_z</span><span class="o">.</span><span class="n">T</span><span class="p">):</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkLine</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">positions</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">positions</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">positions</span><span class="p">[</span><span class="mi">2</span><span class="p">])):</span>
+            <span class="n">outtime</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">line</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">()</span><span class="o">.</span><span class="n">InsertId</span><span class="p">(</span><span class="n">k</span><span class="p">,</span>
+                                        <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                                              <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                                                                              <span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">]))</span>
+            <span class="n">poly_data</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span> <span class="n">line</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">outtime</span><span class="p">)</span>
+
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">()</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="n">poly_data</span><span class="p">)</span>
+
+    <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="collision_list_to_polydata"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.collision_list_to_polydata">[docs]</a><span class="k">def</span> <span class="nf">collision_list_to_polydata</span><span class="p">(</span><span class="n">col_list</span><span class="p">,</span> <span class="n">outfile</span><span class="p">,</span>
+                               <span class="n">model</span><span class="o">=</span><span class="n">Collision</span><span class="o">.</span><span class="n">mclaury_mass_coeff</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Convert collision data to a single vtkPolyData (.vtp) files.</span>
+
+<span class="sd">    Each particle is written to seperate cell.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): Filename/path of the ascii file containing the data.</span>
+<span class="sd">        outfile (str):  Filename of the output PolyDataFile. The extension .vtp</span>
+<span class="sd">        is NOT added automatically.&quot;&quot;&quot;</span>
+
+    <span class="n">poly_data</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPolyData</span><span class="p">()</span>
+    <span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pnts</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">col_list</span><span class="p">))</span>
+
+    <span class="n">time</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">time</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+    <span class="n">wear</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">wear</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Wear&#39;</span><span class="p">)</span>
+    <span class="n">normal</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">normal</span><span class="o">.</span><span class="n">SetNumberOfComponents</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">normal</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Normal&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">col_list</span><span class="p">:</span>
+        <span class="n">pixel</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPixel</span><span class="p">()</span>
+        <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">()</span><span class="o">.</span><span class="n">InsertId</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>
+                                     <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">col</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                                                                           <span class="n">col</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                                                                           <span class="n">col</span><span class="o">.</span><span class="n">pos</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">col</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+        <span class="n">wear</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span>
+        <span class="n">normal</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="o">*</span><span class="n">col</span><span class="o">.</span><span class="n">normal</span><span class="p">)</span>
+        <span class="n">poly_data</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">pixel</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">(),</span> <span class="n">pixel</span><span class="o">.</span><span class="n">GetPointIds</span><span class="p">())</span>
+
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">wear</span><span class="p">)</span>
+    <span class="n">poly_data</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">normal</span><span class="p">)</span>
+
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkXMLPolyDataWriter</span><span class="p">()</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="n">poly_data</span><span class="p">)</span>
+
+    <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="get_linear_cell"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.get_linear_cell">[docs]</a><span class="k">def</span> <span class="nf">get_linear_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Get equivalent linear cell to vtkCell cell&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_POLY_LINE</span><span class="p">,):</span>
+        <span class="n">linear_cell</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkLine</span><span class="p">()</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_QUADRATIC_TRIANGLE</span><span class="p">,):</span>
+        <span class="n">linear_cell</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkTriangle</span><span class="p">()</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetCellType</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">VTK_QUADRATIC_TETRA</span><span class="p">,):</span>
+        <span class="n">linear_cell</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkTetra</span><span class="p">()</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">SetPoint</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">linear_cell</span> <span class="o">=</span> <span class="n">cell</span>
+
+    <span class="k">return</span> <span class="n">linear_cell</span>
+</div>
+<div class="viewcode-block" id="test_in_cell"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.test_in_cell">[docs]</a><span class="k">def</span> <span class="nf">test_in_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Check if point is in vtk cell&quot;&quot;&quot;</span>
+
+    <span class="n">linear_cell</span> <span class="o">=</span> <span class="n">get_linear_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">)</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">linear_cell</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">()</span><span class="o">-</span><span class="mi">1</span>
+    <span class="n">ppos</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">linear_cell</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())</span>
+    <span class="n">dummy_func</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">dummy_func</span><span class="p">(</span><span class="n">i</span><span class="p">)[:</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dummy_func</span><span class="p">(</span><span class="mi">0</span><span class="p">)[:</span><span class="n">dim</span><span class="p">])</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ppos</span><span class="p">)</span>
+    <span class="n">linear_cell</span><span class="o">.</span><span class="n">BarycentricCoords</span><span class="p">(</span><span class="n">position</span><span class="p">[:</span><span class="n">dim</span><span class="p">],</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">cell</span><span class="o">.</span><span class="n">GetParametricDistance</span><span class="p">(</span><span class="n">ppos</span><span class="p">[:</span><span class="mi">3</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span>
+</div>
+<div class="viewcode-block" id="write_to_file"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.write_to_file">[docs]</a><span class="k">def</span> <span class="nf">write_to_file</span><span class="p">(</span><span class="n">vtk_data</span><span class="p">,</span> <span class="n">outfile</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Wrapper around the various VTK writer routines&quot;&quot;&quot;</span>
+
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">WRITER</span><span class="p">[</span><span class="n">vtk_data</span><span class="o">.</span><span class="n">GetDataObjectType</span><span class="p">()]()</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetFileName</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">SetInput</span><span class="p">(</span><span class="n">vtk_data</span><span class="p">)</span>
+    <span class="n">writer</span><span class="o">.</span><span class="n">Write</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="make_unstructured_grid"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.make_unstructured_grid">[docs]</a><span class="k">def</span> <span class="nf">make_unstructured_grid</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="n">pressure</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">outfile</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given a mesh (in Gmsh format), velocity and pressure fields, and a</span>
+<span class="sd">    time level, store the data in a vtkUnstructuredGridFormat.&quot;&quot;&quot;</span>
+
+    <span class="n">pnts</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkPoints</span><span class="p">()</span>
+    <span class="n">pnts</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span><span class="p">))</span>
+
+    <span class="n">node2id</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">node2id</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">pnts</span><span class="o">.</span><span class="n">InsertNextPoint</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+
+    <span class="n">ugrid</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkUnstructuredGrid</span><span class="p">()</span>
+    <span class="n">ugrid</span><span class="o">.</span><span class="n">SetPoints</span><span class="p">(</span><span class="n">pnts</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">elements</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="n">id_list</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkIdList</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">element</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>
+            <span class="n">id_list</span><span class="o">.</span><span class="n">InsertNextId</span><span class="p">(</span><span class="n">node2id</span><span class="p">[</span><span class="n">node</span><span class="p">])</span>
+
+        <span class="n">ugrid</span><span class="o">.</span><span class="n">InsertNextCell</span><span class="p">(</span><span class="n">TYPE_DICT</span><span class="p">[</span><span class="n">element</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">id_list</span><span class="p">)</span>
+
+    <span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">SetNumberOfComponents</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="mi">3</span><span class="o">*</span><span class="n">pnts</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Velocity&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">pnts</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Pressure&#39;</span><span class="p">)</span>
+
+    <span class="n">data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">pnts</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())</span>
+    <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Time&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mesh</span><span class="o">.</span><span class="n">nodes</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">velocity</span><span class="p">,</span> <span class="s">&#39;__call__&#39;</span><span class="p">):</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="o">*</span><span class="n">velocity</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">k</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextTuple3</span><span class="p">(</span><span class="o">*</span><span class="n">velocity</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">pressure</span><span class="p">,</span> <span class="s">&#39;__call__&#39;</span><span class="p">):</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">pressure</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoints</span><span class="p">()</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">k</span><span class="p">)))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">pressure</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">time</span><span class="p">)</span>
+
+
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+        <span class="n">ugrid</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">outfile</span><span class="p">:</span>
+        <span class="n">write_to_file</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">ugrid</span>
+</div>
+<div class="viewcode-block" id="interpolate_collision_data"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.IO.interpolate_collision_data">[docs]</a><span class="k">def</span> <span class="nf">interpolate_collision_data</span><span class="p">(</span><span class="n">col_list</span><span class="p">,</span> <span class="n">ugrid</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s">&#39;nearest&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Interpolate the wear data from col_list onto the surface described</span>
+<span class="sd">    in the vtkUnstructuredGrid ugrid &quot;&quot;&quot;</span>
+
+    <span class="n">out_pts</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetPoint</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">GetNumberOfPoints</span><span class="p">())])</span>
+
+    <span class="n">data_pts</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">pos</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">col_list</span><span class="p">])</span>
+    <span class="n">wear_pts</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="o">.</span><span class="n">get_wear</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">col_list</span><span class="p">])</span>
+
+    <span class="k">print</span> <span class="n">data_pts</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">data_pts</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+    <span class="k">print</span> <span class="n">wear_pts</span><span class="p">,</span> <span class="n">numpy</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">wear_pts</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+    <span class="n">wear_on_grid</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="n">data_pts</span><span class="p">,</span> <span class="n">wear_pts</span><span class="p">,</span> <span class="n">out_pts</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+<span class="c">#    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts,</span>
+<span class="c">#    function=&#39;gaussian&#39;, epsilon=0.1,smooth=3.0)</span>
+<span class="c">#    wear_on_grid = rbfi(out_pts[:,0], out_pts[:, 1], out_pts[:, 2])</span>
+
+    <span class="k">print</span> <span class="n">wear_on_grid</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="n">wear_vtk</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkDoubleArray</span><span class="p">()</span>
+    <span class="n">wear_vtk</span><span class="o">.</span><span class="n">SetName</span><span class="p">(</span><span class="s">&#39;Wear&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">wear</span> <span class="ow">in</span> <span class="n">wear_on_grid</span><span class="p">:</span>
+        <span class="n">wear_vtk</span><span class="o">.</span><span class="n">InsertNextValue</span><span class="p">(</span><span class="n">wear</span><span class="p">)</span>
+
+    <span class="n">ugrid</span><span class="o">.</span><span class="n">GetPointData</span><span class="p">()</span><span class="o">.</span><span class="n">AddArray</span><span class="p">(</span><span class="n">wear_vtk</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, James Percival.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.2</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

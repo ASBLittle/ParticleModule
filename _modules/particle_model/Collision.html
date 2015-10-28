@@ -1,0 +1,147 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>particle_model.Collision &mdash; Particle Model 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Particle Model 0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Particle Model 0.1 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for particle_model.Collision</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot; Module contains routines to deal with calculating wear from</span>
+<span class="sd">collision information.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<div class="viewcode-block" id="CollisionException"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.Collision.CollisionException">[docs]</a><span class="k">class</span> <span class="nc">CollisionException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Exception to deal with bad collisions&quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</div>
+<div class="viewcode-block" id="CollisionInfo"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.Collision.CollisionInfo">[docs]</a><span class="k">class</span> <span class="nc">CollisionInfo</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Utility class for collision information &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">angle</span><span class="p">,</span> <span class="n">normal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Initialise from particle collision information.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">particle</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">particle</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">particle</span><span class="o">.</span><span class="n">pos</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vel</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">particle</span><span class="o">.</span><span class="n">vel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">particle</span><span class="o">.</span><span class="n">time</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cell</span> <span class="o">=</span> <span class="n">cell</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">angle</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">normal</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">normal</span><span class="p">)</span>
+
+<div class="viewcode-block" id="CollisionInfo.get_wear"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.Collision.CollisionInfo.get_wear">[docs]</a>    <span class="k">def</span> <span class="nf">get_wear</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Calculate wear induced by this collision&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">mclaury_mass_coeff</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="CollisionInfo.write_data"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.Collision.CollisionInfo.write_data">[docs]</a>    <span class="k">def</span> <span class="nf">write_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poly_data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Write data to polyfile &quot;&quot;&quot;</span>
+        <span class="k">del</span> <span class="n">poly_data</span>
+        <span class="n">wear</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_wear</span><span class="p">()</span>
+        <span class="k">print</span> <span class="n">wear</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+</div></div>
+<span class="n">STANDARD_MATERIAL</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;n&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s">&#39;k&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span> <span class="s">&#39;H&#39;</span><span class="p">:</span><span class="mf">1.</span><span class="p">,</span> <span class="s">&#39;F_s&#39;</span><span class="p">:</span> <span class="mf">1.</span><span class="p">,</span> <span class="s">&#39;F_B&#39;</span><span class="p">:</span><span class="mf">1.</span><span class="p">}</span>
+
+<div class="viewcode-block" id="mclaury_mass_coeff"><a class="viewcode-back" href="../../_sources/particle_model.html#particle_model.Collision.mclaury_mass_coeff">[docs]</a><span class="k">def</span> <span class="nf">mclaury_mass_coeff</span><span class="p">(</span><span class="n">collision</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Wear rate coefficient of collision from Mclaury correlation&quot;&quot;&quot;</span>
+    <span class="n">material</span> <span class="o">=</span> <span class="n">material</span> <span class="ow">or</span> <span class="n">STANDARD_MATERIAL</span>
+
+    <span class="n">n_exp</span> <span class="o">=</span> <span class="n">material</span><span class="p">[</span><span class="s">&#39;n&#39;</span><span class="p">]</span>
+    <span class="n">coeff</span> <span class="o">=</span> <span class="n">material</span><span class="p">[</span><span class="s">&#39;k&#39;</span><span class="p">]</span>
+    <span class="n">hardness</span> <span class="o">=</span> <span class="n">material</span><span class="p">[</span><span class="s">&#39;H&#39;</span><span class="p">]</span>
+    <span class="n">sharpness_factor</span> <span class="o">=</span> <span class="n">material</span><span class="p">[</span><span class="s">&#39;F_s&#39;</span><span class="p">]</span>
+    <span class="n">penetration_factor</span> <span class="o">=</span> <span class="n">material</span><span class="p">[</span><span class="s">&#39;F_B&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">fun</span><span class="p">(</span><span class="n">theta</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Mclaury angle response function&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">numpy</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">theta</span><span class="p">)</span><span class="o">-</span><span class="mf">3.0</span><span class="o">*</span><span class="n">numpy</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="n">vel</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">numpy</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">collision</span><span class="o">.</span><span class="n">vel</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">coeff</span><span class="o">*</span><span class="n">hardness</span><span class="o">*</span><span class="n">sharpness_factor</span><span class="o">*</span><span class="n">penetration_factor</span><span class="o">*</span><span class="n">vel</span><span class="o">**</span><span class="n">n_exp</span><span class="o">*</span><span class="n">fun</span><span class="p">(</span><span class="n">collision</span><span class="o">.</span><span class="n">angle</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, James Percival.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.2</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>particle_model package &mdash; Particle Model 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Particle Model 0.1 documentation" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Particle Model 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="particle-model-package">
+<h1>particle_model package<a class="headerlink" href="#particle-model-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-particle_model.Collision">
+<span id="particle-model-collision-module"></span><h2>particle_model.Collision module<a class="headerlink" href="#module-particle_model.Collision" title="Permalink to this headline">¶</a></h2>
+<p>Module contains routines to deal with calculating wear from
+collision information.</p>
+<dl class="exception">
+<dt id="particle_model.Collision.CollisionException">
+<em class="property">exception </em><code class="descclassname">particle_model.Collision.</code><code class="descname">CollisionException</code><a class="reference internal" href="../_modules/particle_model/Collision.html#CollisionException"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Collision.CollisionException" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">exceptions.Exception</span></code></p>
+<p>Exception to deal with bad collisions</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="particle_model.Collision.CollisionInfo">
+<em class="property">class </em><code class="descclassname">particle_model.Collision.</code><code class="descname">CollisionInfo</code><span class="sig-paren">(</span><em>particle</em>, <em>cell</em>, <em>angle</em>, <em>normal</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Collision.html#CollisionInfo"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Collision.CollisionInfo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Utility class for collision information</p>
+<dl class="method">
+<dt id="particle_model.Collision.CollisionInfo.get_wear">
+<code class="descname">get_wear</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Collision.html#CollisionInfo.get_wear"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Collision.CollisionInfo.get_wear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate wear induced by this collision</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Collision.CollisionInfo.write_data">
+<code class="descname">write_data</code><span class="sig-paren">(</span><em>poly_data</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Collision.html#CollisionInfo.write_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Collision.CollisionInfo.write_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write data to polyfile</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.Collision.mclaury_mass_coeff">
+<code class="descclassname">particle_model.Collision.</code><code class="descname">mclaury_mass_coeff</code><span class="sig-paren">(</span><em>collision</em>, <em>material=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Collision.html#mclaury_mass_coeff"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Collision.mclaury_mass_coeff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wear rate coefficient of collision from Mclaury correlation</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model.DragModels">
+<span id="particle-model-dragmodels-module"></span><h2>particle_model.DragModels module<a class="headerlink" href="#module-particle_model.DragModels" title="Permalink to this headline">¶</a></h2>
+<p>Module defines some typical drag models for momentum exchange between the particle and fluid.</p>
+<dl class="function">
+<dt id="particle_model.DragModels.stokes_drag">
+<code class="descclassname">particle_model.DragModels.</code><code class="descname">stokes_drag</code><span class="sig-paren">(</span><em>fluid_velocity</em>, <em>particle_velocity</em>, <em>diameter</em>, <em>fluid_viscosity</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/DragModels.html#stokes_drag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.DragModels.stokes_drag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return Stokes drag force for particle parameters</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.DragModels.transitional_drag">
+<code class="descclassname">particle_model.DragModels.</code><code class="descname">transitional_drag</code><span class="sig-paren">(</span><em>fluid_velocity</em>, <em>particle_velocity</em>, <em>diameter</em>, <em>rho_f=1000.0</em>, <em>fluid_viscosity=0.001</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/DragModels.html#transitional_drag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.DragModels.transitional_drag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return transitional drag force for particle parameters</p>
+<p>Transition to turbulence is assumed to occur when Re&gt;1000 for a particle
+Reynolds number,</p>
+<p>Re=rho_f*du*diameter/ mu</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.DragModels.turbulent_drag">
+<code class="descclassname">particle_model.DragModels.</code><code class="descname">turbulent_drag</code><span class="sig-paren">(</span><em>fluid_velocity</em>, <em>particle_velocity</em>, <em>diameter</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/DragModels.html#turbulent_drag"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.DragModels.turbulent_drag" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return turbulent drag force for particle parameters</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model.IO">
+<span id="particle-model-io-module"></span><h2>particle_model.IO module<a class="headerlink" href="#module-particle_model.IO" title="Permalink to this headline">¶</a></h2>
+<p>Module containing input-output routines between the particle model and
+the file system. Mostly vtk.</p>
+<dl class="class">
+<dt id="particle_model.IO.BoundaryData">
+<em class="property">class </em><code class="descclassname">particle_model.IO.</code><code class="descname">BoundaryData</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#BoundaryData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.BoundaryData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class storing the boundary data for the problem</p>
+<dl class="method">
+<dt id="particle_model.IO.BoundaryData.rebuild_locator">
+<code class="descname">rebuild_locator</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#BoundaryData.rebuild_locator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.BoundaryData.rebuild_locator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Rebuild the locator information</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.IO.BoundaryData.update_boundary_file">
+<code class="descname">update_boundary_file</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#BoundaryData.update_boundary_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.BoundaryData.update_boundary_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the boundary data from the file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="particle_model.IO.GmshMesh">
+<em class="property">class </em><code class="descclassname">particle_model.IO.</code><code class="descname">GmshMesh</code><a class="reference internal" href="../_modules/particle_model/IO.html#GmshMesh"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.GmshMesh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This is a class for storing nodes and elements.</p>
+<p>Members:
+nodes &#8211; A dict of the form { nodeID: [ xcoord, ycoord, zcoord] }
+elements &#8211; A dict of the form { elemID: (type, [tags], [nodeIDs]) }</p>
+<p>Methods:
+read(file) &#8211; Parse a Gmsh version 1.0 or 2.0 mesh file
+write(file) &#8211; Output a Gmsh version 2.0 mesh file</p>
+<dl class="method">
+<dt id="particle_model.IO.GmshMesh.read">
+<code class="descname">read</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#GmshMesh.read"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.GmshMesh.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read a Gmsh .msh file.</p>
+<p>Reads Gmsh format 1.0 and 2.0 mesh files, storing the nodes and
+elements in the appropriate dicts.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.IO.GmshMesh.write">
+<code class="descname">write</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#GmshMesh.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.GmshMesh.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Dump the mesh out to a Gmsh 2.0 msh file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="particle_model.IO.PolyData">
+<em class="property">class </em><code class="descclassname">particle_model.IO.</code><code class="descname">PolyData</code><span class="sig-paren">(</span><em>filename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#PolyData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.PolyData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class storing a living vtkPolyData construction</p>
+<dl class="method">
+<dt id="particle_model.IO.PolyData.append_data">
+<code class="descname">append_data</code><span class="sig-paren">(</span><em>bucket</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#PolyData.append_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.PolyData.append_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add the data from the current time level</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.IO.PolyData.write">
+<code class="descname">write</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#PolyData.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.PolyData.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write the staged vtkPolyData to a file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.ascii_to_polydata">
+<code class="descclassname">particle_model.IO.</code><code class="descname">ascii_to_polydata</code><span class="sig-paren">(</span><em>filename</em>, <em>outfile</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#ascii_to_polydata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.ascii_to_polydata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert ascii file to a single vtkXMLPolyData (.vtp) files.</p>
+<p>Each particle is written to seperate cell.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filename</strong> (<em>str</em>) &#8211; Filename/path of the ascii file containing the data.</li>
+<li><strong>outfile</strong> (<em>str</em>) &#8211; Filename of the output PolyDataFile. The extension .vtp</li>
+<li><strong>NOT added automatically.</strong> (<em>is</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.ascii_to_polydata_time_series">
+<code class="descclassname">particle_model.IO.</code><code class="descname">ascii_to_polydata_time_series</code><span class="sig-paren">(</span><em>filename</em>, <em>basename</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#ascii_to_polydata_time_series"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.ascii_to_polydata_time_series" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert ascii file to a series of vtkPolyData (.vtp) files.</p>
+<p>Each file contains one time level of the data, and are numbered sequentially.
+Within each file, each dataset is written to seperate pixel.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filename</strong> (<em>str</em>) &#8211; Filename/path of the ascii file containing the data.</li>
+<li><strong>basename</strong> (<em>str</em>) &#8211; String used in the construction of the file series.</li>
+<li><strong>formula is of the form basename_0.vtp, basename_1.vtp,...</strong> (<em>The</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.clean_unstructured_grid">
+<code class="descclassname">particle_model.IO.</code><code class="descname">clean_unstructured_grid</code><span class="sig-paren">(</span><em>ugrid</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#clean_unstructured_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.clean_unstructured_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collapse a vtu produced from a discontinuous grid back down to the continuous space.</p>
+<p>Args:
+ugrid (vtkUnstructuredGrid): the input discontinuous grid</p>
+<p>Results
+out_grid (vtkUnstructuredGrid): A continuous grid</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.collision_list_to_polydata">
+<code class="descclassname">particle_model.IO.</code><code class="descname">collision_list_to_polydata</code><span class="sig-paren">(</span><em>col_list</em>, <em>outfile</em>, <em>model=&lt;function mclaury_mass_coeff&gt;</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#collision_list_to_polydata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.collision_list_to_polydata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert collision data to a single vtkPolyData (.vtp) files.</p>
+<p>Each particle is written to seperate cell.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filename</strong> (<em>str</em>) &#8211; Filename/path of the ascii file containing the data.</li>
+<li><strong>outfile</strong> (<em>str</em>) &#8211; Filename of the output PolyDataFile. The extension .vtp</li>
+<li><strong>NOT added automatically.</strong> (<em>is</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.extract_boundary">
+<code class="descclassname">particle_model.IO.</code><code class="descname">extract_boundary</code><span class="sig-paren">(</span><em>ugrid</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#extract_boundary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.extract_boundary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract the boundary elements from an unstructured grid, provided it already contains them.</p>
+<p>Args:</p>
+<p>ugrid (vtkUnstructuredGrid): The grid with which to work.</p>
+<p>Results:</p>
+<p>out_grid (vtkUnstructuredGrid): Grid containing the boundary of ugrid</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.get_ascii_data">
+<code class="descclassname">particle_model.IO.</code><code class="descname">get_ascii_data</code><span class="sig-paren">(</span><em>filename='data.dat'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#get_ascii_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.get_ascii_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the ascii output file and output as numpy data arrays</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>(str) The file to interogate</strong> (<em>filename</em>) &#8211; </td>
+</tr>
+</tbody>
+</table>
+<dl class="docutils">
+<dt>Results:</dt>
+<dd>t (ndarray): Time
+x (ndarray): x coordinate of particle position
+y (ndarray): y coordinate of particle position
+z (ndarray): z coordinate of particle position
+u (ndarray): u coordinate of particle velocity
+v (ndarray): v coordinate of particle velocity
+w (ndarray): w coordinate of particle velocity</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.get_linear_cell">
+<code class="descclassname">particle_model.IO.</code><code class="descname">get_linear_cell</code><span class="sig-paren">(</span><em>cell</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#get_linear_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.get_linear_cell" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get equivalent linear cell to vtkCell cell</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.interpolate_collision_data">
+<code class="descclassname">particle_model.IO.</code><code class="descname">interpolate_collision_data</code><span class="sig-paren">(</span><em>col_list</em>, <em>ugrid</em>, <em>method='nearest'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#interpolate_collision_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.interpolate_collision_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Interpolate the wear data from col_list onto the surface described
+in the vtkUnstructuredGrid ugrid</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.make_unstructured_grid">
+<code class="descclassname">particle_model.IO.</code><code class="descname">make_unstructured_grid</code><span class="sig-paren">(</span><em>mesh</em>, <em>velocity</em>, <em>pressure</em>, <em>time</em>, <em>outfile=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#make_unstructured_grid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.make_unstructured_grid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Given a mesh (in Gmsh format), velocity and pressure fields, and a
+time level, store the data in a vtkUnstructuredGridFormat.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.test_in_cell">
+<code class="descclassname">particle_model.IO.</code><code class="descname">test_in_cell</code><span class="sig-paren">(</span><em>cell</em>, <em>position</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#test_in_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.test_in_cell" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if point is in vtk cell</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.write_level_to_polydata">
+<code class="descclassname">particle_model.IO.</code><code class="descname">write_level_to_polydata</code><span class="sig-paren">(</span><em>bucket</em>, <em>level</em>, <em>basename</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#write_level_to_polydata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.write_level_to_polydata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output a time level of a particle bucket to a vtkPolyData (.vtp) files.</p>
+<p>Each file contains one time level of the data, and are numbered sequentially.
+Within each file, each particle is written to seperate pixel.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>bucket</strong> &#8211; </td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.write_level_to_ugrid">
+<code class="descclassname">particle_model.IO.</code><code class="descname">write_level_to_ugrid</code><span class="sig-paren">(</span><em>bucket</em>, <em>level</em>, <em>basename</em>, <em>model</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#write_level_to_ugrid"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.write_level_to_ugrid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.</p>
+<p>Particle volumes are averaged over the cells in the model using a control volume
+approach.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.IO.write_to_file">
+<code class="descclassname">particle_model.IO.</code><code class="descname">write_to_file</code><span class="sig-paren">(</span><em>vtk_data</em>, <em>outfile</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/IO.html#write_to_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.IO.write_to_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper around the various VTK writer routines</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model.Particles">
+<span id="particle-model-particles-module"></span><h2>particle_model.Particles module<a class="headerlink" href="#module-particle_model.Particles" title="Permalink to this headline">¶</a></h2>
+<p>Baseline module for the package. Contains the main classes, particle and particle_bucket.</p>
+<dl class="class">
+<dt id="particle_model.Particles.Particle">
+<em class="property">class </em><code class="descclassname">particle_model.Particles.</code><code class="descname">Particle</code><span class="sig-paren">(</span><em>pos</em>, <em>vel</em>, <em>time=0.0</em>, <em>delta_t=1.0</em>, <em>temporal_cache=None</em>, <em>u=array([ 0.</em>, <em>0.</em>, <em>0.])</em>, <em>gp=array([ 0.</em>, <em>0.</em>, <em>0.])</em>, <em>parameters=&lt;particle_model.Particles.PhysicalParticle object&gt;</em>, <em>system=&lt;particle_model.System.System object&gt;</em>, <em>e=0.99</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class representing a single Lagrangian particle with mass</p>
+<dl class="method">
+<dt id="particle_model.Particles.Particle.centrifugal_force">
+<code class="descname">centrifugal_force</code><span class="sig-paren">(</span><em>position</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.centrifugal_force"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.centrifugal_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return centrifugal force on particle</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.collide">
+<code class="descname">collide</code><span class="sig-paren">(</span><em>k</em>, <em>delta_t</em>, <em>vel=None</em>, <em>force=None</em>, <em>pa=None</em>, <em>level=0</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.collide"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.collide" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collision detection routine.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>k</strong> (<em>float</em>) &#8211; Displacement</li>
+<li><strong>dt</strong> (<em>float</em>) &#8211; Timestep</li>
+<li><strong>v</strong> (<em>float, optional</em>) &#8211; velocity</li>
+<li><strong>f</strong> (<em>float, optional</em>) &#8211; forcing</li>
+<li><strong>pa</strong> (<em>float, optional</em>) &#8211; starting position in subcycle</li>
+<li><strong>(int) count to control maximum depth</strong> (<em>level</em>) &#8211; </li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.coriolis_force">
+<code class="descname">coriolis_force</code><span class="sig-paren">(</span><em>particle_velocity</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.coriolis_force"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.coriolis_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return Coriolis force on particle.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.find_cell">
+<code class="descname">find_cell</code><span class="sig-paren">(</span><em>locator</em>, <em>point=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.find_cell"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.find_cell" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use vtk rountines to find cell/element containing the point.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.force">
+<code class="descname">force</code><span class="sig-paren">(</span><em>position</em>, <em>particle_velocity</em>, <em>time</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.force"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate the sum of the forces on the particle.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>p</strong> (<em>float</em>) &#8211; Location at which forcing is evaluated.</li>
+<li><strong>v</strong> (<em>float</em>) &#8211; Particle velocity at which forcing is evaluated.</li>
+<li><strong>t</strong> (<em>float</em>) &#8211; Time at which particle is evaluated.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.picker">
+<code class="descname">picker</code><span class="sig-paren">(</span><em>pos</em>, <em>time</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.picker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.picker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract fluid velocity and pressure from .vtu files at correct time level</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.Particle.update">
+<code class="descname">update</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#Particle.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.Particle.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the state of the particle to the next time level</p>
+<p>The method uses relatively simple RK4 time integration.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="particle_model.Particles.ParticleBucket">
+<em class="property">class </em><code class="descclassname">particle_model.Particles.</code><code class="descname">ParticleBucket</code><span class="sig-paren">(</span><em>X</em>, <em>V</em>, <em>time=0</em>, <em>delta_t=0.001</em>, <em>filename=None</em>, <em>base_name=''</em>, <em>U=None</em>, <em>GP=None</em>, <em>parameters=&lt;particle_model.Particles.PhysicalParticle object&gt;</em>, <em>e=0.99</em>, <em>temporal_cache=None</em>, <em>system=&lt;particle_model.System.System object&gt;</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#ParticleBucket"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.ParticleBucket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class for a container for multiple Lagrangian particles.</p>
+<dl class="method">
+<dt id="particle_model.Particles.ParticleBucket.collisions">
+<code class="descname">collisions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#ParticleBucket.collisions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.ParticleBucket.collisions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Collect all collisions felt by particles in the bucket</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.ParticleBucket.run">
+<code class="descname">run</code><span class="sig-paren">(</span><em>time</em>, <em>write=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#ParticleBucket.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.ParticleBucket.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Drive particles forward until a given time.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.ParticleBucket.update">
+<code class="descname">update</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#ParticleBucket.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.ParticleBucket.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update all the particles in the bucket to the next time level.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.ParticleBucket.write">
+<code class="descname">write</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#ParticleBucket.write"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.ParticleBucket.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write timelevel data to file.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="particle_model.Particles.PhysicalParticle">
+<em class="property">class </em><code class="descclassname">particle_model.Particles.</code><code class="descname">PhysicalParticle</code><span class="sig-paren">(</span><em>diameter=4e-05</em>, <em>rho=2500.0</em>, <em>distribution=None</em>, <em>material_name='Sand'</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#PhysicalParticle"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.PhysicalParticle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class describing the physical properties of a particle drawn from a known distribution.</p>
+<dl class="method">
+<dt id="particle_model.Particles.PhysicalParticle.__call__">
+<code class="descname">__call__</code><span class="sig-paren">(</span><em>key='diameter'</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#PhysicalParticle.__call__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.PhysicalParticle.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get attributes.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.PhysicalParticle.get_mass">
+<code class="descname">get_mass</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#PhysicalParticle.get_mass"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.PhysicalParticle.get_mass" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return particle mass.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.PhysicalParticle.get_volume">
+<code class="descname">get_volume</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#PhysicalParticle.get_volume"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.PhysicalParticle.get_volume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return particle volume.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.Particles.PhysicalParticle.randomize">
+<code class="descname">randomize</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#PhysicalParticle.randomize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.PhysicalParticle.randomize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update particle parameters from the given distribution</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="particle_model.Particles.invert">
+<code class="descclassname">particle_model.Particles.</code><code class="descname">invert</code><span class="sig-paren">(</span><em>mat</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/Particles.html#invert"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.Particles.invert" title="Permalink to this definition">¶</a></dt>
+<dd><p>Hard coded 2D matrix inverse.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model.System">
+<span id="particle-model-system-module"></span><h2>particle_model.System module<a class="headerlink" href="#module-particle_model.System" title="Permalink to this headline">¶</a></h2>
+<p>Module describing the basic fluids system in which the particles are embedded.</p>
+<dl class="class">
+<dt id="particle_model.System.System">
+<em class="property">class </em><code class="descclassname">particle_model.System.</code><code class="descname">System</code><span class="sig-paren">(</span><em>boundary=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/System.html#System"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.System.System" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Class decribes the fixed properties of the underlying system and its
+fluid dynamical solution.</p>
+<dl class="method">
+<dt id="particle_model.System.System.get_reynolds">
+<code class="descname">get_reynolds</code><span class="sig-paren">(</span><em>velocity</em>, <em>length</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/System.html#System.get_reynolds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.System.System.get_reynolds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the Reynolds number of the system for a given lenght scale
+and velocity.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.System.System.get_rossby">
+<code class="descname">get_rossby</code><span class="sig-paren">(</span><em>velocity</em>, <em>length</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/System.html#System.get_rossby"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.System.System.get_rossby" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the rossby number of the system for a given length scale
+and velocity.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model.TemporalCache">
+<span id="particle-model-temporalcache-module"></span><h2>particle_model.TemporalCache module<a class="headerlink" href="#module-particle_model.TemporalCache" title="Permalink to this headline">¶</a></h2>
+<p>Module controlling access to the vtu/pvtu files driving the particle model</p>
+<dl class="class">
+<dt id="particle_model.TemporalCache.TemporalCache">
+<em class="property">class </em><code class="descclassname">particle_model.TemporalCache.</code><code class="descname">TemporalCache</code><span class="sig-paren">(</span><em>base_name</em>, <em>t_min=0.0</em>, <em>t_max=inf</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>The base object containing the vtu files.</p>
+<p>This scans the files for their timelevel information and provides a pair
+of files bracketing the desired timelevel when called</p>
+<dl class="method">
+<dt id="particle_model.TemporalCache.TemporalCache.__call__">
+<code class="descname">__call__</code><span class="sig-paren">(</span><em>time</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache.__call__"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache.__call__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the data bracketing time level.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.TemporalCache.TemporalCache.close">
+<code class="descname">close</code><span class="sig-paren">(</span><em>k</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache.close"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close an open file (implictly through the garbage collector.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.TemporalCache.TemporalCache.open">
+<code class="descname">open</code><span class="sig-paren">(</span><em>k</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache.open"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache.open" title="Permalink to this definition">¶</a></dt>
+<dd><p>Open a file for reading.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.TemporalCache.TemporalCache.range">
+<code class="descname">range</code><span class="sig-paren">(</span><em>t_min</em>, <em>t_max</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache.range"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache.range" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specify a range of data to keep open.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="particle_model.TemporalCache.TemporalCache.reset">
+<code class="descname">reset</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/particle_model/TemporalCache.html#TemporalCache.reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#particle_model.TemporalCache.TemporalCache.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reset the bounds on the loaded cache data</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-particle_model">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-particle_model" title="Permalink to this headline">¶</a></h2>
+<p>__init__.py file for the particle_model package</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">particle_model package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-particle_model.Collision">particle_model.Collision module</a></li>
+<li><a class="reference internal" href="#module-particle_model.DragModels">particle_model.DragModels module</a></li>
+<li><a class="reference internal" href="#module-particle_model.IO">particle_model.IO module</a></li>
+<li><a class="reference internal" href="#module-particle_model.Particles">particle_model.Particles module</a></li>
+<li><a class="reference internal" href="#module-particle_model.System">particle_model.System module</a></li>
+<li><a class="reference internal" href="#module-particle_model.TemporalCache">particle_model.TemporalCache module</a></li>
+<li><a class="reference internal" href="#module-particle_model">Module contents</a></li>
+</ul>
+</li>
+</ul>
+
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/particle_model.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, James Percival.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.2</a>
+      
+      |
+      <a href="_sources/particle_model.txt"
+          rel="nofollow">Page source</a></li>
+    </div>
+
+    
+
+    
+  </body>
+</html>

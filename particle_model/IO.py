@@ -7,6 +7,7 @@ import vtk
 import numpy
 import os
 import os.path
+import scipy
 from scipy.interpolate import griddata
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
@@ -404,8 +405,7 @@ def radial_distribution_function(alpha):
 
     ALPHA0 =0.6
 
-    if alpha > ALPHA_MAX:
-        alpha = ALPHA_MAX
+    numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
 
     return 1.0/(1.0-(alpha/ALPHA0)**(1.0/3.0))
 
@@ -416,8 +416,7 @@ def rdf_deriv(alpha):
 
     ALPHA0 = 0.6
 
-    if alpha > ALPHA_MAX:
-        alpha = ALPHA_MAX
+    numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
 
     return -1.0/(3.0*ALPHA0)*(alpha/ALPHA0)**(-2.0/3.0)/(1.0-(alpha/ALPHA0)**(1.0/3.0))**2
 
@@ -434,7 +433,7 @@ def calculate_averaged_properties(poly_data, bucket):
     locator.SetDataSet(poly_data)
     locator.BuildLocator()
 
-    LENGTH = 0.02
+    LENGTH = 0.01
     MODIFIER = 3e3
 
     volume = numpy.zeros(poly_data.GetNumberOfPoints())
@@ -452,7 +451,9 @@ def calculate_averaged_properties(poly_data, bucket):
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
-            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
+            particle2 = bucket.particles[point_index]
+
+            rad2 = distance2(particle2.pos, particle.pos)
             rad2 /= LENGTH**2
             
             gamma = beta*numpy.exp(-rad2)*MODIFIER
@@ -537,6 +538,176 @@ def calculate_averaged_properties(poly_data, bucket):
 
     for _ in data:
         poly_data.GetPointData().AddArray(_)
+
+def get_measure(cell):
+    if cell.GetCellType() == vtk.VTK_TRIANGLE:
+        return cell.ComputeArea()
+    if cell.GetCellType() == vtk.VTK_TETRA:
+        return cell.ComputeVolume()
+
+def point_average(model, bucket):
+    """ Calculate a volume fraction estimate at the level of the grid."""
+
+    ugrid = vtk.vtkUnstructuredGrid()
+    ugrid.DeepCopy(model)
+
+    locator = vtk.vtkPointLocator()
+    locator.SetDataSet(ugrid)
+    locator.BuildLocator()
+
+    LENGTH = 0.05
+    MODIFIER = 1.0e8
+
+    volfrac = numpy.zeros(ugrid.GetNumberOfPoints())
+    volume = numpy.zeros(ugrid.GetNumberOfPoints())
+    cell_volume = numpy.zeros(ugrid.GetNumberOfPoints())
+    temperature = numpy.zeros(ugrid.GetNumberOfPoints())
+    solid_pressure = numpy.zeros(ugrid.GetNumberOfPoints())
+    velocity = numpy.zeros((ugrid.GetNumberOfPoints(),3))
+
+    for _ in range(ugrid.GetNumberOfCells()):
+        cell = ugrid.GetCell(_)
+
+        loc_vol = get_measure(cell)/cell.GetNumberOfPoints()
+
+        for i in range(cell.GetNumberOfPoints()):
+            print cell.GetPointIds().GetId(i)
+            cell_volume[cell.GetPointIds().GetId(i)] += loc_vol
+
+    for ipnt, particle in enumerate(bucket.particles):
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+
+            rad2 = 0.0*distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 /= LENGTH**2
+            
+            gamma = particle.volume*numpy.exp(-rad2)
+
+            volume[point_index] += gamma
+            velocity[point_index, :] += particle.vel*gamma
+
+    for _ in range(ugrid.GetNumberOfPoints()):
+        if volume[_] >1.0e-12:
+            velocity[_, :] /= volume[_]
+
+    volfrac = volume/cell_volume
+
+    for ipnt, particle in enumerate(bucket.particles):
+        point_list = vtk.vtkIdList()
+        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
+
+        for _ in range(point_list.GetNumberOfIds()):
+            point_index = point_list.GetId(_)
+
+            rad2 = distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 /= LENGTH**2
+            
+            gamma = particle.volume*numpy.exp(-rad2)
+
+            c = distance2(particle.vel, velocity[point_index, :])
+
+            temperature[point_index] += c*gamma
+
+
+
+    for _ in range(ugrid.GetNumberOfPoints()):
+         if volume[_] >1.0e-12:
+             temperature[_] /= volume[_]
+
+    solid_pressure = (bucket.particles[0].parameters.rho*volfrac
+                             *radial_distribution_function(volfrac)*temperature)
+        
+    data = [vtk.vtkDoubleArray()]
+    data[0].SetName('SolidVolumeFraction')
+    data.append(vtk.vtkDoubleArray())
+    data[1].SetName('SolidVolumeVelocity')
+    data[1].SetNumberOfComponents(3)
+    data.append(vtk.vtkDoubleArray())
+    data[2].SetName('GranularTemperature')
+    data.append(vtk.vtkDoubleArray())
+    data[3].SetName('SolidPressure')
+
+    for _ in range(ugrid.GetNumberOfPoints()):
+        data[0].InsertNextValue(cell_volume[_])
+        data[1].InsertNextTuple3(*(velocity[_]))
+        data[2].InsertNextValue(temperature[_])
+        data[3].InsertNextValue(solid_pressure[_])
+
+    pdata = vtk.vtkDoubleArray()
+    pdata.SetName('Time')
+    
+    for _ in range(ugrid.GetNumberOfPoints()):
+        pdata.InsertNextValue(bucket.time)
+
+    for _ in data:
+        ugrid.GetPointData().AddArray(_)
+    ugrid.GetPointData().AddArray(pdata)
+        
+    return ugrid
+
+def cell_average(model, bucket):
+    """ Calculate a volume fraction estimate at the level of the grid."""
+
+    ugrid = vtk.vtkUnstructuredGrid()
+    ugrid.DeepCopy(model)
+
+    locator = vtk.vtkCellLocator()
+    locator.SetDataSet(ugrid)
+    locator.BuildLocator()
+
+    volfrac = numpy.zeros(ugrid.GetNumberOfCells())
+    volume = numpy.zeros(ugrid.GetNumberOfCells())
+    temperature = numpy.zeros(ugrid.GetNumberOfCells())
+    velocity = numpy.zeros((ugrid.GetNumberOfCells(),3))
+
+    for particle in bucket.particles:
+        cell_id = locator.FindCell(particle.pos)
+        volume[cell_id] += particle.volume
+        velocity[cell_id, :] += particle.volume*particle.vel
+
+    for _ in range(ugrid.GetNumberOfCells()):
+        if volume[_] >1.0e-12:
+            velocity[_, :] /= volume[_]
+        volfrac[_] = volume[_] / get_measure(ugrid.GetCell(_))
+
+    for particle in bucket.particles:
+        cell_id = locator.FindCell(particle.pos)
+        temperature[cell_id] += particle.volume*distance2(particle.vel,velocity[cell_id, :])
+
+    for _ in range(ugrid.GetNumberOfCells()):
+         if volume[_] >1.0e-12:
+             temperature[_] /= volume[_]
+        
+    data = [vtk.vtkDoubleArray()]
+    data[0].SetName('SolidVolumeFraction')
+    data.append(vtk.vtkDoubleArray())
+    data[1].SetName('SolidVolumeVelocity')
+    data[1].SetNumberOfComponents(3)
+    data.append(vtk.vtkDoubleArray())
+    data[2].SetName('GranularTemperature')
+#    data.append(vtk.vtkDoubleArray())
+#    data[3].SetName('SolidPressure')
+
+    for _ in range(ugrid.GetNumberOfCells()):
+        data[0].InsertNextValue(volume[_])
+        data[1].InsertNextTuple3(*(velocity[_]))
+        data[2].InsertNextValue(temperature[_])
+#        data[3].InsertNextValue(solid_pressure[_])
+
+    pdata = vtk.vtkDoubleArray()
+    pdata.SetName('Time')
+    
+    for _ in range(ugrid.GetNumberOfPoints()):
+        pdata.InsertNextValue(bucket.time)
+
+    for _ in data:
+        ugrid.GetCellData().AddArray(_)
+    ugrid.GetPointData().AddArray(pdata)
+        
+    return ugrid
 
 def write_level_to_polydata(bucket, level, basename, do_average=False,  **kwargs):
 

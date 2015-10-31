@@ -74,7 +74,7 @@ class PhysicalParticle(object):
 
     def get_mass(self):
         """Return particle mass."""
-        return self.rho*self.get_volume()
+        return self.rho*self.volume
 
     def randomize(self):
         """Update particle parameters from the given distribution"""
@@ -99,6 +99,7 @@ class Particle(ParticleBase):
         self.collisions = []
         self.parameters = parameters
         self.system = system
+        self.volume = self.parameters.get_volume()
 
     def update(self):
         """Update the state of the particle to the next time level

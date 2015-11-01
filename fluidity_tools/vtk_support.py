@@ -6,7 +6,17 @@ import numpy
 CELL_DICT = {('lagrangian', 2, 3) : vtk.VTK_TRIANGLE,
              ('lagrangian', 3, 4) : vtk.VTK_TETRA}
 
-def fluidity_to_ugrid(state):
+def fluidity_to_mblock(state):
+
+    mblock = vtk.vtkMultiBlockDataSet()
+
+    ugrid = fluidity_to_ugrid_p1(state)
+
+    mblock.SetBlock(0,ugrid)
+
+    return mblock
+
+def fluidity_to_ugrid_p1(state):
 
     coordinates = state.vector_fields['Coordinate']
 
@@ -31,6 +41,9 @@ def fluidity_to_ugrid(state):
         ugrid.InsertNextCell(CELL_DICT[(shape.type, shape.dimension, shape.loc)],id_list)
 
     for name, scalar in state.scalar_fields.items():
+        
+        if scalar.mesh != coordinates.mesh:
+            continue
 
         data = vtk.vtkDoubleArray()
         data.SetName(name)
@@ -47,6 +60,9 @@ def fluidity_to_ugrid(state):
 
     for name, vector in state.vector_fields.items():
         
+        if vector.mesh != coordinates.mesh:
+            continue
+
         data = vtk.vtkDoubleArray()
         data.SetName(name)
         data.SetNumberOfComponents(3)
@@ -66,6 +82,9 @@ def fluidity_to_ugrid(state):
 
     for name, tensor in state.tensor_fields.items():
         
+        if tensor.mesh != coordinates.mesh:
+            continue
+
         data = vtk.vtkDoubleArray()
         data.SetName(name)
         data.SetNumberOfComponents(9)

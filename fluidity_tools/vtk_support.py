@@ -155,63 +155,24 @@ def fluidity_to_ugrid_by_mesh(state, test):
 def fluidity_data_to_ugrid(state, meshes, ugrid):
     """ Extract fluidity data from meshes on a desired type to an existing unstructured grid object's point data."""
 
-    for name, scalar in state.scalar_fields.items():
+    for name, field in (state.scalar_fields.items()
+                        +state.vector_fields.items()
+                        +state.tensor_fields.items()):
         
-        if scalar.mesh not in meshes:
+        if field.mesh not in meshes:
             continue
 
-        if scalar.node_count == 1:
+        if field.val.shape[0] == 1:
+            val = field.node_val(0)
             data = vtk.vtkDoubleArray()
-            data.Allocate(ugrid.GetNumberOfPoints())
+            data.SetNumberOfComponents(numpy.prod(val.shape))
             for k in range(ugrid.GetNumberOfPoints()):
-                data.InsertNextValue(scalar[0])
+                data.InsertNextTuple(val.ravel())
         else:
-            data = numpy_support.numpy_to_vtk(scalar.val)
+            data = numpy_support.numpy_to_vtk(field.val)
 
         data.SetName(name)
         ugrid.GetPointData().AddArray(data)
-
-    for name, vector in state.vector_fields.items():
-        
-        if vector.mesh not in meshes:
-            continue
-
-        data = vtk.vtkDoubleArray()
-        data.SetNumberOfComponents(3)
-
-        if vector.node_count == 1:
-            for k in range(ugrid.GetNumberOfPoints()):
-                lval=numpy.zeros(3)
-                lval[:vector.val.shape[1]] = vector.node_val(0)
-                data.InsertNextTuple3(*(lval))
-        else:
-            for k in range(ugrid.GetNumberOfPoints()):
-                lval=numpy.zeros(3)
-                lval[:vector.val.shape[1]] = vector.node_val(k)
-                data.InsertNextTuple3(*(lval))
-
-        data.SetName(name)
-        ugrid.GetPointData().AddArray(data)
-
-
-    for name, tensor in state.tensor_fields.items():
-        
-        if tensor.mesh not in meshes:
-            continue
-
-        data = vtk.vtkDoubleArray()
-        data.SetNumberOfComponents(9)
-
-        if tensor.val.shape[0] == 1:
-            for k in range(ugrid.GetNumberOfPoints()):
-                lval=numpy.zeros((3, 3))
-                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(0)
-                data.InsertNextTuple9(*(lval.ravel()))
-        else:
-            for k in range(ugrid.GetNumberOfPoints()):
-                lval=numpy.zeros((3, 3))
-                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(k)
-                data.InsertNextTuple9(*(lval.ravel()))
 
         data.SetName(name)
         ugrid.GetPointData().AddArray(data)
@@ -223,63 +184,21 @@ def fluidity_cell_data_to_ugrid(state, meshes, ugrid):
 
     Will only work for P0 meshes."""
 
-    for name, scalar in state.scalar_fields.items():
+    for name, field in (state.scalar_fields.items()
+                        +state.vector_fields.items()
+                        +state.tensor_fields.items()):
         
-        if scalar.mesh not in meshes:
+        if field.mesh not in meshes:
             continue
 
-        if scalar.node_count == 1:
+        if field.val.shape[0] == 1:
+            val = field.node_val(0)
             data = vtk.vtkDoubleArray()
-            data.Allocate(ugrid.GetNumberOfCells())
-            for k in range(ugrid.GetNumberOfCells()):
-                data.InsertNextValue(scalar[0])
+            data.SetNumberOfComponents(numpy.prod(val.shape))
+            for k in range(ugrid.GetNumberOfPoints()):
+                data.InsertNextTuple(val.ravel())
         else:
-            data = numpy_support.numpy_to_vtk(scalar.val)
-
-        data.SetName(name)
-        ugrid.GetCellData().AddArray(data)
-
-    for name, vector in state.vector_fields.items():
-        
-        if vector.mesh not in meshes:
-            continue
-
-        data = vtk.vtkDoubleArray()
-        data.SetNumberOfComponents(3)
-
-        if vector.node_count == 1:
-            for k in range(ugrid.GetNumberOfCells()):
-                lval=numpy.zeros(3)
-                lval[:vector.val.shape[1]] = vector.node_val(0)
-                data.InsertNextTuple3(*(lval))
-        else:
-            for k in range(ugrid.GetNumberOfCells()):
-                lval=numpy.zeros(3)
-                lval[:vector.val.shape[1]] = vector.node_val(k)
-                data.InsertNextTuple3(*(lval))
-
-        data.SetName(name)
-        ugrid.GetCellData().AddArray(data)
-
-
-    for name, tensor in state.tensor_fields.items():
-        
-        if tensor.mesh not in meshes:
-            continue
-
-        data = vtk.vtkDoubleArray()
-        data.SetNumberOfComponents(9)
-
-        if tensor.val.shape[0] == 1:
-            for k in range(ugrid.GetNumberOfCells()):
-                lval=numpy.zeros((3, 3))
-                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(0)
-                data.InsertNextTuple9(*(lval.ravel()))
-        else:
-            for k in range(ugrid.GetNumberOfCells()):
-                lval=numpy.zeros((3, 3))
-                lval[:tensor.val.shape[1],:tensor.val.shape[2]] = tensor.node_val(k)
-                data.InsertNextTuple9(*(lval.ravel()))
+            data = numpy_support.numpy_to_vtk(field.val)
 
         data.SetName(name)
         ugrid.GetCellData().AddArray(data)

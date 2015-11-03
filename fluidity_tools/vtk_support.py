@@ -52,13 +52,17 @@ def fluidity_to_ugrid_p1(state):
 
     coordinates = state.vector_fields['Coordinate']
 
-    pts = vtk.vtkPoints()
-    pts.Allocate(coordinates.node_count)
+    point_data = coordinates.val
 
-    for point in coordinates.val:
-        lpoint = numpy.zeros(3)
-        lpoint[:len(point)] = point 
-        pts.InsertNextPoint(*lpoint)
+    if coordinates.dimension < 3:
+        point_data = numpy.concatenate((point_data,
+                                        numpy.zeros((coordinates.node_count,
+                                                     3-coordinates.dimension))),
+                                         axis=1)
+
+    pts = vtk.vtkPoints()
+    pts.SetData(numpy_support.numpy_to_vtk(point_data))
+    pts.SetNumberOfPoints(coordinates.node_count)
 
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pts)
@@ -135,12 +139,13 @@ def fluidity_to_ugrid_by_mesh(state, test):
         id_list = vtk.vtkIdList()
         id_list.Allocate(meshes[0].ele_loc(k))
         id_list.SetNumberOfIds(meshes[0].ele_loc(k))
-        shape = meshes[0].shape        
+        shape = meshes[0].shape
+
+        lpoint = numpy.zeros(3)
 
         for loc, (point, node) in enumerate(zip(coordinates.remap_ele(k, meshes[0]),
                                                 meshes[0].ele_nodes(k))):
 
-            lpoint = numpy.zeros(3)
             lpoint[:len(point)] = point 
             pts.SetPoint(node, *lpoint)
             id_list.SetId(NUM_DICT[(shape.type, shape.dimension, shape.loc)][loc], node)

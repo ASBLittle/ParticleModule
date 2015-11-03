@@ -3,6 +3,7 @@
 import vtk
 import glob
 import numpy
+from lxml import etree
 
 class TemporalCache(object):
     """ The base object containing the vtu files.
@@ -22,21 +23,10 @@ class TemporalCache(object):
         print files
 
         for filename in files:
-            rdr = vtk.vtkXMLUnstructuredGridReader()
-            rdr.SetFileName(filename)
-            for k in range(rdr.GetNumberOfPointArrays()):
-                rdr.SetPointArrayStatus(rdr.GetPointArrayName(k), 0)
-            for k in range(rdr.GetNumberOfCellArrays()):
-                rdr.SetCellArrayStatus(rdr.GetCellArrayName(k), 0)
-            rdr.SetPointArrayStatus('Time', 1)
-            rdr.Update()
-            ugrid = rdr.GetOutput()
-            time = ugrid.GetPointData().GetScalars('Time').GetValue(0)
-
+            time = self.get_time_from_vtk(filename)
             self.data.append([time, filename, None, None])
 
         self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
-
         self.range(t_min, t_max)
 
     def reset(self):
@@ -87,6 +77,27 @@ class TemporalCache(object):
         del self.data[k][2]
         self.data[k].append(None)
         self.data[k].append(None)
+
+    def get_time_from_vtk(self, filename):
+        """ Get the time from a vtk XML formatted file."""
+
+        PARALLEL_FILES = ('pvtu', 'pvtp', 'pvtm', 'vtm')
+        parallel = filename.split('.')[-1] in PARALLEL_FILES
+
+
+        ftext = open (filename, 'r')
+        e = etree.ElementTree(file=filename,
+                              parser=etree.XMLParser(recover=True)).getroot()   
+        assert e.tag == 'VTKFile' 
+        if parallel:
+            return self.get_time_from_vtk(file=e[0][0].get('file'))
+        else:
+            for piece in e[0]:
+                for data in piece[0]:
+                    if data.get('Name') != 'Time':
+                        continue
+                    return float(data.get('RangeMin'))
+
 
     def __call__(self, time):
         """ Get the data bracketing time level."""

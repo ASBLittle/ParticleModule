@@ -3,6 +3,10 @@
 import vtk
 from vtk.util import numpy_support
 import numpy
+from mpi4py import MPI
+import os
+import errno
+
 
 NUM_DICT = {('lagrangian', 2, 3) : [0,1,2],
              ('lagrangian', 2, 6) : [0,3,1,5,4,2],
@@ -33,19 +37,26 @@ def fluidity_to_mblock(state):
 
     ugrid = fluidity_to_ugrid_p1(state)
     mblock.SetBlock(0,ugrid)
+    mblock.GetMetaData( 0 ).Set( vtk.vtkCompositeDataSet.NAME(), 'P1CG' ) 
 
     dummy = 1
 
-    for mesh_test in (is_p1dg, is_p2, is_p2dg):
+    for name, mesh_test in (('P1DG', is_p1dg),
+                            ('P2CG', is_p2),
+                            ('P2DG', is_p2dg)):
         ugrid = fluidity_to_ugrid_by_mesh(state, mesh_test)
         if ugrid:
             mblock.SetBlock(dummy, ugrid)
+            mblock.GetMetaData( dummy ).Set( vtk.vtkCompositeDataSet.NAME(),
+                                             name )
             dummy += 1
 
     return mblock
 
 def fluidity_to_ugrid_p1(state):
-    """ Extract fields on P0 and P1 continuous meshes from fluidity state to a vtkUnstructured Grid data object."""
+    """ Extract fields on P0 and P1 continuous meshes from fluidity state to a vtkUnstructuredGrid data object.
+
+    Fields on P0 meshes are stored as cell data, while data on P1 continuous meshes is stored as point data."""
 
     meshes = [mesh for mesh in state.meshes.values() if is_p1(mesh)]
     meshes_p0 = [mesh for mesh in state.meshes.values() if is_p0(mesh)]
@@ -61,8 +72,12 @@ def fluidity_to_ugrid_p1(state):
                                          axis=1)
 
     pts = vtk.vtkPoints()
-    pts.SetData(numpy_support.numpy_to_vtk(point_data))
+    pts.SetDataTypeToDouble()
     pts.SetNumberOfPoints(coordinates.node_count)
+    data = vtk.vtkDoubleArray()
+    data.DeepCopy(numpy_support.numpy_to_vtk(point_data))
+    pts.SetData(data)
+
 
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pts)
@@ -85,7 +100,7 @@ def fluidity_to_ugrid_p1(state):
 def is_p0(mesh):
     """ Test if mesh is a P0 mesh."""
 
-    return (mesh.continuity > -1 and
+    return (mesh.continuity == -1 and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 0)
 
@@ -210,9 +225,80 @@ def fluidity_cell_data_to_ugrid(state, meshes, ugrid):
         
     return ugrid
 
+def extract_field_from_ugrid(ugrid,field,name=None):
+    """ Extract data from an unstructured grid onto a field """
 
-        
-    
+    if name is None:
+        name = field.name
+
+    if is_p0(field.mesh):
+        data = ugrid.GetCellData().GetArray(name)
+        if data:
+            ndata = numpy_support.vtk_to_numpy(data)
+            assert ndata.shape == field.val.shape
+            field.val[:] = ndata[:]
+        else:
+            print ("P0 vtk field %s not found"%name)
+
+    else:
+        data = ugrid.GetPointData().GetArray(name)
+        if data:
+            ndata = numpy_support.vtk_to_numpy(data)
+            assert ndata.shape == field.val.shape
+            field.val[:]=numpy_support.vtk_to_numpy(data)[:]
+        else:
+            print ("vtk field %s not found"%name)
 
 
+def write_ugrid(data,basename,path='.'):
+    """ Parallel safe data object writer"""
 
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+
+    if size == 1:
+
+        ### serial case
+
+        filename = basename +'.vtu'
+
+        writer = vtk.vtkXMLUnstructuredGridWriter()
+        writer.SetFileName(path+'/'+filename)
+        writer.SetInput(data)
+        writer.Write()
+
+        return
+
+    ## In parallel we make a directory and dump the files into it
+
+    try:
+        os.makedirs(path+'/'+basename)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+
+    filename=basename+'.pvtu'
+
+    writer = vtk.vtkXMLPUnstructuredGridWriter()
+    writer.SetNumberOfPieces(size)
+    writer.SetStartPiece(rank)
+    writer.SetEndPiece(rank)
+
+    writer.SetFileName(path+'/'+basename+'/'+filename)
+    writer.SetInput(data)
+    writer.Write()
+
+
+    if rank == 0:
+        os.rename(path+'/'+basename+'/'+filename, path+'/'+filename)
+
+        stream=open(path+'/'+filename).read()
+        stream=stream.replace('<Piece Source="'+basename, 
+                              '<Piece Source="'+basename+'/'+basename)
+        outfile=open(path+'/'+filename, 'w')
+        outfile.write(stream)
+        outfile.flush()
+        outfile.close()
+
+    return 

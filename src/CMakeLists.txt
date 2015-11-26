@@ -44,30 +44,14 @@ target_link_libraries(vtkParticlesPythonD  vtkParticles)
 #    vtkPythonCore 
 #    ${VTK_PYTHON_LIBRARIES} ${PYTHON_LIBRARY})
     
-add_library(vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
+add_library(../particle_model/vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
     
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})
      set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}PythonD)
 endforeach()    
     
-target_link_libraries(vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHOND_LIBS})
+target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHOND_LIBS})
 
-set_target_properties(vtkParticlesPython PROPERTIES PREFIX "")
+set_target_properties(../particle_model/vtkParticlesPython PROPERTIES PREFIX "")
 
-
-set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/../setup.py.in")	
-set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/../setup.py")
-set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/../particle_model/__init__.py")
-set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/timestamp")
-
-configure_file(${SETUP_PY_IN} ${SETUP_PY})
-
-add_custom_command(OUTPUT ${OUTPUT}
-                  COMMAND ${PYTHON} ${SETUP_PY} build
-                  COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
-                  DEPENDS ${DEPS})
-
-add_custom_target(target ALL DEPENDS ${OUTPUT})
-
-install(CODE "execute_process(COMMAND ${PYTHON} ${SETUP_PY} install)")

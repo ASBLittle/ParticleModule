@@ -2,8 +2,10 @@
 the file system. Mostly vtk."""
 
 from particle_model import Collision
+from particle_model import vtkParticlesPython
 
 import vtk
+from vtk.util import numpy_support
 import numpy
 import os
 import os.path
@@ -252,8 +254,6 @@ def extract_boundary(ugrid):
     else:
         dim = 0
 
-    print dim
-
     ncells = ugrid.GetNumberOfCells()
     ncda = ugrid.GetCellData().GetNumberOfArrays()
 
@@ -385,8 +385,6 @@ def write_bucket_to_polydata(bucket):
                                      poly_data.GetPoints().InsertNextPoint(*positions))
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
-    return poly_data
-
 def write_bucket_to_points(bucket):
     
     """ Output the basic data of a bucket to a vtkPolyData object. """
@@ -425,6 +423,16 @@ def distance2(pnt1,pnt2):
 
     return vtk.vtkMath().Distance2BetweenPoints(pnt1,pnt2)
 
+
+def calculate_averaged_properties_cpp(poly_data):
+
+    filter = vtkParticlesPython.vtkGranularTemperature()
+    filter.SetInput(poly_data)
+    filter.Update()
+    poly_data.DeepCopy(filter.GetOutput())
+
+    return numpy_support.vtk_to_numpy(poly_data.GetPointData().GetVectors("SolidPressureGradient"))
+
 def calculate_averaged_properties(poly_data, bucket):
 
     """ Calculate a volume fraction estimate at the level of the particles."""
@@ -433,7 +441,7 @@ def calculate_averaged_properties(poly_data, bucket):
     locator.SetDataSet(poly_data)
     locator.BuildLocator()
 
-    LENGTH = 0.01
+    LENGTH = 0.03
     MODIFIER = 3e3
 
     volume = numpy.zeros(poly_data.GetNumberOfPoints())
@@ -538,6 +546,8 @@ def calculate_averaged_properties(poly_data, bucket):
 
     for _ in data:
         poly_data.GetPointData().AddArray(_)
+
+    return data[4]
 
 def get_measure(cell):
     if cell.GetCellType() == vtk.VTK_TRIANGLE:
@@ -709,7 +719,7 @@ def cell_average(model, bucket):
         
     return ugrid
 
-def write_level_to_polydata(bucket, level, basename, do_average=False,  **kwargs):
+def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **kwargs):
 
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
@@ -752,12 +762,13 @@ def write_level_to_polydata(bucket, level, basename, do_average=False,  **kwargs
     poly_data.GetPointData().AddArray(outtime)
     poly_data.GetPointData().AddArray(velocity)
 
-    print do_average
-
     if do_average:
-        calculate_averaged_properties(poly_data,bucket)
+        gsp=calculate_averaged_properties_cpp(poly_data)
 
     write_to_file(poly_data, "%s_%d.vtp"%(basename, level))
+
+    if do_average:
+        return gsp
 
 def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.
@@ -1041,6 +1052,41 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
 
     return ugrid
 
+def make_boundary_from_msh(mesh, outfile=None):
+
+    """Given a mesh (in Gmsh format), store the boundary data in a vtkUnstructuredGridFormat."""
+
+    pnts = vtk.vtkPoints()
+    pnts.Allocate(len(mesh.nodes))
+
+    node2id = {}
+    for k, point in mesh.nodes.items():
+        node2id[k] = pnts.InsertNextPoint(point)
+
+    ugrid = vtk.vtkUnstructuredGrid()
+    ugrid.SetPoints(pnts)
+
+    surface_ids=vtk.vtkIntArray()
+    surface_ids.SetName('surface_ids')
+
+    for element in mesh.elements.values():
+        id_list = vtk.vtkIdList()
+        for node in element[2]:
+            id_list.InsertNextId(node2id[node])
+        ugrid.InsertNextCell(TYPE_DICT[element[0]], id_list)
+        if element[1][1:]:
+            surface_ids.InsertNextValue(element[1][1])
+
+
+    ugrid.GetCellData().AddArray(surface_ids)
+
+    ugrid_bnd = extract_boundary(ugrid)
+
+    if outfile:
+        write_to_file(ugrid_bnd, outfile)
+
+    return ugrid_bnd
+
 def interpolate_collision_data(col_list, ugrid, method='nearest'):
     """ Interpolate the wear data from col_list onto the surface described
     in the vtkUnstructuredGrid ugrid """
@@ -1067,3 +1113,5 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
         wear_vtk.InsertNextValue(wear)
 
     ugrid.GetPointData().AddArray(wear_vtk)
+
+

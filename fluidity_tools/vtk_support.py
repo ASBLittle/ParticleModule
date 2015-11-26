@@ -3,7 +3,13 @@
 import vtk
 from vtk.util import numpy_support
 import numpy
-from mpi4py import MPI
+
+try:
+    from mpi4py import MPI
+except ImportError:
+    pass
+    
+
 import os
 import errno
 
@@ -11,7 +17,7 @@ import errno
 NUM_DICT = {('lagrangian', 2, 3) : [0,1,2],
              ('lagrangian', 2, 6) : [0,3,1,5,4,2],
              ('lagrangian', 3, 4) : [0,1,2,3],
-             ('lagrangian', 3, 10) : [0,]}
+             ('lagrangian', 3, 10) : [0,4,1,6,5,2,7,8,9,3]}
 
 CELL_DICT = {('lagrangian', 2, 3) : vtk.VTK_TRIANGLE,
              ('lagrangian', 2, 6) : vtk.VTK_QUADRATIC_TRIANGLE,

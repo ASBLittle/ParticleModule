@@ -1,5 +1,6 @@
 """ Test the main particle routines."""
 from particle_model import Particles
+from particle_model import ParticleBase
 from particle_model import IO
 from particle_model import Collision
 from particle_model import DragModels
@@ -37,8 +38,8 @@ MESH.read('particle_model/tests/data/Structured.msh')
 MESH3D = IO.GmshMesh()
 MESH3D.read('particle_model/tests/data/Structured_cube.msh')
 
-PAR0 = Particles.PhysicalParticle(diameter=numpy.infty)
-PAR1 = Particles.PhysicalParticle(diameter=100.0e-4)
+PAR0 = ParticleBase.PhysicalParticle(diameter=numpy.infty)
+PAR1 = ParticleBase.PhysicalParticle(diameter=100.0e-4)
 
 def test_tests():
     """ Test test structure with a minimal test."""
@@ -51,7 +52,7 @@ def test_base_particle_initialization():
     pres = zeros(3)
     vel = zeros(3)
 
-    part = Particles.ParticleBase(pres, vel)
+    part = ParticleBase.ParticleBase(pres, vel)
 
     assert all(part.pos == pres) and all(part.vel == vel)
 
@@ -194,7 +195,7 @@ def test_step_spin_up_turbulent_drag():
     pos = numpy.array((0.1, 0.5, 0.0))
     vel = numpy.array((0.0, 0.0, 0.0))
 
-    phys_par = Particles.PhysicalParticle(drag=DragModels.turbulent_drag)
+    phys_par = ParticleBase.PhysicalParticle(drag=DragModels.turbulent_drag)
 
     part = Particles.Particle((pos, vel), delta_t=0.001,
                               system=SYSTEM,
@@ -225,7 +226,7 @@ def test_stokes_terminal_velocity():
     diameter = 1e-3
     delta_t = 1.0e-8
 
-    par = Particles.PhysicalParticle(diameter=diameter,
+    par = ParticleBase.PhysicalParticle(diameter=diameter,
                                      drag=DragModels.stokes_drag)
 
     pos = numpy.zeros((1, 3))
@@ -326,7 +327,7 @@ def test_gyre_collision():
 
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
-    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.18205645627433897) < 1.0e-8
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 4.3326147783350404) < 1.0e-8
 
 
 

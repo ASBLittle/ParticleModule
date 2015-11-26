@@ -1,5 +1,6 @@
-""" distutils file for the offline Lagrangian particle advection module"""
 from distutils.core import setup
-setup(name='particles',
-      version='0.1',
-      py_modules=['particles'])
+
+setup(name='vtkPlugins',
+      version='00.00.01',
+      package_dir={ '': '/Users/origimbo/Software/particle_model/src/..' },
+      packages=['particle_model'])

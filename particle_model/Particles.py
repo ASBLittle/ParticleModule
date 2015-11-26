@@ -4,6 +4,8 @@ from particle_model import IO
 from particle_model import DragModels
 from particle_model import Collision
 from particle_model import System
+from particle_model import Options
+from particle_model import ParticleBase
 
 import numpy
 import vtk
@@ -24,74 +26,11 @@ def invert(mat):
     else:
         return la.inv(mat)
 
-class ParticleBase(object):
-    """ An easily picklable base class for checkpointing and parallel computation. """
-
-    def __init__(self, pos, vel, time=0.0, delta_t=1.0,):
-
-        self.pos = pos
-        self.vel = vel
-        self.time = time
-        self.delta_t = delta_t
-
-    def update(self):
-        """ Core method updating the particle."""
-        raise NotImplementedError
-
-    def exchange(self):
-        """ A helper function for parallel coding"""
-        raise NotImplementedError
-
-
-class PhysicalParticle(object):
-    """ Class describing the physical properties of a particle drawn from a known distribution."""
-
-    def __init__(self, diameter=40.0e-6, rho=2.5e3,
-                 distribution=None, material_name='Sand', **kwargs):
-        """Initialize physical particle state."""
-
-        self.diameter = diameter
-        self.base_diameter = diameter
-        self.rho = rho
-
-        self.distribution = distribution
-        self.material_name = material_name
-        self.data_dict = kwargs
-        self.drag = kwargs.get('drag', DragModels.transitional_drag)
-
-    def __call__(self, key='diameter'):
-        """Get attributes."""
-        if key == 'diameter':
-            return self.diameter
-        elif key == 'rho':
-            return self.rho
-        else:
-            return self.data_dict[key]
-
-    def get_volume(self):
-        """Return particle volume."""
-        return 1.0/6.0*numpy.pi*self.diameter**3
-
-    def get_mass(self):
-        """Return particle mass."""
-        return self.rho*self.volume
-
-    def randomize(self):
-        """Update particle parameters from the given distribution"""
-
-        if self.distribution:
-            new_particle = copy.deepcopy(self)
-            new_particle.diameter = self.distribution(self.base_diameter)
-        else:
-            new_particle = self
-
-        return new_particle
-
-class Particle(ParticleBase):
+class Particle(ParticleBase.ParticleBase):
     """Class representing a single Lagrangian particle with mass"""
 
     def __init__(self, data,
-                 parameters=PhysicalParticle(),
+                 parameters=ParticleBase.PhysicalParticle(),
                  system=System.System(), **kwargs):
 
         super(Particle, self).__init__(*data, **kwargs)
@@ -99,6 +38,7 @@ class Particle(ParticleBase):
         self.collisions = []
         self.parameters = parameters
         self.system = system
+        self.solid_pressure_gradient=numpy.zeros(3)
         self.volume = self.parameters.get_volume()
 
     def update(self):
@@ -173,7 +113,8 @@ class Particle(ParticleBase):
                                        fluid_viscosity=self.system.viscosity)
                 + self.coriolis_force(particle_velocity)
                 + self.system.gravity
-                + self.centrifugal_force(position))
+                + self.centrifugal_force(position)
+                + self.solid_pressure_gradient / self.parameters.rho)
 
     def coriolis_force(self, particle_velocity):
         """ Return Coriolis force on particle."""
@@ -373,7 +314,7 @@ class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
     def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
-                 parameters=PhysicalParticle(),
+                 parameters=ParticleBase.PhysicalParticle(),
                  system=System.System()):
         """Initialize the bucket
 
@@ -399,6 +340,10 @@ class ParticleBucket(object):
         self.delta_t = delta_t
         self.pos = X
         self.vel = V
+        self.solid_pressure_gradient = numpy.zeros((len(self.particles),3))
+        for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
+            particle.solid_pressure_gradient=gsp
+            
         if filename:
             self.outfile = open(filename, 'w')
 
@@ -429,6 +374,11 @@ class ParticleBucket(object):
             self.outfile.write(' %f'%vel)
 
         self.outfile.write('\n')
+
+    def set_solid_pressure_gradient(self,solid_pressure_gradient):
+        self.solid_pressure_gradient[:,:]=solid_pressure_gradient
+        for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
+            particle.solid_pressure_gradient=gsp
 
     def run(self, time, write=True):
         """Drive particles forward until a given time."""

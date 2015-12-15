@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <include href="spud_base.rng"/>
+  <include href="physical_parameters.rng"/>
+  <include href="prescribed_field_options.rng"/>
+  <include href="equation_of_state.rng"/>
+  <include href="mesh_options.rng"/>
+  <include href="input_output.rng"/>
+  <start>
+    <element name="particle_model_options">
+      <a:documentation>The root node of the options dictionary.</a:documentation>
+      <ref name="comment"/>
+      <element name="simulation_name">
+        <a:documentation>Model output files are named according to the simulation
+name. Non-standard
+characters in the simulation name should be avoided.</a:documentation>
+        <ref name="anystring"/>
+      </element>
+      <ref name="geometry"/>
+      <element name="io">
+        <a:documentation>Input/output options</a:documentation>
+        <element name="dump_format">
+          <a:documentation>Format for dump files. Only vtk for now.</a:documentation>
+          <element name="string_value">
+            <value>vtk</value>
+          </element>
+        </element>
+        <choice>
+          <element name="dump_period">
+            <a:documentation>Period between dumps in time units.
+
+Specifies the period between each dump of the solution to disk.
+A value of 0.0 indicates that there would be a dump at every timestep.</a:documentation>
+            <choice>
+              <element name="constant">
+                <ref name="real"/>
+              </element>
+              <element name="python">
+                <a:documentation>Python function prescribing real input. Functions should be of the form:
+
+ def val(t):
+    # Function code
+    return # Return value
+
+</a:documentation>
+                <ref name="python_code"/>
+              </element>
+            </choice>
+          </element>
+          <element name="dump_period_in_timesteps">
+            <a:documentation>Dump period, in timesteps.
+
+Specifies the number of timesteps between each dump of the solution to disk.
+A value of 0 indicates a dump at every timestep.</a:documentation>
+            <choice>
+              <element name="constant">
+                <ref name="integer"/>
+              </element>
+              <element name="python">
+                <a:documentation>Python function prescribing integer input. Functions should be of the form:
+
+ def val(t):
+    # Function code
+    return # Return value
+
+</a:documentation>
+                <ref name="python_code"/>
+              </element>
+            </choice>
+          </element>
+        </choice>
+        <optional>
+          <element name="disable_dump_at_start">
+            <a:documentation>Disable dump at simulation start</a:documentation>
+            <ref name="comment"/>
+          </element>
+        </optional>
+        <optional>
+          <element name="disable_dump_at_end">
+            <a:documentation>Disable dump at simulation end</a:documentation>
+            <ref name="comment"/>
+          </element>
+        </optional>
+        <optional>
+          <!-- every CPUDUM seconds write results to disc. -->
+          <element name="cpu_dump_period">
+            <a:documentation>This is usually disabled.</a:documentation>
+            <ref name="real"/>
+          </element>
+        </optional>
+        <optional>
+          <element name="wall_time_dump_period">
+            <a:documentation>The period between dumps in walltime seconds. This is usually disabled.</a:documentation>
+            <ref name="real"/>
+          </element>
+        </optional>
+        <optional>
+          <element name="max_dump_file_count">
+            <a:documentation>Number of dumps before we overwrite previous dumps.</a:documentation>
+            <ref name="integer"/>
+          </element>
+        </optional>
+        <choice>
+          <element name="output_mesh">
+            <a:documentation>The mesh on to which all the fields will be
+interpolated for VTK output.</a:documentation>
+            <attribute name="name">
+              <value>VelocityMesh</value>
+            </attribute>
+          </element>
+          <element name="output_mesh">
+            <a:documentation>The mesh on to which all the fields will be
+interpolated for VTK output.</a:documentation>
+            <attribute name="name">
+              <value>PressureMesh</value>
+            </attribute>
+          </element>
+          <element name="output_mesh">
+            <a:documentation>The mesh on to which all the fields will be
+interpolated for VTK output.</a:documentation>
+            <attribute name="name">
+              <value>CoordinateMesh</value>
+            </attribute>
+          </element>
+          <element name="output_mesh">
+            <a:documentation>The mesh on to which all the fields will be
+interpolated for VTK output.</a:documentation>
+            <attribute name="name">
+              <data type="string"/>
+            </attribute>
+          </element>
+        </choice>
+        <optional>
+          <element name="convergence">
+            <a:documentation>Options for convergence analysis.</a:documentation>
+            <optional>
+              <element name="convergence_file">
+                <a:documentation>Whether to enable the creation of a convergence
+file, giving details of the convergence of each
+field over the global nonlinear iteration loop.
+The .convergence file is in the same format as the .stat file.</a:documentation>
+                <ref name="comment"/>
+              </element>
+            </optional>
+            <optional>
+              <element name="convergence_vtus">
+                <a:documentation>Write state to a vtu on every iteration.
+
+This is a useful debugging tool if things are not converging.
+To prevent an excessive number of files being accumulated previous
+timestep files will be overwritten hence it is best to use
+in conjunction with /timestepping/nonlinear_iterations/terminate_if_not_converged</a:documentation>
+                <ref name="comment"/>
+              </element>
+            </optional>
+          </element>
+        </optional>
+        <optional>
+          <element name="checkpointing">
+            <a:documentation>Whether to enable dumping of checkpointing output.
+
+See http://amcg.ese.ic.ac.uk/index.php?title=Local:Checkpointing_from_new_options</a:documentation>
+            <element name="checkpoint_period_in_dumps">
+              <a:documentation>Checkpointing period, in dumps. Non-negative value
+required. A value of zero indicates that checkpoints
+should be created at every dump. If
+/io/max_dumpfile_count is exceeded then earlier
+checkpoints may be overwritten.</a:documentation>
+              <ref name="integer"/>
+            </element>
+            <optional>
+              <element name="checkpoint_at_start">
+                <a:documentation>Enable to checkpoint at simulation start.</a:documentation>
+                <ref name="comment"/>
+              </element>
+            </optional>
+            <optional>
+              <element name="checkpoint_at_end">
+                <a:documentation>Enable to force a checkpoint at simulation end.</a:documentation>
+                <ref name="comment"/>
+              </element>
+            </optional>
+            <ref name="comment"/>
+          </element>
+        </optional>
+        <element name="stat">
+          <a:documentation>Diagnostic output (.stat file) options</a:documentation>
+          <optional>
+            <element name="output_at_start">
+              <a:documentation>Enable to write diagnostic output at simulation start</a:documentation>
+              <ref name="comment"/>
+            </element>
+          </optional>
+          <optional>
+            <element name="output_before_adapts">
+              <a:documentation>Enable to write diagnostic output immediately before mesh adapts</a:documentation>
+              <ref name="comment"/>
+            </element>
+          </optional>
+          <optional>
+            <element name="output_after_adapts">
+              <a:documentation>Enable to write diagnostic output immediately after mesh adapts</a:documentation>
+              <ref name="comment"/>
+            </element>
+          </optional>
+          <ref name="comment"/>
+        </element>
+        <optional>
+          <element name="log_output">
+            <a:documentation>Options to create even more output in the logs:
+
+Note that the main option to control the log output is given on the command line:
+
+-v0  only output error and warnings
+
+-v1  also give "navigational information", to indicate where in the code we currently are
+
+-v2  also give any additional information (mins and maxes of fields, etc.)
+</a:documentation>
+            <optional>
+              <element name="memory_diagnostics">
+                <a:documentation>Log all allocates and deallocates done for meshes, fields, sparsities and matrices.
+
+NOTE: Requires -v2</a:documentation>
+                <empty/>
+              </element>
+            </optional>
+          </element>
+        </optional>
+      </element>
+      <element name="timestepping">
+        <a:documentation>Options dealing with time discretisation</a:documentation>
+        <element name="current_time">
+          <a:documentation>Current simulation time. At the start of the simulation this
+is the start time.</a:documentation>
+          <ref name="real"/>
+          <optional>
+            <element name="time_units">
+              <a:documentation>The following excerpt from the Udunits
+documentation explains the time unit encoding by
+example:
+
+The specification:
+
+seconds since 1992-10-8 15:15:42.5 -6:00
+
+indicates seconds since October 8th, 1992 at 3
+hours, 15 minutes and 42.5 seconds in the afternoon
+in the time zone which is six hours to the west of
+Coordinated Universal Time (i.e.  Mountain Daylight
+Time). The time zone specification can also be
+written without a colon using one or two-digits
+(indicating hours) or three or four digits
+(indicating hours and minutes).
+
+Time units are particularly required in situations
+where the problem (time-varying) boundary conditions
+and/ initial conditions are a function of time as
+defined by a calendar.  Examples include atmospheric
+forcing and climatology. The current time, specified
+above, is zero at the reference data/time.</a:documentation>
+              <attribute name="date">
+                <data type="string"/>
+              </attribute>
+            </element>
+          </optional>
+        </element>
+        <element name="timestep">
+          <a:documentation>The time step size. If adaptive time stepping is used
+then this is the initial time step size.</a:documentation>
+          <ref name="real"/>
+        </element>
+        <element name="finish_time">
+          <a:documentation>Simulation time at which the simulation should end.</a:documentation>
+          <ref name="real"/>
+        </element>
+      </element>
+      <optional>
+        <ref name="physical_parameter_options"/>
+      </optional>
+      <oneOrMore>
+        <element name="material_phase">
+          <a:documentation>The material or phase options</a:documentation>
+          <attribute name="name">
+            <data type="string"/>
+          </attribute>
+          <optional>
+            <ref name="equation_of_state_options"/>
+          </optional>
+        </element>
+      </oneOrMore>
+      <ref name="embedded_models"/>
+    </element>
+  </start>
+  <define name="geometry">
+    <element name="geometry">
+      <a:documentation>Options dealing with the specification of geometry</a:documentation>
+      <element name="dimension">
+        <a:documentation>Dimension of the problem.
+&lt;b&gt;This can only be set once&lt;/b&gt;</a:documentation>
+        <element name="integer_value">
+          <attribute name="rank">
+            <value>0</value>
+          </attribute>
+          <choice>
+            <value>3</value>
+            <value>2</value>
+            <value>1</value>
+          </choice>
+        </element>
+      </element>
+      <element name="mesh">
+        <a:documentation>The position mesh</a:documentation>
+        <attribute name="name">
+          <value>CoordinateMesh</value>
+        </attribute>
+        <ref name="mesh_info"/>
+      </element>
+    </element>
+  </define>
+  <define name="embedded_models">
+    <element name="embedded_models">
+      <a:documentation>Fluidity embedded models</a:documentation>
+      <ref name="particle_model"/>
+    </element>
+  </define>
+  <define name="particle_model">
+    <element name="particle_model">
+      <a:documentation>Options passed to the particle model itself</a:documentation>
+      <element name="particle_classes">
+        <oneOrMore>
+          <element name="particle_class">
+            <attribute name="name">
+              <data type="string" datatypeLibrary=""/>
+            </attribute>
+            <ref name="particle_class_base"/>
+          </element>
+        </oneOrMore>
+      </element>
+    </element>
+  </define>
+  <define name="particle_class_base">
+    <group>
+      <element name="diameter">
+        <a:documentation>Particle class descriptions</a:documentation>
+        <ref name="real"/>
+      </element>
+      <optional>
+        <element name="density">
+          <ref name="real"/>
+        </element>
+      </optional>
+    </group>
+    <!--
+              element distribution {
+                 empty
+              }
+    -->
+  </define>
+</grammar>

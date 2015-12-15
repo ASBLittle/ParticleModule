@@ -1,0 +1,84 @@
+<?xml version='1.0' encoding='utf-8'?>
+<particle_model_options>
+  <simulation_name>
+    <string_value lines="1">test</string_value>
+  </simulation_name>
+  <geometry>
+    <dimension>
+      <integer_value rank="0">2</integer_value>
+    </dimension>
+    <mesh name="CoordinateMesh">
+      <from_file file_name="test">
+        <format name="gmsh"/>
+        <stat>
+          <include_in_stat/>
+        </stat>
+      </from_file>
+    </mesh>
+  </geometry>
+  <io>
+    <dump_format>
+      <string_value>vtk</string_value>
+    </dump_format>
+    <dump_period_in_timesteps>
+      <constant>
+        <integer_value rank="0">0</integer_value>
+      </constant>
+    </dump_period_in_timesteps>
+    <output_mesh name="VelocityMesh"/>
+    <stat/>
+  </io>
+  <timestepping>
+    <current_time>
+      <real_value rank="0">0.0</real_value>
+    </current_time>
+    <timestep>
+      <real_value rank="0">0.1</real_value>
+    </timestep>
+    <finish_time>
+      <real_value rank="0">1.0</real_value>
+    </finish_time>
+  </timestepping>
+  <physical_parameters>
+    <gravity>
+      <magnitude>
+        <real_value rank="0">9.81</real_value>
+      </magnitude>
+      <vector_field name="GravityDirection" rank="1">
+        <prescribed>
+          <mesh name="CoordinateMesh"/>
+          <value name="WholeMesh">
+            <constant>
+              <real_value shape="2" dim1="dim" rank="1">0 -1</real_value>
+            </constant>
+          </value>
+        </prescribed>
+      </vector_field>
+    </gravity>
+  </physical_parameters>
+  <material_phase name="Fluid">
+    <equation_of_state>
+      <fluids>
+        <linear>
+          <reference_density>
+            <real_value rank="0">1024</real_value>
+          </reference_density>
+        </linear>
+      </fluids>
+    </equation_of_state>
+  </material_phase>
+  <embedded_models>
+    <particle_model>
+      <particle_classes>
+        <particle_class name="Sand">
+          <diameter>
+            <real_value rank="0">40.0e-6</real_value>
+          </diameter>
+          <density>
+            <real_value rank="0">1.0e3</real_value>
+          </density>
+        </particle_class>
+      </particle_classes>
+    </particle_model>
+  </embedded_models>
+</particle_model_options>

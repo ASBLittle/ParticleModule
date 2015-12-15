@@ -36,7 +36,6 @@ class OptionsReader(object):
     def get_rotation(self):
         """ Return the rotation vector."""
         options_base='/physical_parameters/coriolis/specified_axis'
-        magnitude=0
         omega=numpy.zeros(3)
         origin=numpy.zeros(3)
 

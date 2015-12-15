@@ -29,7 +29,8 @@ def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
-SYSTEM = System.System(BOUNDARY, coeff=1.0, temporal_cache=temp_cache())
+SYSTEM = System.System(BOUNDARY, coeff=1.0, temporal_cache=temp_cache(),
+                       rho=1.0e3)
 SYSTEM3D = System.System(BOUNDARY3D, coeff=1.0,
                          temporal_cache=temp_cache('cube_0.vtu'))
 
@@ -38,8 +39,8 @@ MESH.read('particle_model/tests/data/Structured.msh')
 MESH3D = IO.GmshMesh()
 MESH3D.read('particle_model/tests/data/Structured_cube.msh')
 
-PAR0 = ParticleBase.PhysicalParticle(diameter=numpy.infty)
-PAR1 = ParticleBase.PhysicalParticle(diameter=100.0e-4)
+PAR0 = ParticleBase.PhysicalParticle(diameter=numpy.infty,rho=1.0)
+PAR1 = ParticleBase.PhysicalParticle(diameter=100.0e-4,rho=1.0e3)
 
 def test_tests():
     """ Test test structure with a minimal test."""
@@ -195,7 +196,8 @@ def test_step_spin_up_turbulent_drag():
     pos = numpy.array((0.1, 0.5, 0.0))
     vel = numpy.array((0.0, 0.0, 0.0))
 
-    phys_par = ParticleBase.PhysicalParticle(drag=DragModels.turbulent_drag)
+    phys_par = ParticleBase.PhysicalParticle(drag=DragModels.turbulent_drag,
+                                             rho=1.0e3)
 
     part = Particles.Particle((pos, vel), delta_t=0.001,
                               system=SYSTEM,
@@ -210,8 +212,12 @@ def test_step_spin_up_transitional_drag():
     pos = numpy.array((0.1, 0.5, 0.0))
     vel = numpy.array((0.0, 0.0, 0.0))
 
+    phys_par = ParticleBase.PhysicalParticle(drag=DragModels.transitional_drag,
+                                             rho=1.0e3)
+
     part = Particles.Particle((pos, vel), delta_t=0.001,
-                              system=SYSTEM)
+                              system=SYSTEM,
+                              parameters=phys_par)
     part.update()
     assert all(abs(part.pos - numpy.array((0.10373956, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
@@ -227,7 +233,8 @@ def test_stokes_terminal_velocity():
     delta_t = 1.0e-8
 
     par = ParticleBase.PhysicalParticle(diameter=diameter,
-                                     drag=DragModels.stokes_drag)
+                                     drag=DragModels.stokes_drag,
+                                     rho=1.0)
 
     pos = numpy.zeros((1, 3))
     vel = numpy.zeros((1, 3))

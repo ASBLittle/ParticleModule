@@ -1,0 +1,44 @@
+physical_parameter_options =
+   element physical_parameters {
+      gravity_options?,
+      coriolis_options?
+      }
+
+gravity_options =
+   ## Set a gravity to be included in the buoyancy term.
+   element gravity {
+      ## Acceleration due to gravity. 9.8 m/s^2 on earth.
+      element magnitude {
+         real
+      },
+      ## The direction of the gravity vector.
+      element vector_field {
+         attribute name { "GravityDirection" },
+         attribute rank { "1" },
+         element prescribed {
+            coordinate_mesh_choice,
+            prescribed_vector_field_no_adapt
+         }
+      }
+   }
+
+coriolis_options =
+   ## Options relating to Coriolis force. The rotation vector is
+   ## assumed to be in the z-direction:
+   ##
+   ##   F_C = 2 \Omega \hat{k} \times u = f \hat{k} \times u
+   element coriolis {
+         element specified_axis {
+	    ## Rotational velocity of system (in radians per unit time)
+            element rotational_velocity {
+               real
+            },
+	    element point_on_axis {
+	       real_dim_vector
+	    },
+	    ## Unsteady case with d\Omega/dt /= 0 
+	    element rate_of_change {
+	       real
+	    }?
+         }
+   }

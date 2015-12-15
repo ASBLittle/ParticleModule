@@ -3,6 +3,7 @@ the file system. Mostly vtk."""
 
 from particle_model import Collision
 from particle_model import vtkParticlesPython
+from particle_model import Parallel
 
 import vtk
 from vtk.util import numpy_support
@@ -19,8 +20,12 @@ TYPES_1D = [vtk.VTK_LINE]
 TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
 
-WRITER = {vtk.VTK_UNSTRUCTURED_GRID:vtk.vtkXMLUnstructuredGridWriter,
-          vtk.VTK_POLY_DATA:vtk.vtkXMLPolyDataWriter,}
+WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter 
+                                     if Parallel.isparallel() 
+                                     else vtk.vtkXMLUnstructuredGridWriter),
+          vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
+                             if Parallel.isparallel() 
+                             else vtk.vtkXMLPolyDataWriter),}
 
 class GmshMesh(object):
     """This is a class for storing nodes and elements.
@@ -149,19 +154,27 @@ class PolyData(object):
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename):
+    def __init__(self, filename=None,bnd=None,):
         """Class containing the information about the boundary of the domain.
 
         Args:
             filename (str): Name of the file containing the
             vtkUnstructuredGrid denoting the boundary of the domain."""
 
-        self.geom_filter = vtk.vtkGeometryFilter()
-        self.reader = vtk.vtkXMLUnstructuredGridReader()
-        self.bnd = self.reader.GetOutput()
+        self.reader = vtk.vtkXMLUnstructuredGridReader() 
         self.bndl = vtk.vtkCellLocator()
+        self.geom_filter = vtk.vtkGeometryFilter()
 
-        self.update_boundary_file(filename)
+        if filename is not None:
+            self.update_boundary_file(filename)
+        else:
+            self.bnd=bnd
+            self.geom_filter.SetInput(self.bnd)
+            self.geom_filter.Update()
+
+            self.bndl.SetDataSet(self.geom_filter.GetOutput())
+            self.bndl.BuildLocator()
+            
 
     def update_boundary_file(self, filename):
         """ Update the boundary data from the file."""
@@ -171,6 +184,7 @@ class BoundaryData(object):
 
         self.reader.SetFileName(filename)
         self.reader.Update()
+        self.bnd = self.reader.GetOutput()
         self.bnd.Update()
 
 
@@ -1113,5 +1127,11 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
         wear_vtk.InsertNextValue(wear)
 
     ugrid.GetPointData().AddArray(wear_vtk)
+
+
+def get_mesh_from_reader(reader):
+    MESH = GmshMesh()
+    MESH.read(reader.get_mesh_filename())
+    return MESH
 
 

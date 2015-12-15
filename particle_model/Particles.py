@@ -42,6 +42,34 @@ class Particle(ParticleBase.ParticleBase):
         self.volume = self.parameters.get_volume()
 
     def update(self):
+        """ Update the state of the particle to the next time level."""
+        self.update_rk4()
+
+    def update_ab2(self):
+        """Update the state of the particle to the next time level
+
+        The method uses the Adams Bashforth second order method"""
+
+        kap1 = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time),
+                self.force(self.oldpos,
+                                     self.oldvel,
+                                     self.oldtime))
+
+        step, col, vel = self.collide(1.5*self.vel-0.5*self.oldvel, self.delta_t,
+                                      self.vel,
+                                      force=1.5*kap1[1]-0.5*kap1[2])
+
+        self.pos += step
+        self.vel += vel
+        if col:
+            self.collisions += col
+
+
+        self.time += self.delta_t
+
+    def update_rk4(self):
         """Update the state of the particle to the next time level
 
         The method uses relatively simple RK4 time integration."""
@@ -106,11 +134,14 @@ class Particle(ParticleBase.ParticleBase):
 #        if collision:
 #            raise collisionException
 
-        return (grad_p / self.parameters.rho
+        return (-grad_p / self.parameters.rho
                 + self.parameters.drag(fluid_velocity,
                                        particle_velocity,
-                                       self.parameters.diameter,
+                                       diameter=self.parameters.diameter,
+                                       rho=self.parameters.rho,
+                                       rho_f=self.system.rho,
                                        fluid_viscosity=self.system.viscosity)
+                / self.parameters.rho
                 + self.coriolis_force(particle_velocity)
                 + self.system.gravity
                 + self.centrifugal_force(position)

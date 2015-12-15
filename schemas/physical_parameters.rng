@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns:a="http://relaxng.org/ns/compatibility/annotations/1.0" xmlns="http://relaxng.org/ns/structure/1.0">
+  <define name="physical_parameter_options">
+    <element name="physical_parameters">
+      <optional>
+        <ref name="gravity_options"/>
+      </optional>
+      <optional>
+        <ref name="coriolis_options"/>
+      </optional>
+    </element>
+  </define>
+  <define name="gravity_options">
+    <element name="gravity">
+      <a:documentation>Set a gravity to be included in the buoyancy term.</a:documentation>
+      <element name="magnitude">
+        <a:documentation>Acceleration due to gravity. 9.8 m/s^2 on earth.</a:documentation>
+        <ref name="real"/>
+      </element>
+      <element name="vector_field">
+        <a:documentation>The direction of the gravity vector.</a:documentation>
+        <attribute name="name">
+          <value>GravityDirection</value>
+        </attribute>
+        <attribute name="rank">
+          <value>1</value>
+        </attribute>
+        <element name="prescribed">
+          <ref name="coordinate_mesh_choice"/>
+          <ref name="prescribed_vector_field_no_adapt"/>
+        </element>
+      </element>
+    </element>
+  </define>
+  <define name="coriolis_options">
+    <element name="coriolis">
+      <a:documentation>Options relating to Coriolis force. The rotation vector is
+assumed to be in the z-direction:
+
+  F_C = 2 \Omega \hat{k} \times u = f \hat{k} \times u</a:documentation>
+      <element name="specified_axis">
+        <element name="rotational_velocity">
+          <a:documentation>Rotational velocity of system (in radians per unit time)</a:documentation>
+          <ref name="real"/>
+        </element>
+        <element name="point_on_axis">
+          <ref name="real_dim_vector"/>
+        </element>
+        <optional>
+          <element name="rate_of_change">
+            <a:documentation>Unsteady case with d\Omega/dt /= 0 </a:documentation>
+            <ref name="real"/>
+          </element>
+        </optional>
+      </element>
+    </element>
+  </define>
+</grammar>

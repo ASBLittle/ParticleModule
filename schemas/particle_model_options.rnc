@@ -1,0 +1,292 @@
+include "spud_base.rnc"
+
+include "physical_parameters.rnc"
+include "prescribed_field_options.rnc"
+include "equation_of_state.rnc"
+include "mesh_options.rnc"
+include "input_output.rnc"
+
+start =
+   (
+      ## The root node of the options dictionary.
+      element particle_model_options {
+         comment,
+         ## Model output files are named according to the simulation
+         ## name. Non-standard
+         ## characters in the simulation name should be avoided.
+         element simulation_name {
+            anystring
+         },
+         geometry,
+         ## Input/output options
+         element io {
+            ## Format for dump files. Only vtk for now.
+            element dump_format {
+               element string_value{
+                  "vtk"
+               }
+            },
+            (
+               ## Period between dumps in time units.
+               ##
+               ## Specifies the period between each dump of the solution to disk.
+               ## A value of 0.0 indicates that there would be a dump at every timestep.
+               element dump_period {
+                (
+                     element constant {
+                     real
+                   }|
+                   ## Python function prescribing real input. Functions should be of the form:
+                   ##
+                   ##  def val(t):
+                   ##     # Function code
+                   ##     return # Return value
+                   ##
+                   ## 
+                   element python {
+                     python_code
+                   }
+                )  
+               }|                 
+               ## Dump period, in timesteps.
+               ## 
+               ## Specifies the number of timesteps between each dump of the solution to disk.
+               ## A value of 0 indicates a dump at every timestep.
+               element dump_period_in_timesteps {
+                 (
+                     element constant {
+                     integer
+                   }|
+                   ## Python function prescribing integer input. Functions should be of the form:
+                   ##
+                   ##  def val(t):
+                   ##     # Function code
+                   ##     return # Return value
+                   ##
+                   ## 
+                   element python {
+                     python_code
+                   }
+                )   
+               }
+            ),
+            ## Disable dump at simulation start
+            element disable_dump_at_start {
+               comment
+            }?,
+            ## Disable dump at simulation end
+            element disable_dump_at_end {
+               comment
+            }?,
+            # every CPUDUM seconds write results to disc.
+            ## This is usually disabled.
+            element cpu_dump_period {
+               real
+            }?,
+            ## The period between dumps in walltime seconds. This is usually disabled.
+            element wall_time_dump_period {
+               real
+            }?,
+            ## Number of dumps before we overwrite previous dumps.
+            element max_dump_file_count {
+               integer
+            }?,
+            (
+               ## The mesh on to which all the fields will be
+               ## interpolated for VTK output.
+               element output_mesh {
+                  attribute name { "VelocityMesh" }
+               }|
+               ## The mesh on to which all the fields will be
+               ## interpolated for VTK output.
+               element output_mesh {
+                  attribute name { "PressureMesh" }
+               }|
+               ## The mesh on to which all the fields will be
+               ## interpolated for VTK output.
+               element output_mesh {
+                  attribute name { "CoordinateMesh" }
+               }|
+               ## The mesh on to which all the fields will be
+               ## interpolated for VTK output.
+               element output_mesh {
+                  attribute name { xsd:string }
+               }
+            ),
+            ## Options for convergence analysis.
+            element convergence {
+               ## Whether to enable the creation of a convergence
+               ## file, giving details of the convergence of each
+               ## field over the global nonlinear iteration loop.
+               ## The .convergence file is in the same format as the .stat file.
+               element convergence_file {
+                  comment
+               }?,
+               ## Write state to a vtu on every iteration.
+               ## 
+               ## This is a useful debugging tool if things are not converging.
+               ## To prevent an excessive number of files being accumulated previous
+               ## timestep files will be overwritten hence it is best to use
+               ## in conjunction with /timestepping/nonlinear_iterations/terminate_if_not_converged
+               element convergence_vtus {
+                  comment
+               }?
+            }?,
+            ## Whether to enable dumping of checkpointing output.
+            ##
+            ## See http://amcg.ese.ic.ac.uk/index.php?title=Local:Checkpointing_from_new_options
+            element checkpointing {
+               ## Checkpointing period, in dumps. Non-negative value
+               ## required. A value of zero indicates that checkpoints
+               ## should be created at every dump. If
+               ## /io/max_dumpfile_count is exceeded then earlier
+               ## checkpoints may be overwritten.
+               element checkpoint_period_in_dumps {
+                  integer
+               },
+               ## Enable to checkpoint at simulation start.
+               element checkpoint_at_start {
+                  comment
+               }?,
+               ## Enable to force a checkpoint at simulation end.
+               element checkpoint_at_end {
+                  comment
+               }?,
+               comment
+            }?,
+            ## Diagnostic output (.stat file) options
+            element stat {
+               ## Enable to write diagnostic output at simulation start
+               element output_at_start {
+                  comment
+               }?,
+               ## Enable to write diagnostic output immediately before mesh adapts
+               element output_before_adapts {
+                  comment
+               }?,
+               ## Enable to write diagnostic output immediately after mesh adapts
+               element output_after_adapts {
+                  comment
+               }?,
+               comment
+            },
+            ## Options to create even more output in the logs:
+            ##
+            ## Note that the main option to control the log output is given on the command line:
+            ##
+            ## -v0  only output error and warnings
+            ##
+            ## -v1  also give "navigational information", to indicate where in the code we currently are
+            ##
+            ## -v2  also give any additional information (mins and maxes of fields, etc.)
+            ##
+            element log_output {
+               ## Log all allocates and deallocates done for meshes, fields, sparsities and matrices.
+               ##
+               ## NOTE: Requires -v2
+               element memory_diagnostics {
+                  empty
+               }?
+            }?
+         },
+         ## Options dealing with time discretisation
+         element timestepping {
+            ## Current simulation time. At the start of the simulation this
+            ## is the start time.
+            element current_time {
+               real,
+               ## The following excerpt from the Udunits
+               ## documentation explains the time unit encoding by
+               ## example:
+               ##
+               ## The specification:
+               ##
+               ## seconds since 1992-10-8 15:15:42.5 -6:00
+               ##
+               ## indicates seconds since October 8th, 1992 at 3
+               ## hours, 15 minutes and 42.5 seconds in the afternoon
+               ## in the time zone which is six hours to the west of
+               ## Coordinated Universal Time (i.e.  Mountain Daylight
+               ## Time). The time zone specification can also be
+               ## written without a colon using one or two-digits
+               ## (indicating hours) or three or four digits
+               ## (indicating hours and minutes).
+               ##
+               ## Time units are particularly required in situations
+               ## where the problem (time-varying) boundary conditions
+               ## and/ initial conditions are a function of time as
+               ## defined by a calendar.  Examples include atmospheric
+               ## forcing and climatology. The current time, specified
+               ## above, is zero at the reference data/time.
+               element time_units{attribute date { xsd:string }}?
+            },
+            ## The time step size. If adaptive time stepping is used
+            ## then this is the initial time step size.
+            element timestep {
+               real
+            },
+            ## Simulation time at which the simulation should end.
+            element finish_time {
+               real
+            }
+         },
+         physical_parameter_options?,
+         ## The material or phase options
+         element material_phase {
+            attribute name { xsd:string },
+            equation_of_state_options?
+         }+,
+         embedded_models
+      }
+   )      
+geometry = 
+   (
+      ## Options dealing with the specification of geometry
+      element geometry {
+         ## Dimension of the problem.
+         ## <b>This can only be set once</b>
+         element dimension {
+            element integer_value {
+               attribute rank {"0"},
+               ("3"|"2"|"1")
+            }
+         },
+         ## The position mesh
+         element mesh {
+            attribute name { "CoordinateMesh" },
+            mesh_info
+         }
+      }
+   )
+
+embedded_models = 
+   (
+      ## Fluidity embedded models
+      element embedded_models {
+         particle_model
+      }
+   )
+
+particle_model =
+   (
+      ## Options passed to the particle model itself
+      element particle_model {
+         element particle_classes {
+            element particle_class {
+               attribute name { string },
+               particle_class_base
+            }+
+         }
+      }
+   )
+
+
+particle_class_base = 
+   (
+      ## Particle class descriptions
+      element diameter { real },
+      element density { real }?
+      #         element distribution {
+      #            empty
+      #         }
+   )

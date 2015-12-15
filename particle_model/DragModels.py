@@ -2,20 +2,21 @@
 
 import numpy
 
-def stokes_drag(fluid_velocity, particle_velocity, diameter, fluid_viscosity, **kwargs):
+def stokes_drag(fluid_velocity, particle_velocity, diameter, rho, fluid_viscosity, **kwargs):
     """ Return Stokes drag force for particle parameters"""
     del kwargs ## supress argument unused warning
-    return 18./diameter**2*fluid_viscosity*(fluid_velocity-particle_velocity)
+    print 'rho', rho, 'diameter', diameter, 'viscosity', fluid_viscosity
+    return rho*18./diameter**2*fluid_viscosity*(fluid_velocity-particle_velocity)
 
-def turbulent_drag(fluid_velocity, particle_velocity, diameter, **kwargs):
+def turbulent_drag(fluid_velocity, particle_velocity, diameter, rho, rho_f, **kwargs):
     """ Return turbulent drag force for particle parameters"""
     del kwargs ## supress argument unused warning
     fluid_velocity = numpy.array(fluid_velocity)
     particle_velocity = numpy.array(particle_velocity)
     delta = numpy.sqrt(sum((fluid_velocity-particle_velocity)**2))
-    return 0.44*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)
+    return rho_f*0.44*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)
 
-def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f=1.0e3,
+def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f,
                       fluid_viscosity=1.0e-3, **kwargs):
     """ Return transitional drag force for particle parameters
 
@@ -33,9 +34,9 @@ def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f=1.0e3,
     reynolds_no = rho_f*delta*diameter/ fluid_viscosity
 
     if reynolds_no < 1.0e-8:
-        return delta*(fluid_velocity-particle_velocity)
+        return rho_f*delta*(fluid_velocity-particle_velocity)
     elif reynolds_no < 1000.0:
         c_d = (24.0/reynolds_no)*(1.0+0.15*reynolds_no**0.687)
-        return c_d*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)
+        return rho_f*c_d*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)
     else:
-        return 0.44*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)
+        return rho_f*0.44*3.0/32.0/diameter*delta*(fluid_velocity-particle_velocity)

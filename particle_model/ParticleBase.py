@@ -80,7 +80,7 @@ def get_parameters_from_options(options_file=None,**kwargs):
     options_base = '/embedded_models/particle_model/particle_classes'
 
     def get_option(pclass,key,default=None):
-        print pclass, key
+
         result = default
         if libspud.have_option('/'.join((options_base,pclass,key))):
             result = libspud.get_option('/'.join((options_base,pclass,key)))
@@ -94,11 +94,41 @@ def get_parameters_from_options(options_file=None,**kwargs):
         distribution = get_option(key,'distribution')
         density = get_option(key,'density',default=2.5e3)
         
-        parameters.append(PhysicalParticle(diameter=40.0e-6,
+        parameters.append(PhysicalParticle(diameter=diameter,
                                            rho=density,
                                            distribution=distribution,
                                            material_name=name,
                                            **kwargs))
+
+    return parameters
+
+
+def get_parameters_from_reader(reader,**kwargs):
+
+    options_base = '/embedded_models/particle_model/particle_classes'
+
+    parameters = []
+
+    def get_option(pclass,key,default=None):
+        result = default
+        if libspud.have_option('/'.join((options_base,pclass,key))):
+            result = libspud.get_option('/'.join((options_base,pclass,key)))
+        return result
+
+    for i in range(libspud.get_number_of_children(options_base)):
+        key = libspud.get_child_name(options_base,i)
+        name = get_option(key,'name')
+
+        diameter = get_option(key,'diameter')
+        distribution = get_option(key,'distribution')
+        density = get_option(key,'density',default=2.5e3)
+        
+        parameters.append(PhysicalParticle(diameter=diameter,
+                                           rho=density,
+                                           distribution=distribution,
+                                           material_name=name,
+                                           **kwargs))
+
 
     return parameters
 

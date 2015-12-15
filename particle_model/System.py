@@ -63,4 +63,21 @@ def get_system_from_options(options_file=None, boundary_grid=None):
 
     return system
 
+def get_system_from_reader(reader, boundary_grid=None):
+
+    if boundary_grid is None:
+
+        mesh=IO.GmshMesh()
+        mesh.read(reader.get_mesh_filename())
+
+        boundary_grid = IO.make_boundary_from_msh(mesh)
+
+
+    boundary = IO.BoundaryData(bnd=boundary_grid)
+    system = System(boundary,base_name=reader.get_name(),
+                    gravity=reader.get_gravity(),
+                    omega=reader.get_rotation()[0])
+
+    return system
+
     

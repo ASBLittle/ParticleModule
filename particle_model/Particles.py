@@ -179,7 +179,7 @@ class Particle(ParticleBase.ParticleBase):
     def picker(self, pos, time):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
-        def fpick(infile, locator):
+        def fpick(infile, locator,names):
             """ Extract fluid velocity and pressure from single .vtu file"""
 
             locator.BuildLocatorIfNeeded()
@@ -199,8 +199,8 @@ class Particle(ParticleBase.ParticleBase):
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
-            data_u = infile.GetPointData().GetVectors('Velocity')
-            data_p = infile.GetPointData().GetScalars('Pressure')
+            data_u = infile.GetPointData().GetVectors(names[0])
+            data_p = infile.GetPointData().GetScalars(names[1])
 
 
             shape_funs = numpy.zeros(cell.GetNumberOfPoints())
@@ -231,10 +231,14 @@ class Particle(ParticleBase.ParticleBase):
 
             return out, grad_p
 
-        data, alpha = self.system.temporal_cache(time)
+        data, alpha, names = self.system.temporal_cache(time)
 
-        vel0, grad_p0 = fpick(data[0][2], data[0][3])
-        vel1, grad_p1 = fpick(data[1][2], data[1][3])
+        vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
+        vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
+
+        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
+        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
+
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
@@ -270,7 +274,7 @@ class Particle(ParticleBase.ParticleBase):
                                            x, ARGV, ARGI, cell_index)
 
         if intersect:
-            data, _ = self.system.temporal_cache(self.time)
+            data, _, names = self.system.temporal_cache(self.time)
             assert IO.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
 
             print 'collision', intersect, cell_index, s, x, pos, pa
@@ -365,8 +369,9 @@ class ParticleBucket(object):
                                            system=self.system,
                                            parameters=parameters.randomize()))
             if self.system.temporal_cache:
-                self.fluid_velocity[_, :], self.grad_p[_, :] = \
-                    self.particles[-1].get_fluid_properties()
+                dummy_u, dummy_p = self.particles[-1].get_fluid_properties()
+                self.fluid_velocity[_, :len(dummy_u)]=dummy_u
+                self.grad_p[_, :] = dummy_p
         self.time = time
         self.delta_t = delta_t
         self.pos = X

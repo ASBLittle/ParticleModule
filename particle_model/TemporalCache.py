@@ -114,4 +114,36 @@ class TemporalCache(object):
         if t_max == t_min:
             t_max = numpy.infty
 
-        return self.data[lower:lower+2], (time-t_min)/(t_max-t_min)
+        return (self.data[lower:lower+2], (time-t_min)/(t_max-t_min),
+                 [['Velocity', 'Pressure'], ['Velocity', 'Pressure']])
+
+
+class FluidityCache(object):
+    """Cache like object used when running particles online."""
+
+    def __init__(self, block, time, dt):
+        """ Initialise the cache. 
+             block  -- The VTK multiblock object
+             time   -- The (current) simulation time
+             dt     -- The model timestep """
+        self.block = block
+        self.time = time
+        self.delta_t = dt
+
+    def update(self, block, time, dt):
+        self.block = block
+        self.time = time
+        self.delta_t = dt
+
+    def range(self, t_min, t_max):
+        """ Specify a range of data to keep open. Not used here"""
+        pass
+
+    def __call__(self,ptime):
+        cloc = vtk.vtkCellLocator()
+        cloc.SetDataSet(self.block.GetBlock(0))
+        cloc.BuildLocator()
+        return ([[self.time-self.delta_t,None,self.block.GetBlock(0),cloc],
+                 [self.time,None,self.block.GetBlock(0),cloc]],
+                (ptime-self.time+self.delta_t)/self.delta_t,
+                [['OldVelocity', 'OldPressure'], ['Velocity', 'Pressure']])

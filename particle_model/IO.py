@@ -268,6 +268,17 @@ def extract_boundary(ugrid):
     else:
         dim = 0
 
+    def get_dimension(cell):
+        cellType = cell.GetCellType()
+        if cellType in TYPES_3D:
+            return 3
+        elif cellType in TYPES_2D:
+            return 2
+        elif cellType in TYPES_1D:
+            return 1
+        else:
+            return 0
+
     ncells = ugrid.GetNumberOfCells()
     ncda = ugrid.GetCellData().GetNumberOfArrays()
 
@@ -277,7 +288,7 @@ def extract_boundary(ugrid):
     cell_data = ugrid.GetCellData()
     for i in range(ncells):
         cell = ugrid.GetCell(i)
-        if dim > cell.GetCellDimension():
+        if dim > get_dimension(cell):
             out_grid.InsertNextCell(cell.GetCellType(),
                                     cell.GetPointIds())
             for j in range(ncda):

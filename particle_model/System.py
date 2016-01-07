@@ -11,13 +11,15 @@ class System(object):
     """ Class decribes the fixed properties of the underlying system and its
     fluid dynamical solution."""
 
-    def __init__(self, boundary=None, temporal_cache=None, base_name=None, options=None, **kwargs):
+    def __init__(self, boundary=None, temporal_cache=None, base_name=None, options=None, block=None, **kwargs):
         """ Initialise the system class. """
         self.boundary = boundary
         if temporal_cache:
             self.temporal_cache = temporal_cache
         elif base_name:
             self.temporal_cache = TemporalCache.TemporalCache(base_name)
+        elif block:
+            self.temporal_cache = TemporalCache.FluidityCache(*block)
         else:
             self.temporal_cache = None
         self.options = options
@@ -48,7 +50,7 @@ class System(object):
 
 
 
-def get_system_from_options(options_file=None, boundary_grid=None):
+def get_system_from_options(options_file=None, boundary_grid=None, block=None):
 
     reader=Options.OptionsReader(options_file)
 
@@ -59,7 +61,12 @@ def get_system_from_options(options_file=None, boundary_grid=None):
 
         boundary_grid = IO.make_boundary_from_msh(mesh)
 
-    system = System(boundary_grid,base_name=reader.get_name())
+    boundary = IO.BoundaryData(bnd=boundary_grid)
+
+    if block is None:
+        system = System(boundary,base_name=reader.get_name())
+    else:
+        system = System(boundary,block=block)
 
     return system
 

@@ -45,7 +45,7 @@ def test_temporal_cache_call():
     """Test if we can make a call."""
     temp_cache = TC.TemporalCache('particle_model/tests/data/circle', 0, 1)
 
-    data, alpha = temp_cache(0.5)
+    data, alpha, names = temp_cache(0.5)
 
     assert data[0][0] == 0.0
     assert data[1][0]-5.0 < 1.e-8

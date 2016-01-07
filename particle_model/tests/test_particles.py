@@ -22,8 +22,9 @@ def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
         locator.SetDataSet(reader.GetOutput())
         locator.BuildLocator()
 
-        return [[0.0, fname, reader.GetOutput(), locator],
-                [1.0, fname, reader.GetOutput(), locator]], 0.0
+        return ([[0.0, fname, reader.GetOutput(), locator],
+                 [1.0, fname, reader.GetOutput(), locator]], 0.0,
+                [['Velocity', 'Pressure'], ['Velocity', 'Pressure']])
 
     return fun
 

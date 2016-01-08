@@ -5,16 +5,18 @@ import numpy
 
 from particle_model import Options
 from particle_model import DragModels
+from particle_model import Parallel
 
 class ParticleBase(object):
     """ An easily picklable base class for checkpointing and parallel computation. """
 
-    def __init__(self, pos, vel, time=0.0, delta_t=1.0,):
+    def __init__(self, pos, vel, time=0.0, delta_t=1.0, phash=None):
 
         self.pos = pos
         self.vel = vel
         self.time = time
         self.delta_t = delta_t
+        self.id=Parallel.particle_id(phash)
 
     def update(self):
         """ Core method updating the particle."""
@@ -24,6 +26,11 @@ class ParticleBase(object):
         """ A helper function for parallel coding"""
         raise NotImplementedError
 
+    def __eq__(self, obj):
+        return self.id == ob.id
+
+    def __hash__(self):
+        return self.id()
 
 class PhysicalParticle(object):
     """ Class describing the physical properties of a particle drawn from a known distribution."""

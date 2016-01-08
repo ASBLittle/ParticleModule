@@ -4,8 +4,9 @@ from particle_model import TemporalCache
 from particle_model import Options
 from particle_model import IO
 
-from numpy import zeros
+from numpy import zeros, empty, bool
 from numpy.linalg import norm
+import vtk
 
 class System(object):
     """ Class decribes the fixed properties of the underlying system and its
@@ -48,7 +49,34 @@ class System(object):
 
         return self.coeff
 
+    def in_system(self, points, time):
+        """ Check that the points of X are inside the system data """
 
+        out = empty(points.shape[0],bool)
+
+        if self.temporal_cache is None:
+            out[:] = True
+            return out
+
+        obj = self.temporal_cache(time)[0][0][2]
+
+        print obj
+
+        loc=vtk.vtkCellLocator()
+
+        if obj.IsA('vtkUnstructuredGrid'):
+            loc.SetDataSet(obj)
+        else:
+            loc.SetDataSet(obj.GetBlock(0))
+        loc.BuildLocator()
+
+
+
+        for k, point in enumerate(points):
+            out[k] = loc.FindCell(point)> -1
+
+        return out
+            
 
 def get_system_from_options(options_file=None, boundary_grid=None, block=None):
 

@@ -21,10 +21,10 @@ TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
 
 WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter 
-                                     if Parallel.isparallel() 
+                                     if Parallel.is_parallel() 
                                      else vtk.vtkXMLUnstructuredGridWriter),
           vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
-                             if Parallel.isparallel() 
+                             if Parallel.is_parallel() 
                              else vtk.vtkXMLPolyDataWriter),}
 
 class GmshMesh(object):

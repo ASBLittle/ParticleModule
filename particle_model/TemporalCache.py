@@ -117,6 +117,14 @@ class TemporalCache(object):
         return (self.data[lower:lower+2], (time-t_min)/(t_max-t_min),
                  [['Velocity', 'Pressure'], ['Velocity', 'Pressure']])
 
+    def get_bounds(self,ptime):
+        """ Get the bounds of the underlying vtk object,  in the form (xmin,xmax, ymin,ymax, zmin,zmax)"""
+        data=self(ptime)
+        bounds=numpy.zeros(6)
+        data[0][1].ComputeBounds()
+        data[0][1].GetBounds(bounds)
+        return bounds
+
 
 class FluidityCache(object):
     """Cache like object used when running particles online."""
@@ -147,3 +155,10 @@ class FluidityCache(object):
                  [self.time,None,self.block.GetBlock(0),cloc]],
                 (ptime-self.time+self.delta_t)/self.delta_t,
                 [['OldVelocity', 'OldPressure'], ['Velocity', 'Pressure']])
+
+    def get_bounds(self,ptime):
+        """ Get the bounds of the underlying vtk object,  in the form (xmin,xmax, ymin,ymax, zmin,zmax)"""
+        bounds=numpy.zeros(6)
+        self.block.GetBlock(0).ComputeBounds()
+        self.block.GetBlock(0).GetBounds(bounds)
+        return bounds

@@ -120,6 +120,7 @@ except:
 
 PB.run(time, write=False)
 pm.IO.write_level_to_polydata(PB, i+1, reader.get_name(), do_average=False)
+pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions.vtp')
 
 persistent['particle_model']=PB
 persistent['particle_model_step']=i+1</string_value>

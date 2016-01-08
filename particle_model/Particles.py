@@ -360,6 +360,11 @@ class ParticleBucket(object):
 
         self.system = system
 
+        ### pick only points which are actually in our test box
+        live=system.in_system(X,time)
+        X = X.compress(live, axis=0)
+        V = V.compress(live, axis=0)
+
         self.fluid_velocity = numpy.zeros(X.shape)
         self.grad_p = numpy.zeros(X.shape)
 

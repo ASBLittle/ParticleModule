@@ -28,7 +28,6 @@ def get_world_comm():
 
     return comm
 
-
 def point_in_bound(pnt, bound):
     """Check whether a point is inside the bounds""" 
     if pnt[0]<bound[0]:
@@ -45,13 +44,25 @@ def point_in_bound(pnt, bound):
         return False
     return True
 
+def gather_bounds(bounds):
+    """ Exchange bounds across multiple processors """
+    comm = MPI.COMM_WORLD
+    size = comm.Get_size()
+    rank = comm.Get_rank()
+
+    all_bounds=np.empty([size, 6], dtype=bounds.dtype)
+
+    comm.Allgather(bounds, all_bounds)
+
+    return all_bounds
+
 def distribute_particles(particle_list,bounds):
     """ Handle exchanging particles across multiple processors """
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
 
-    all_bounds=np.empty([size, 6], dtype='i')
+    all_bounds=np.empty([size, 6], dtype=float)
 
     comm.Allgather(bounds, all_bounds)
 
@@ -73,7 +84,6 @@ def distribute_particles(particle_list,bounds):
 newid = itertools.count().next
 
 class particle_id(object):
-    
 
     def __init__(self,hash=None):
         global newid

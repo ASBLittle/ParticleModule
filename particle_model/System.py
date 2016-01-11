@@ -26,8 +26,8 @@ class System(object):
         self.options = options
 
         self.gravity = kwargs.get('gravity', zeros(3))
-        self.omega = kwargs.get('omega', zeros(3))
         self.rho = kwargs.get('rho', 1.0e3)
+        self.omega = kwargs.get('omega', zeros(3))
         self.viscosity = kwargs.get('viscosity', 1.0e-3)
         self.coeff = kwargs.get('coeff', 0.99)
 
@@ -89,7 +89,8 @@ def get_system_from_options(options_file=None, boundary_grid=None, block=None):
 
         boundary_grid = IO.make_boundary_from_msh(mesh)
 
-    boundary = IO.BoundaryData(bnd=boundary_grid)
+    boundary = IO.BoundaryData(bnd=boundary_grid,
+                               outlet_ids=reader.get_outlet_ids())
 
     if block is None:
         system = System(boundary,base_name=reader.get_name())

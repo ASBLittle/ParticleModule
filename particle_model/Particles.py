@@ -282,6 +282,10 @@ class Particle(ParticleBase.ParticleBase):
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
+            if self.system.boundary.bnd.GetCellData().HasArray('surface_ids'):
+                if self.system.boundary.bnd.GetCellData().GetScalars('surface_ids').GetValue(cell_index) in self.system.boundary.outlet_ids:
+                    return pos - pa, None, vel + delta_t * force - self.vel
+
             normal = numpy.zeros(3)
 
             vec1 = (numpy.array(cell.GetPoints().GetPoint(1))
@@ -361,7 +365,7 @@ class ParticleBucket(object):
         self.system = system
 
         ### pick only points which are actually in our test box
-        live=system.in_system(X,time)
+        live=system.in_system(X, time)
         X = X.compress(live, axis=0)
         V = V.compress(live, axis=0)
 
@@ -369,6 +373,7 @@ class ParticleBucket(object):
         self.grad_p = numpy.zeros(X.shape)
 
         self.particles = []
+        self.dead_particles = []
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             self.particles.append(Particle((dummy_pos, dummy_vel, time, delta_t),
                                            system=self.system,
@@ -391,16 +396,22 @@ class ParticleBucket(object):
     def update(self):
         """ Update all the particles in the bucket to the next time level."""
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
+        live=self.system.in_system(self.pos, self.time)
         for k, part in enumerate(self.particles):
-            part.update()
-            if self.system.temporal_cache:
-                self.fluid_velocity[k, :], self.grad_p[k, :] = \
-                    part.get_fluid_properties()
+            if live[k]:
+                part.update()
+                if self.system.temporal_cache:
+                    self.fluid_velocity[k, :], self.grad_p[k, :] = \
+                        part.get_fluid_properties()
+            else:
+                self.dead_particles.append(part)
+                
+        
         self.time += self.delta_t
 
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""
-        return [i for i in itertools.chain(*[p.collisions for p in self.particles])]
+        return [i for i in itertools.chain(*[p.collisions for p in self.particles+self.dead_particles])]
 
 
     def write(self):

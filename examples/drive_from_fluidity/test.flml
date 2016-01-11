@@ -142,6 +142,11 @@ persistent['particle_model_step']=i+1</string_value>
   </material_phase>
   <embedded_models>
     <particle_model>
+      <outlet_ids>
+        <surface_ids>
+          <integer_value shape="1" rank="1">3</integer_value>
+        </surface_ids>
+      </outlet_ids>
       <particle_classes>
         <particle_class name="Sand">
           <diameter>

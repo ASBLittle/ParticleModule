@@ -6,27 +6,33 @@ import itertools
 
 def is_parallel():
     """ Check if this is a parallel run."""
-    comm=MPI.COMM_WORLD
+    comm = MPI.COMM_WORLD
 
     return comm.Get_size()>1
 
 def get_rank():
     """ Get MPI rank."""
-    comm=MPI.COMM_WORLD
+    comm = MPI.COMM_WORLD
 
     return comm.Get_rank()
 
 def get_size():
     """ Get MPI size. """
-    comm=MPI.COMM_WORLD
+    comm = MPI.COMM_WORLD
 
     return comm.Get_size()
 
 def get_world_comm():
     """ Get the world communicator."""
-    comm=MPI.COMM_WORLD
+    comm = MPI.COMM_WORLD
 
     return comm
+
+def is_root(root=0):
+    """ Is this process rank 0?"""
+
+    return get_rank()==root
+    
 
 def point_in_bound(pnt, bound):
     """Check whether a point is inside the bounds""" 
@@ -50,7 +56,7 @@ def gather_bounds(bounds):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
-    all_bounds=np.empty([size, 6], dtype=bounds.dtype)
+    all_bounds = np.empty([size, 6], dtype=bounds.dtype)
 
     comm.Allgather(bounds, all_bounds)
 
@@ -62,7 +68,10 @@ def distribute_particles(particle_list,bounds):
     size = comm.Get_size()
     rank = comm.Get_rank()
 
-    all_bounds=np.empty([size, 6], dtype=float)
+    if not is_parallel():
+        return set(particle_list)
+
+    all_bounds = np.empty([size, 6], dtype=float)
 
     comm.Allgather(bounds, all_bounds)
 
@@ -73,7 +82,7 @@ def distribute_particles(particle_list,bounds):
         data.append([par for par in particle_list 
                      if point_in_bound(par.pos, all_bounds[i])])
 
-    data=comm.alltoall(data)
+    data = comm.alltoall(data)
 
     output=set()
     for i in range(size):

@@ -154,7 +154,7 @@ class PolyData(object):
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename=None,bnd=None,):
+    def __init__(self, filename=None,bnd=None,outlet_ids=None):
         """Class containing the information about the boundary of the domain.
 
         Args:
@@ -164,6 +164,7 @@ class BoundaryData(object):
         self.reader = vtk.vtkXMLUnstructuredGridReader() 
         self.bndl = vtk.vtkCellLocator()
         self.geom_filter = vtk.vtkGeometryFilter()
+        self.outlet_ids=outlet_ids
 
         if filename is not None:
             self.update_boundary_file(filename)
@@ -769,6 +770,15 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
     outtime.SetName('Time')
     outtime.Allocate(bucket.pos.shape[0])
 
+    particle_id = vtk.vtkDoubleArray()
+    particle_id.SetName('ParticleID')
+    particle_id.Allocate(bucket.pos.shape[0])
+
+    for par in enumerate(bucket.particles):
+        print par[1].id
+        particle_id.InsertNextValue(par[1].id())
+
+
     velocity = vtk.vtkDoubleArray()
     velocity.SetNumberOfComponents(3)
     velocity.Allocate(bucket.pos.shape[0])
@@ -786,6 +796,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     poly_data.GetPointData().AddArray(outtime)
     poly_data.GetPointData().AddArray(velocity)
+    poly_data.GetPointData().AddArray(particle_id)
 
     if do_average:
         gsp=calculate_averaged_properties_cpp(poly_data)

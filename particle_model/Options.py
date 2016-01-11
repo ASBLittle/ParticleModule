@@ -49,10 +49,19 @@ class OptionsReader(object):
         """ interogate the model specific options """
 
         options_base = '/embedded_models/particle_model/'
-        if libspud.have_option:
+        if libspud.have_option(options_base+option_name):
             return libspud.get_option(options_base+option_name)
         else:
             return None 
+
+    def get_outlet_ids(self):
+        """ interogate the model specific options """
+        options_base = '/embedded_models/particle_model/outlet_ids/surface_ids'
+        if libspud.have_option(options_base):
+            return libspud.get_option(options_base)
+        else:
+            return None 
+    
 
     def get_mesh_filename(self):
         """Return the mesh file name"""

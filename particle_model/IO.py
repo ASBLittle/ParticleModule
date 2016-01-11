@@ -775,7 +775,6 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
     particle_id.Allocate(bucket.pos.shape[0])
 
     for par in enumerate(bucket.particles):
-        print par[1].id
         particle_id.InsertNextValue(par[1].id())
 
 

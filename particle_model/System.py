@@ -59,9 +59,6 @@ class System(object):
             return out
 
         obj = self.temporal_cache(time)[0][0][2]
-
-        print obj
-
         loc=vtk.vtkCellLocator()
 
         if obj.IsA('vtkUnstructuredGrid'):

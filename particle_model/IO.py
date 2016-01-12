@@ -154,7 +154,7 @@ class PolyData(object):
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename=None,bnd=None,outlet_ids=None):
+    def __init__(self, filename=None,bnd=None,outlet_ids=None, inlets=[]):
         """Class containing the information about the boundary of the domain.
 
         Args:
@@ -165,6 +165,7 @@ class BoundaryData(object):
         self.bndl = vtk.vtkCellLocator()
         self.geom_filter = vtk.vtkGeometryFilter()
         self.outlet_ids=outlet_ids
+        self.inlets=inlets
 
         if filename is not None:
             self.update_boundary_file(filename)

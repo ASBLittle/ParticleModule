@@ -87,7 +87,8 @@ def get_system_from_options(options_file=None, boundary_grid=None, block=None):
         boundary_grid = IO.make_boundary_from_msh(mesh)
 
     boundary = IO.BoundaryData(bnd=boundary_grid,
-                               outlet_ids=reader.get_outlet_ids())
+                               outlet_ids=reader.get_outlet_ids(),
+                               inlets=reader.get_inlets())
 
     if block is None:
         system = System(boundary,base_name=reader.get_name())

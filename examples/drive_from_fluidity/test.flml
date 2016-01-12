@@ -142,6 +142,24 @@ persistent['particle_model_step']=i+1</string_value>
   </material_phase>
   <embedded_models>
     <particle_model>
+      <inlet name="test">
+        <surface_ids>
+          <integer_value shape="1" rank="1">4</integer_value>
+        </surface_ids>
+        <insertion_rate>
+          <real_value rank="0">1000</real_value>
+        </insertion_rate>
+        <particle_velocity>
+          <constant>
+            <real_value shape="3" rank="1">0.1 0.0 0.0</real_value>
+          </constant>
+        </particle_velocity>
+        <probability_density_function>
+          <constant>
+            <real_value rank="0">1.0</real_value>
+          </constant>
+        </probability_density_function>
+      </inlet>
       <outlet_ids>
         <surface_ids>
           <integer_value shape="1" rank="1">3</integer_value>

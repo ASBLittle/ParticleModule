@@ -374,6 +374,7 @@ class ParticleBucket(object):
 
         self.particles = []
         self.dead_particles = []
+        self.parameters = parameters
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             self.particles.append(Particle((dummy_pos, dummy_vel, time, delta_t),
                                            system=self.system,
@@ -400,14 +401,52 @@ class ParticleBucket(object):
         for k, part in enumerate(self.particles):
             if live[k]:
                 part.update()
-                if self.system.temporal_cache:
-                    self.fluid_velocity[k, :], self.grad_p[k, :] = \
-                        part.get_fluid_properties()
             else:
                 self.dead_particles.append(part)
-                
-        
+                self.particles.remove(part)
+        self.insert_particles()
+        if self.system.temporal_cache:
+            self.fluid_velocity=numpy.empty((len(self.particles),3),float)
+            self.grad_p=numpy.empty((len(self.particles),3),float)
+            self.pos=numpy.empty((len(self.particles),3),float)
+            self.vel=numpy.empty((len(self.particles),3),float)
+            for k, part in enumerate(self.particles):
+                self.pos[k,:]=part.pos
+                self.vel[k,:]=part.vel
+                self.fluid_velocity[k, :], self.grad_p[k, :] = \
+                        part.get_fluid_properties()
+
         self.time += self.delta_t
+
+    def insert_particles(self):
+        """Deal with particle insertion"""
+
+        for inlet in self.system.boundary.inlets:
+            n_par = inlet.get_number_of_insertions(self.time,
+                                                   self.delta_t)
+            if n_par == 0:
+                continue
+            weights = inlet.cum_weight(self.time+0.5*self.delta_t,
+                                       self.system.boundary.bnd)
+            for i in range(n_par):
+                prob = numpy.random.random()
+                time =  self.time+prob*self.delta_t 
+                pos =inlet.select_point(time, weights,
+                                        self.system.boundary.bnd)
+                vel = numpy.array(inlet.velocity(pos, time))
+
+                par = Particle((pos, vel, self.time + self.delta_t,
+                                self.delta_t),
+                               system=self.system,
+                               parameters=self.parameters.randomize())
+
+#                par.update()
+                par.pos = par.pos + par.vel*(1.0-prob)*self.delta_t
+                par.time = self.time + self.delta_t
+                par.delta_t = self.delta_t
+
+                self.particles.append(par)
+
 
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""

@@ -27,7 +27,7 @@ class ParticleBase(object):
         raise NotImplementedError
 
     def __eq__(self, obj):
-        return self.id == ob.id
+        return self.id == obj.id
 
     def __hash__(self):
         return self.id()

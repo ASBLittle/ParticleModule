@@ -3,6 +3,87 @@
 
 import libspud
 import numpy
+import vtk
+
+class Inlet(object):
+    """ class for an inlet surface"""
+    def __init__(self,surface_ids, insertion_rate, velocity, pdf):
+
+        self.surface_ids = surface_ids
+        self.insertion_rate = insertion_rate
+        self.pdf = pdf
+        self.velocity = velocity
+
+    def weigh(self, time, boundary):
+        inlet_weight = 0
+        for index in boundary.GetNumberOfCells():
+            if boundary.GetCellData().GetScalars('surface_ids').GetValue(index) in surface_ids:
+                cell = boundary.GetCell(index)
+                npts = cell.GetNumberOfPoints()
+
+                if cell.GetCellType()==vtk.VTK_LINE:
+                    mass= numpy.sqrt(cell.GetLength2())
+                elif cell.GetCellType()==vtk.VTK_TRIANGLE:
+                    mass= cell.ComputeArea()
+
+                for _ in range(npts):
+                    inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
+                                             time) * mass /npts
+
+        return inlet_weight
+
+    def cum_weight(self, time, boundary):
+        inlet_weight = 0
+        weights=[]
+        for index in range(boundary.GetNumberOfCells()):
+            if boundary.GetCellData().GetScalars('surface_ids').GetValue(index) in self.surface_ids:
+                cell = boundary.GetCell(index)
+                npts = cell.GetNumberOfPoints()
+
+                if cell.GetCellType()==vtk.VTK_LINE:
+                    mass= numpy.sqrt(cell.GetLength2())
+                elif cell.GetCellType()==vtk.VTK_TRIANGLE:
+                    mass= cell.ComputeArea()
+
+                for _ in range(npts):
+                    old_inlet_weight = inlet_weight
+                                   
+                    inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
+                                             time) * mass /npts
+                    weights.append((index, old_inlet_weight, inlet_weight))
+
+        return weights
+
+
+    def select_point(self, time, weights, boundary):
+
+       total_weight=weights[-1][-1]
+       prob = total_weight*numpy.random.random()
+       for index, weight_low, weight_high in weights:
+           if weight_low<prob and weight_high>prob:
+               break
+
+       ## quick test code
+
+       cell = boundary.GetCell(index)
+       pnt0 = numpy.array(cell.GetPoints().GetPoint(0))
+
+       prob = numpy.random.random()
+       pnrm = 1.0 - prob
+
+       pnt=pnt0
+
+       for _ in range(1,cell.GetNumberOfPoints()):
+           d = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
+           pnt = pnt+pnrm*d 
+           prob = numpy.random.random()
+           pnrm -= (1-pnrm)*prob
+
+       return pnt
+
+    def get_number_of_insertions(self, time, delta_t):
+        """ Return the result of a  poisson series on how many insertions occur."""
+        return numpy.random.poisson(delta_t*self.insertion_rate)
 
 class OptionsReader(object):
     """ Handle processing the XML into python"""
@@ -61,6 +142,37 @@ class OptionsReader(object):
             return libspud.get_option(options_base)
         else:
             return None 
+
+    def get_inlets(self):
+        """ Wrap the inlet data into a class """
+
+        inlets = []
+
+        options_base = '/embedded_models/particle_model/inlet'
+
+        for _ in range(libspud.option_count(options_base)):
+            options_key = options_base +'[%s]'%_
+            surface_ids = libspud.get_option(options_key+'/surface_ids')
+            insertion_rate = libspud.get_option(options_key+'/insertion_rate')
+            if libspud.have_option(options_key+'/particle_velocity/constant'):
+                rvel = libspud.get_option(options_key+'/particle_velocity/constant')
+                velocity = lambda x,t : rvel
+            else:
+                exec(libspud.get_option(options_key+'/particle_velocity/python')) in globals(), locals()
+                velocity = val
+            if libspud.have_option(options_key+'/probability_density_function/constant'):
+                rpdf = libspud.get_option(options_key+'/probability_density_function/constant')
+                pdf = lambda x,t : rpdf
+            else:
+                exec(libspud.get_option(options_key+'/probablity_density_function/python')) in globals(), locals()
+                pdf = val
+            
+            inlets.append(Inlet(surface_ids, insertion_rate, velocity, pdf))
+
+        return inlets
+
+
+        
     
 
     def get_mesh_filename(self):

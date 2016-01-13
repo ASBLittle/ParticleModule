@@ -190,3 +190,10 @@ class OptionsReader(object):
     def get_finish_time(self):
         """Return the finish time from the options file."""
         return libspud.get_option('/timestepping/finish_time')
+
+    def get_adapts_at_first_timestep(self):
+        """Return the number of fluidity adapts at first timestep."""
+        if libspud.have_option('/mesh_adaptivity/hr_adaptivity/adapt_at_first_timestep/number_of_adapts'):
+            return libspud.get_option('/mesh_adaptivity/hr_adaptivity/adapt_at_first_timestep/number_of_adapts')
+        else:
+            return 0

@@ -41,8 +41,10 @@ class Particle(ParticleBase.ParticleBase):
         self.solid_pressure_gradient=numpy.zeros(3)
         self.volume = self.parameters.get_volume()
 
-    def update(self):
+    def update(self, delta_t=None):
         """ Update the state of the particle to the next time level."""
+        if delta_t is not None:
+            self.delta_t = delta_t
         self.update_rk4()
 
     def update_ab2(self):
@@ -185,7 +187,7 @@ class Particle(ParticleBase.ParticleBase):
             locator.BuildLocatorIfNeeded()
 
             cell_index = self.find_cell(locator, pos)
-            cell = infile.GetCell(cell_index)
+            cell = IO.get_linear_block(infile).GetCell(cell_index)
             linear_cell = IO.get_linear_cell(cell)
             pids = cell.GetPointIds()
 
@@ -199,8 +201,8 @@ class Particle(ParticleBase.ParticleBase):
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
-            data_u = infile.GetPointData().GetVectors(names[0])
-            data_p = infile.GetPointData().GetScalars(names[1])
+            data_u = IO.get_vector(infile, names[0], cell_index)
+            data_p = IO.get_scalar(infile, names[1], cell_index)
 
 
             shape_funs = numpy.zeros(cell.GetNumberOfPoints())
@@ -208,10 +210,7 @@ class Particle(ParticleBase.ParticleBase):
             cell.InterpolateFunctions(upos[:3], shape_funs)
             cell.InterpolateDerivs(upos[:3], deriv_funs)
 
-
-            rhs = numpy.array([data_p.GetValue(cell.GetPointId(i+1))
-                               -data_p.GetValue(cell.GetPointId(0))
-                               for i in range(dim)])
+            rhs = data_p[1:dim+1]-data_p[0]
 
             mat = numpy.zeros((dim, dim))
 
@@ -222,9 +221,7 @@ class Particle(ParticleBase.ParticleBase):
 #            mat=la.inv(mat)
             mat = invert(mat)
 
-            nvout = numpy.array([data_u.GetTuple(pids.GetId(i))
-                                 for i in range(cell.GetNumberOfPoints())])
-            out = numpy.dot(shape_funs, nvout)
+            out = numpy.dot(shape_funs, data_u)
 
             grad_p = numpy.zeros(3)
             grad_p[:dim] = numpy.dot(mat, rhs)
@@ -275,7 +272,7 @@ class Particle(ParticleBase.ParticleBase):
 
         if intersect:
             data, _, names = self.system.temporal_cache(self.time)
-            assert IO.test_in_cell(data[0][2].GetCell(self.find_cell(data[0][3], pa)), pa)
+            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa)
 
             print 'collision', intersect, cell_index, s, x, pos, pa
             x = numpy.array(x)
@@ -394,13 +391,15 @@ class ParticleBucket(object):
         if filename:
             self.outfile = open(filename, 'w')
 
-    def update(self):
+    def update(self, delta_t=None):
+        if delta_t is not None:
+            self.delta_t = delta_t
         """ Update all the particles in the bucket to the next time level."""
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
         live=self.system.in_system(self.pos, self.time)
         for k, part in enumerate(self.particles):
             if live[k]:
-                part.update()
+                part.update(self.delta_t)
             else:
                 self.dead_particles.append(part)
                 self.particles.remove(part)
@@ -471,10 +470,10 @@ class ParticleBucket(object):
         for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
             particle.solid_pressure_gradient=gsp
 
-    def run(self, time, write=True):
+    def run(self, time, delta_t=None, write=True):
         """Drive particles forward until a given time."""
         while self.time - time < -1.0e-15:
-            self.update()
+            self.update(delta_t)
             if write:
                 self.write()
         if write:

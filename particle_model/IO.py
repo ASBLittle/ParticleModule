@@ -1153,6 +1153,47 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
     ugrid.GetPointData().AddArray(wear_vtk)
 
 
+def get_linear_block(infile):
+    if infile.IsA('vtkUnstructuredGrid'):
+        return infile
+    elif infile.IsA('vtkMultiBlockDataSet'):
+        return infile.GetBlock(0)
+    else:
+        raise AttributeError
+
+def get_vector(infile, name, index):
+    if infile.IsA('vtkUnstructuredGrid'):
+        ids = infile.GetCell(index).GetPointIds()
+        data = infile.GetPointData().GetVectors(name)
+    else:
+        for _ in range(infile.GetNumberOfBlocks()):
+            if infile.GetBlock(_).GetPointData().HasArray(name):
+                ids = infile.GetBlock(_).GetCell(index).GetPointIds()
+                data = infile.GetBlock(_).GetPointData().GetVectors(name)
+                break
+
+    out = numpy.empty((ids.GetNumberOfIds(),data.GetNumberOfComponents()),float)
+    for _ in range(ids.GetNumberOfIds()):
+        out[_,:]=data.GetTuple(ids.GetId(_))
+    return out
+            
+
+def get_scalar(infile, name, index):
+    if infile.IsA('vtkUnstructuredGrid'):
+        ids = infile.GetCell(index).GetPointIds()
+        data = infile.GetPointData().GetScalars(name)
+    else:
+        for _ in range(infile.GetNumberOfBlocks()):
+            if infile.GetBlock(_).GetPointData().HasArray(name):
+                ids = infile.GetBlock(_).GetCell(index).GetPointIds()
+                data = infile.GetBlock(_).GetPointData().GetScalars(name)
+                break
+
+    out = numpy.empty(ids.GetNumberOfIds(),float)
+    for _ in range(ids.GetNumberOfIds()):
+        out[_]=data.GetValue(ids.GetId(_))
+    return out
+
 def get_mesh_from_reader(reader):
     MESH = GmshMesh()
     MESH.read(reader.get_mesh_filename())

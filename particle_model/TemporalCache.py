@@ -151,8 +151,8 @@ class FluidityCache(object):
         cloc = vtk.vtkCellLocator()
         cloc.SetDataSet(self.block.GetBlock(0))
         cloc.BuildLocator()
-        return ([[self.time-self.delta_t,None,self.block.GetBlock(0),cloc],
-                 [self.time,None,self.block.GetBlock(0),cloc]],
+        return ([[self.time,None,self.block,cloc],
+                 [self.time+self.delta_t,None,self.block,cloc]],
                 (ptime-self.time+self.delta_t)/self.delta_t,
                 [['OldVelocity', 'OldPressure'], ['Velocity', 'Pressure']])
 

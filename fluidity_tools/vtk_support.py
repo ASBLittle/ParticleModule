@@ -195,7 +195,14 @@ def fluidity_data_to_ugrid(state, meshes, ugrid):
             for k in range(ugrid.GetNumberOfPoints()):
                 data.InsertNextTuple(val.ravel())
         else:
-            data = numpy_support.numpy_to_vtk(field.val)
+            try:
+                data = numpy_support.numpy_to_vtk(field.val)
+            except:
+                val = field.node_val(0)
+                data = vtk.vtkDoubleArray()
+                data.SetNumberOfComponents(numpy.prod(val.shape))
+                for k in range(ugrid.GetNumberOfPoints()):
+                    data.InsertNextTuple(field.node_val(k).ravel())
 
         data.SetName(name)
         ugrid.GetPointData().AddArray(data)

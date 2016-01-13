@@ -1092,6 +1092,8 @@ def make_boundary_from_msh(mesh, outfile=None):
 
     """Given a mesh (in Gmsh format), store the boundary data in a vtkUnstructuredGridFormat."""
 
+    print mesh
+
     pnts = vtk.vtkPoints()
     pnts.Allocate(len(mesh.nodes))
 
@@ -1110,8 +1112,8 @@ def make_boundary_from_msh(mesh, outfile=None):
         for node in element[2]:
             id_list.InsertNextId(node2id[node])
         ugrid.InsertNextCell(TYPE_DICT[element[0]], id_list)
-        if element[1][1:]:
-            surface_ids.InsertNextValue(element[1][1])
+        if element[1]:
+            surface_ids.InsertNextValue(element[1][0])
 
 
     ugrid.GetCellData().AddArray(surface_ids)

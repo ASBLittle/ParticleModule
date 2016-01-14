@@ -106,6 +106,7 @@ class OptionsReader(object):
         options_base='/physical_parameters/gravity'
         magnitude=0
         direction=numpy.zeros(3)
+        self.dimension = libspud.get_option('/geometry/dimension')
 
         if libspud.have_option(options_base):
             magnitude=libspud.get_option(options_base+'/magnitude')
@@ -122,7 +123,7 @@ class OptionsReader(object):
 
         if libspud.have_option(options_base):
             omega[2]=libspud.get_option(options_base+'/rotational_velocity')
-            origin[:self.dimension]=libspud.get_option(options_base+'point_on_axis')
+            origin[:self.dimension]=libspud.get_option(options_base+'/point_on_axis')
 
         return omega, origin
 

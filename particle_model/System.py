@@ -91,9 +91,13 @@ def get_system_from_options(options_file=None, boundary_grid=None, block=None):
                                inlets=reader.get_inlets())
 
     if block is None:
-        system = System(boundary,base_name=reader.get_name())
+        system = System(boundary,base_name=reader.get_name(),
+                         gravity=reader.get_gravity(),
+                        omega=reader.get_rotation()[0])
     else:
-        system = System(boundary,block=block)
+        system = System(boundary,block=block,
+                        gravity=reader.get_gravity(),
+                        omega=reader.get_rotation()[0])
 
     return system
 

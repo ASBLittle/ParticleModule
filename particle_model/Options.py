@@ -164,7 +164,7 @@ class OptionsReader(object):
                 rpdf = libspud.get_option(options_key+'/probability_density_function/constant')
                 pdf = lambda x,t : rpdf
             else:
-                exec(libspud.get_option(options_key+'/probablity_density_function/python')) in globals(), locals()
+                exec(libspud.get_option(options_key+'/probability_density_function/python')) in globals(), locals()
                 pdf = val
             
             inlets.append(Inlet(surface_ids, insertion_rate, velocity, pdf))

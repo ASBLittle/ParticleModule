@@ -41,34 +41,57 @@ class Particle(ParticleBase.ParticleBase):
         self.solid_pressure_gradient=numpy.zeros(3)
         self.volume = self.parameters.get_volume()
 
-    def update(self, delta_t=None):
+    def update(self, delta_t=None, method=None):
         """ Update the state of the particle to the next time level."""
         if delta_t is not None:
             self.delta_t = delta_t
-        self.update_rk4()
+        if method=="AdamsBashforth2":
+            self.update_ab2()
+        else:
+            self.update_rk4()
 
     def update_ab2(self):
         """Update the state of the particle to the next time level
 
         The method uses the Adams Bashforth second order method"""
 
-        kap1 = (self.vel, self.force(self.pos,
-                                     self.vel,
-                                     self.time),
-                self.force(self.oldpos,
-                                     self.oldvel,
-                                     self.oldtime))
+        if self._old:
 
-        step, col, vel = self.collide(1.5*self.vel-0.5*self.oldvel, self.delta_t,
-                                      self.vel,
-                                      force=1.5*kap1[1]-0.5*kap1[2])
+            kap = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time), self.time)
+
+
+            beta= 0.5*self.delta_t/(self.time-self._old[2])
+            
+            step, col, vel, col_vel = self.collide((1.0+beta)*self.vel-beta*self._old[0],
+                                          self.delta_t,
+                                          self.vel,
+                                          force=(1.0+beta)*kap[1]-beta*self._old[1])
+
+        else:
+            ## reduced to using the Euler method for the first timestep:
+
+            kap = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time), self.time)
+
+            step, col, vel, col_vel = self.collide(self.vel,
+                                          self.delta_t,
+                                          self.vel,
+                                          force=kap[1])
 
         self.pos += step
         self.vel += vel
         if col:
             self.collisions += col
 
+            kap = (self.vel, self.force(col[-1].pos,
+                                     col_vel,
+                                     col[-1].time), col[-1].time)
 
+        self._old=kap
+            
         self.time += self.delta_t
 
     def update_rk4(self):
@@ -80,7 +103,7 @@ class Particle(ParticleBase.ParticleBase):
                                      self.vel,
                                      self.time))
 
-        step, col, vel = self.collide(kap1[0], 0.5 * self.delta_t,
+        step, col, vel, col_vel = self.collide(kap1[0], 0.5 * self.delta_t,
                                       self.vel,
                                       force=kap1[1])
 
@@ -89,14 +112,14 @@ class Particle(ParticleBase.ParticleBase):
                            self.vel + vel,
                            self.time + 0.5 * self.delta_t))
 
-        step, col, vel = self.collide(kap2[0], 0.5 * self.delta_t,
+        step, col, vel, col_vel = self.collide(kap2[0], 0.5 * self.delta_t,
                                       vel=self.vel, force=kap2[1])
         kap3 = (self.vel+0.5 * self.delta_t * kap2[1],
                 self.force(self.pos + step,
                            self.vel + vel,
                            self.time + 0.5*self.delta_t))
 
-        step, col, vel = self.collide(kap3[0], self.delta_t,
+        step, col, vel, col_vel = self.collide(kap3[0], self.delta_t,
                                       vel=self.vel,
                                       force=kap3[1])
         kap4 = (self.vel + self.delta_t * kap3[1],
@@ -105,7 +128,7 @@ class Particle(ParticleBase.ParticleBase):
                            self.time + self.delta_t))
 
 
-        step, col, vel = self.collide((kap1[0] + 2.0 * (kap2[0] + kap3[0]) + kap4[0]) / 6.0,
+        step, col, vel, col_vel = self.collide((kap1[0] + 2.0 * (kap2[0] + kap3[0]) + kap4[0]) / 6.0,
                                       self.delta_t, vel=self.vel,
                                       force=(kap1[1] + 2.0 * (kap2[1] + kap3[1]) + kap4[1])/6.0)
         self.pos += step
@@ -256,7 +279,7 @@ class Particle(ParticleBase.ParticleBase):
             pa = self.pos
 
         if level == 10:
-            return k * delta_t, None, vel - self.vel
+            return k * delta_t, None, vel - self.vel, None
 
         pos = pa+delta_t*k
 
@@ -281,7 +304,7 @@ class Particle(ParticleBase.ParticleBase):
 
             if self.system.boundary.bnd.GetCellData().HasArray('surface_ids'):
                 if self.system.boundary.bnd.GetCellData().GetScalars('surface_ids').GetValue(cell_index) in self.system.boundary.outlet_ids:
-                    return pos - pa, None, vel + delta_t * force - self.vel
+                    return pos - pa, None, vel + delta_t * force - self.vel, None
 
             normal = numpy.zeros(3)
 
@@ -333,7 +356,7 @@ class Particle(ParticleBase.ParticleBase):
                                                   theta, normal))
             vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels)
 
-            px, col, velo = self.collide(vels, (1 - s) * delta_t,
+            px, col, velo, dummy_vel = self.collide(vels, (1 - s) * delta_t,
                                          vel=vels, force=force,
                                          pa=x + 1.0e-10 * vels,
                                          level=level + 1)
@@ -342,9 +365,9 @@ class Particle(ParticleBase.ParticleBase):
             if col:
                 coldat += col
 
-            return pos - pa, coldat, velo
+            return pos - pa, coldat, velo, vels
 
-        return pos - pa, None, vel + delta_t * force - self.vel
+        return pos - pa, None, vel + delta_t * force - self.vel, None
 
 class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
@@ -391,7 +414,7 @@ class ParticleBucket(object):
         if filename:
             self.outfile = open(filename, 'w')
 
-    def update(self, delta_t=None):
+    def update(self, delta_t=None,*args,**kwargs):
         if delta_t is not None:
             self.delta_t = delta_t
         """ Update all the particles in the bucket to the next time level."""
@@ -399,7 +422,7 @@ class ParticleBucket(object):
         live=self.system.in_system(self.pos, self.time)
         for k, part in enumerate(self.particles):
             if live[k]:
-                part.update(self.delta_t)
+                part.update(self.delta_t,*args,**kwargs)
             else:
                 self.dead_particles.append(part)
                 self.particles.remove(part)
@@ -470,10 +493,10 @@ class ParticleBucket(object):
         for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
             particle.solid_pressure_gradient=gsp
 
-    def run(self, time, delta_t=None, write=True):
+    def run(self, time, delta_t=None, write=True,*args,**kwargs):
         """Drive particles forward until a given time."""
         while self.time - time < -1.0e-15:
-            self.update(delta_t)
+            self.update(delta_t,*args,**kwargs)
             if write:
                 self.write()
         if write:

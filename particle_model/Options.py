@@ -1,4 +1,4 @@
-""" Module deadling with initialising the code from an xml format options file using spud"""
+""" Module dealing with initialising the code from an xml format options file using spud"""
 
 
 import libspud

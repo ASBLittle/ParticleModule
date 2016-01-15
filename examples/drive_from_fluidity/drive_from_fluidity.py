@@ -5,7 +5,7 @@ import vtk
 
 
 def setup(mb,time,dt):
-    N = 50
+    N = 1000
 
     X = 0.5+0.25*(numpy.random.random((N, 3))-0.5)
     X[:,2] = 0

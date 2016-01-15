@@ -17,6 +17,7 @@ class ParticleBase(object):
         self.time = time
         self.delta_t = delta_t
         self.id=Parallel.particle_id(phash)
+        self._old = None
 
     def update(self):
         """ Core method updating the particle."""
@@ -56,6 +57,11 @@ class PhysicalParticle(object):
             return self.rho
         else:
             return self.data_dict[key]
+
+
+    def get_area(self):
+        """Return particle volume."""
+        return 1.0/4.0*numpy.pi*self.diameter**2
 
     def get_volume(self):
         """Return particle volume."""

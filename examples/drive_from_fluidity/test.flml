@@ -29,6 +29,11 @@
     <mesh name="PressureMesh">
       <from_mesh>
         <mesh name="CoordinateMesh"/>
+        <mesh_shape>
+          <polynomial_degree>
+            <integer_value rank="0">2</integer_value>
+          </polynomial_degree>
+        </mesh_shape>
         <stat>
           <exclude_from_stat/>
         </stat>
@@ -100,7 +105,7 @@
         </detectors>
       </prescribed>
     </vector_field>
-    <scalar_field name="ParticleDriver" rank="0">
+    <scalar_field name="ParticleVolumeFraction" rank="0">
       <diagnostic>
         <algorithm name="scalar_python_diagnostic" material_phase_support="single">
           <string_value lines="20" type="code" language="python">import vtk_support
@@ -118,14 +123,20 @@ except:
   i=0
   pm.IO.write_level_to_polydata(PB, 0,    reader.get_name(), do_average=False)
 
-PB.run(time, write=False)
+PB.run(time, write=False,method="AdamsBashforth2")
 pm.IO.write_level_to_polydata(PB, i+1, reader.get_name(), do_average=False)
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions.vtp')
 
+field.val[:]= pm.Coupling.get_cv_fraction(PB, mb)
+state.vector_fields['SolidVelocity'].val[:,:]=pm.Coupling.get_solid_velocity(PB, mb, field.val)
+
 persistent['particle_model']=PB
 persistent['particle_model_step']=i+1</string_value>
+          <depends>
+            <string_value lines="1">SolidVelocity</string_value>
+          </depends>
         </algorithm>
-        <mesh name="VelocityMesh"/>
+        <mesh name="CoordinateMesh"/>
         <output/>
         <stat/>
         <convergence>
@@ -139,8 +150,30 @@ persistent['particle_model_step']=i+1</string_value>
         </steady_state>
       </diagnostic>
     </scalar_field>
+    <vector_field name="SolidVelocity" rank="1">
+      <diagnostic>
+        <algorithm name="vector_python_diagnostic" material_phase_support="single">
+          <string_value type="code" lines="20" language="python">pass</string_value>
+        </algorithm>
+        <mesh name="CoordinateMesh"/>
+        <output/>
+        <stat>
+          <include_in_stat/>
+        </stat>
+        <convergence>
+          <include_in_convergence/>
+        </convergence>
+        <detectors>
+          <include_in_detectors/>
+        </detectors>
+        <steady_state>
+          <include_in_steady_state/>
+        </steady_state>
+      </diagnostic>
+    </vector_field>
   </material_phase>
   <embedded_models>
+    <stochastic_routines/>
     <particle_model>
       <inlet name="test">
         <surface_ids>

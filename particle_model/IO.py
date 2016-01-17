@@ -11,6 +11,7 @@ import numpy
 import os
 import os.path
 import scipy
+import copy
 from scipy.interpolate import griddata
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
@@ -1199,4 +1200,58 @@ def get_mesh_from_reader(reader):
     MESH.read(reader.get_mesh_filename())
     return MESH
 
+def get_boundary_from_fluidity_mesh(positions):
+    """Temporary method for testing"""
+
+    faces={}
+
+    surface_nodes=set()
+    
+    cells=[]
+    
+    for i in range(positions.element_count):
+        nodes=positions.ele_nodes(i)
+        for node in nodes:
+            tmp=copy.copy(nodes)
+            tmp.remove(node)
+            tmp=tuple(sorted(tmp))
+            faces[tmp]=not faces.get(tmp, False)
+
+    for key, val in faces.items():
+        if val:
+            for node in key:
+                surface_nodes.add(node)
+            cells.append(key)
+        
+    ugrid = vtk.vtkUnstructuredGrid()
+    points = vtk.vtkPoints()
+    points.Allocate(len(surface_nodes))
+    
+    nodemap={}
+    for key, node in enumerate(surface_nodes):
+        X = numpy.empty(3,float)
+        X[:positions.dimension] = positions.node_val(node)
+        points.InsertNextPoint(X)
+        nodemap[node]=key
+    ugrid.SetPoints(points)
+
+    for cell in cells:
+        if len(cell) == 3:
+            cell_type=vtk.VTK_TRIANGLE
+        else:
+            cell_type=vtk.VTK_LINE
+
+        pntids=vtk.vtkIdList()
+        for node in cell:
+            pntids.InsertNextId(nodemap[node])
+        ugrid.InsertNextCell(cell_type,pntids)
+
+    return ugrid
+
+    
+                             
+        
+            
+            
+            
 

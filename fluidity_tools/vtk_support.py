@@ -19,7 +19,9 @@ NUM_DICT = {('lagrangian', 2, 3) : [0,1,2],
              ('lagrangian', 3, 4) : [0,1,2,3],
              ('lagrangian', 3, 10) : [0,4,1,6,5,2,7,8,9,3]}
 
-CELL_DICT = {('lagrangian', 2, 3) : vtk.VTK_TRIANGLE,
+CELL_DICT ={ ('lagrangian', 1, 2) : vtk.VTK_LINE,
+             ('lagrangian', 1, 3) : vtk.VTK_QUADRATIC_EDGE,
+             ('lagrangian', 2, 3) : vtk.VTK_TRIANGLE,
              ('lagrangian', 2, 6) : vtk.VTK_QUADRATIC_TRIANGLE,
              ('lagrangian', 3, 4) : vtk.VTK_TETRA,
              ('lagrangian', 3, 10) : vtk.VTK_QUADRATIC_TETRA}
@@ -41,9 +43,10 @@ def fluidity_to_mblock(state):
 
     # Deal with the P1 data (always present
 
-    ugrid = fluidity_to_ugrid_p1(state)
-    mblock.SetBlock(0,ugrid)
-    mblock.GetMetaData( 0 ).Set( vtk.vtkCompositeDataSet.NAME(), 'P1CG' ) 
+    ugrid = fluidity_to_ugrid_p1(state, is_p1, is_p0,
+                                 state.vector_fields['Coordinate'])
+    mblock.SetBlock(0, ugrid)
+    mblock.GetMetaData(0).Set(vtk.vtkCompositeDataSet.NAME(), 'P1CG') 
 
     dummy = 1
 
@@ -57,17 +60,29 @@ def fluidity_to_mblock(state):
                                              name )
             dummy += 1
 
+    ugrid = fluidity_to_ugrid_p1(state,is_surface_p1, is_surface_p0,
+                                 state.vector_fields['SurfaceCoordinate'])
+    mblock.SetBlock(dummy, ugrid)
+    mblock.GetMetaData(dummy).Set(vtk.vtkCompositeDataSet.NAME(), 'Boundary' )
+
+    writer=vtk.vtkXMLMultiBlockDataWriter()
+    writer.SetInput(mblock)
+    writer.SetFileName('bob.vtm')
+    writer.Write()
+
     return mblock
 
-def fluidity_to_ugrid_p1(state):
+def fluidity_to_ugrid_p1(state, p1_check, p0_check, coordinates):
     """ Extract fields on P0 and P1 continuous meshes from fluidity state to a vtkUnstructuredGrid data object.
 
     Fields on P0 meshes are stored as cell data, while data on P1 continuous meshes is stored as point data."""
 
-    meshes = [mesh for mesh in state.meshes.values() if is_p1(mesh)]
-    meshes_p0 = [mesh for mesh in state.meshes.values() if is_p0(mesh)]
+    dimension=    dimension=state.vector_fields['Coordinate'].dimension
 
-    coordinates = state.vector_fields['Coordinate']
+    meshes = [mesh for mesh in state.meshes.values() if p1_check(mesh,
+                                                                 dimension)]
+    meshes_p0 = [mesh for mesh in state.meshes.values() if p0_check(mesh,
+                                                                    dimension)]
 
     point_data = coordinates.val
 
@@ -103,38 +118,60 @@ def fluidity_to_ugrid_p1(state):
     return ugrid
 
 
-def is_p0(mesh):
+def is_p0(mesh, dimension):
     """ Test if mesh is a P0 mesh."""
 
     return (mesh.continuity == -1 and
+            mesh.shape.dimension == dimension and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 0)
 
-def is_p1(mesh):
+def is_p1(mesh, dimension):
     """ Test if mesh is a P1 continous mesh."""
 
     return (mesh.continuity > -1 and
+            mesh.shape.dimension == dimension and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 1)
 
-def is_p1dg(mesh):
+def is_surface_p1(mesh, dimension):
+    """ Test if mesh is a P1 continous surface mesh."""
+
+    return (mesh.continuity > -1 and
+            mesh.shape.dimension == dimension-1 and
+            mesh.shape.type == 'lagrangian' and
+            mesh.shape.degree == 1)
+
+def is_surface_p0(mesh, dimension):
+    """ Test if mesh is a P0 mesh."""
+
+    return (mesh.continuity == -1 and
+            mesh.shape.dimension == dimension-1 and
+            mesh.shape.type == 'lagrangian' and
+            mesh.shape.degree == 0)
+
+def is_p1dg(mesh, dimension):
     """ Test if mesh is a P1 discontinous mesh."""
 
     return (mesh.continuity == -1 and
+            mesh.shape.dimension == dimension and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 1)
 
-def is_p2(mesh):
+def is_p2(mesh, dimension):
     """ Test if mesh is a P2 continuous mesh."""
 
     return (mesh.continuity > -1 and
+            mesh.shape.dimension == dimension and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 2)
 
-def is_p2dg(mesh):
+
+def is_p2dg(mesh, dimension):
     """ Test if mesh is a P2 discontinuous mesh."""
 
     return (mesh.continuity == -1 and
+            mesh.shape.dimension == dimension and
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 2)
 
@@ -143,7 +180,9 @@ def fluidity_to_ugrid_by_mesh(state, test):
 
     test should be a function which returns True when passed the desired mesh type."""
 
-    meshes = [mesh for mesh in state.meshes.values() if test(mesh)]
+    dimension=state.vector_fields['Coordinate'].dimension
+
+    meshes = [mesh for mesh in state.meshes.values() if test(mesh, dimension)]
 
     if not meshes:
         return None

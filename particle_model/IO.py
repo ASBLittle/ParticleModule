@@ -5,6 +5,7 @@ from particle_model import Collision
 from particle_model import vtkParticlesPython
 from particle_model import Parallel
 
+import particle_model.vtkParticlesPython as vtp
 import vtk
 from vtk.util import numpy_support
 import numpy
@@ -178,6 +179,19 @@ class BoundaryData(object):
             self.bndl.SetDataSet(self.geom_filter.GetOutput())
             self.bndl.BuildLocator()
             
+    def update(self, boundary):
+        """ Update the boundary data from a new object."""
+
+        if boundary.IsA('vtkMultiBlockDataSet'):
+            self.bnd = boundary.GetBlock(boundary.GetNumberOfBlocks()-1)
+        else:
+            self.bnd = boundary
+
+        self.bndl.SetDataSet(self.bnd)
+        self.bndl.BuildLocator()
+
+        self.bndl.SetDataSet(self.bnd)
+        self.bndl.BuildLocator()
 
     def update_boundary_file(self, filename):
         """ Update the boundary data from the file."""
@@ -578,10 +592,14 @@ def calculate_averaged_properties(poly_data, bucket):
     return data[4]
 
 def get_measure(cell):
-    if cell.GetCellType() == vtk.VTK_TRIANGLE:
+    if cell.GetCellType() == vtk.VTK_LINE:
+        return numpy.sqrt(cell.GetLength2())
+    elif cell.GetCellType() == vtk.VTK_TRIANGLE:
         return cell.ComputeArea()
-    if cell.GetCellType() == vtk.VTK_TETRA:
+    elif cell.GetCellType() == vtk.VTK_TETRA:
         return cell.ComputeVolume()
+    return None
+    
 
 def point_average(model, bucket):
     """ Calculate a volume fraction estimate at the level of the grid."""
@@ -1106,7 +1124,7 @@ def make_boundary_from_msh(mesh, outfile=None):
     ugrid.SetPoints(pnts)
 
     surface_ids=vtk.vtkIntArray()
-    surface_ids.SetName('surface_ids')
+    surface_ids.SetName('SurfaceIds')
 
     for element in mesh.elements.values():
         id_list = vtk.vtkIdList()

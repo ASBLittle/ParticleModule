@@ -17,7 +17,7 @@ class Inlet(object):
     def weigh(self, time, boundary):
         inlet_weight = 0
         for index in boundary.GetNumberOfCells():
-            if boundary.GetCellData().GetScalars('surface_ids').GetValue(index) in surface_ids:
+            if boundary.GetCellData().GetScalars('SurfaceIds').GetValue(index) in surface_ids:
                 cell = boundary.GetCell(index)
                 npts = cell.GetNumberOfPoints()
 
@@ -36,7 +36,7 @@ class Inlet(object):
         inlet_weight = 0
         weights=[]
         for index in range(boundary.GetNumberOfCells()):
-            if boundary.GetCellData().GetScalars('surface_ids').GetValue(index) in self.surface_ids:
+            if boundary.GetCellData().GetScalars('SurfaceIds').GetValue(index) in self.surface_ids:
                 cell = boundary.GetCell(index)
                 npts = cell.GetNumberOfPoints()
 

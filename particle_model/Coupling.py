@@ -104,3 +104,64 @@ def get_solid_velocity(bucket, data, volfrac):
 
             
     return output
+
+def barocentric_id(cell, pos):
+    p0 = numpy.array(cell.GetPoints().GetPoint(0))
+    p1 = numpy.array(cell.GetPoints().GetPoint(1))
+    if cell.IsA('vtkLine'):
+        if sum((pos-p0)**2)/sum((p1-p0)**2)>0.25:
+            return cell.GetPointIds().GetId(1)
+        else:
+            return cell.GetPointIds().GetId(0)
+    else:
+        p2 = numpy.array(cell.GetPoints().GetPoint(2))
+        d11 = numpy.dot(p1-p0,p1-p0)
+        d12 = numpy.dot(p1-p0,p2-p0)
+        d22 = numpy.dot(p2-p0,p2-p0)
+        re1 =numpy.dot(pos-p0,p1-p0)
+        re2 = numpy.dot(pos-p0,p2-p0)
+        det = d11 * d22 - d12**2
+        res = numpy.empty(3,float)
+        res[0] = (d22*re1-d12*re2)/det
+        res[1] = (d11*re2-d12*re1)/det
+        res[2] = 1.0 - res[0] - res[1]
+
+        return cell.GetPointIds().GetId(res.argmax())
+
+
+def get_wear_rate_source(bucket, alpha, delta_t):
+    """Calculate wear_rate on the boundary surface"""
+
+    linear_data = bucket.system.boundary.bnd
+    is2d = linear_data.GetCell(0).GetCellType()==vtk.VTK_LINE
+
+    if is2d:
+        dim=2
+    else:
+        dim=3
+    wear = numpy.zeros((linear_data.GetNumberOfPoints()))
+    volume = numpy.zeros(linear_data.GetNumberOfPoints())
+
+    for _ in range(linear_data.GetNumberOfCells()):
+        
+        cell = linear_data.GetCell(_)
+        pntIds = cell.GetPointIds()
+        cv_mass = IO.get_measure(cell)/cell.GetNumberOfPoints()
+
+        for dummy_1 in range(pntIds.GetNumberOfIds()):
+            volume[pntIds.GetId(dummy_1)] += cv_mass
+
+    for col in bucket.collisions():
+        if col.time<bucket.time-bucket.delta_t:
+            continue
+
+        cell = linear_data.GetCell(col.cell)
+
+        gid = barocentric_id(cell,col.pos)
+                                                      
+        wear[gid] += col.get_wear()/delta_t
+
+    wear /= volume
+
+            
+    return wear

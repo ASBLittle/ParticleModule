@@ -13,6 +13,7 @@
 #include "vtkDataObject.h"
 #include "vtkObjectFactory.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
+#include "vtkLine.h"
 #include "vtkTriangle.h"
 #include "vtkQuadraticTriangle.h"
 #include "vtkTetra.h"
@@ -205,6 +206,19 @@ int vtkShowCVs::RequestData(
 
     switch (cell->GetCellType())
     {
+    case  VTK_LINE:
+      {
+	vtkDebugMacro(<<"Linear Mesh" );
+	if (2*NC==NP){
+	  discontinuous=-1;
+	  NPointsOut=2*NC;
+	} else {
+	  vtkDebugMacro(<<"Continuous " );
+	  discontinuous=1;
+	  NPointsOut=3*NC;
+	}
+      }
+      break;
     case  VTK_TRIANGLE:
       {
 	vtkDebugMacro(<<"Triangular Mesh " );
@@ -275,6 +289,34 @@ int vtkShowCVs::RequestData(
 	  
 	  switch (cell->GetCellType())
 	    {
+
+	    case  VTK_LINE:
+	      {
+		ptsIds->Allocate(6);
+		ptsIds->InsertNextId(cell->GetPointIds()->GetId(0));
+		ptsIds->InsertNextId(cell->GetPointIds()->GetId(1));
+
+		vtkLine* myLine=vtkLine::New();
+
+		ptsIds->InsertNextId(outpoints->InsertNextPoint(
+		  0.5*pts->GetPoint(0)[0]+0.5*pts->GetPoint(1)[0],
+		  0.5*pts->GetPoint(0)[1]+0.5*pts->GetPoint(1)[1],
+		  0.5*pts->GetPoint(0)[2]+0.5*pts->GetPoint(1)[2]
+							   ));
+		myLine->GetPointIds()->SetId(0,ptsIds->GetId(0));
+		myLine->GetPointIds()->SetId(1,ptsIds->GetId(2));
+
+		output->InsertNextCell(myLine->GetCellType(),
+				       myLine->GetPointIds());
+
+		myLine->GetPointIds()->SetId(0,ptsIds->GetId(1));
+
+		output->InsertNextCell(myLine->GetCellType(),
+				       myLine->GetPointIds());
+
+		myLine->Delete();
+	      }	
+	      break;
 	    case  VTK_TRIANGLE:
 	   {
 	     ptsIds->Allocate(6);

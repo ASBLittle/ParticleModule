@@ -335,7 +335,7 @@ def test_gyre_collision():
 
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
-    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 4.3326147783350404) < 1.0e-8
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 0.5971122884804092) < 1.0e-8
 
 
 

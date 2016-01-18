@@ -77,4 +77,6 @@ def mclaury_mass_coeff(collision, material=None):
 
     vel0 = 0.0
 
-    return coeff*hardness*sharpness_factor*penetration_factor*(vel**n_exp*fun(collision.angle)+max(0.0,vel*numpy.sin(collision.angle)-vel0))
+    beta=0.1
+
+    return coeff*hardness*sharpness_factor*penetration_factor*(vel**n_exp*fun(collision.angle)+max(0.0,beta*vel*numpy.sin(collision.angle)-vel0))

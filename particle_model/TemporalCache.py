@@ -137,22 +137,27 @@ class FluidityCache(object):
         self.block = block
         self.time = time
         self.delta_t = dt
+        self.cloc = vtk.vtkCellLocator()
+        self.cloc.SetDataSet(self.block.GetBlock(0))
+        self.cloc.SetTolerance(0.0)
+        self.cloc.BuildLocator()
 
     def update(self, block, time, dt):
         self.block = block
         self.time = time
         self.delta_t = dt
+        self.cloc.SetDataSet(self.block.GetBlock(0))
+        self.cloc.SetTolerance(0.0)
+        self.cloc.BuildLocator()
 
     def range(self, t_min, t_max):
         """ Specify a range of data to keep open. Not used here"""
         pass
 
     def __call__(self,ptime):
-        cloc = vtk.vtkCellLocator()
-        cloc.SetDataSet(self.block.GetBlock(0))
-        cloc.BuildLocator()
-        return ([[self.time,None,self.block,cloc],
-                 [self.time+self.delta_t,None,self.block,cloc]],
+        self.cloc.Update()
+        return ([[self.time,None,self.block,self.cloc],
+                 [self.time+self.delta_t,None,self.block,self.cloc]],
                 (ptime-self.time+self.delta_t)/self.delta_t,
                 [['OldVelocity', 'OldPressure'], ['Velocity', 'Pressure']])
 

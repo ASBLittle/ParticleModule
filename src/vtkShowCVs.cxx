@@ -26,6 +26,7 @@
 #include "vtkSortDataArray.h"
 #include "vtkTrivialProducer.h"
 #include "vtkMergePointFilter.h"
+#include <vtkVersion.h>
 #include <iostream>
 #include <map>
 #include <cmath>
@@ -145,12 +146,11 @@ void MakeQuadratic(vtkCell* incell, vtkCell* outcell) {
 }
 
 vtkShowCVs::vtkShowCVs(){
-  //#ifndef NDEBUG
+#ifndef NDEBUG
   this->DebugOn();
-  //#endif
+#endif
   this->Degree=-1;
   this->Continuity=0;
-  vtkDebugMacro(<<"Hello" );
 }
 vtkShowCVs::~vtkShowCVs(){};
 
@@ -166,15 +166,17 @@ int vtkShowCVs::RequestData(
   vtkUnstructuredGrid* input= vtkUnstructuredGrid::GetData(inputVector[0]);
 
 
-  vtkDebugMacro(<<"Hello Again" );
-
   vtkSmartPointer<vtkMergePointFilter> mergeFilter= vtkSmartPointer<vtkMergePointFilter>::New();
 
   
   mergeFilter->SetContinuity(this->Continuity);
   mergeFilter->SetDegree(this->Degree);
   vtkDebugMacro(<<"Setting input" );
+#if VTK_MAJOR_VERSION <= 5
   mergeFilter->SetInput(input);
+#else
+  mergeFilter->SetInputData(input);
+#endif
   vtkDebugMacro(<<"Updating merge point filter. " );
   mergeFilter->Update();
   vtkDebugMacro(<<"Getting output. " );
@@ -946,8 +948,11 @@ int vtkShowCVs::RequestData(
 	for (vtkIdType i=0; i<input->GetNumberOfPoints();i++) {
 	  loc->InsertNextPoint(input->GetPoints()->GetPoint(i));
 	} 
-
-	gf->SetInput(input);
+#if VTK_MAJOR_VERSION <= 5
+    gf->SetInput(input);
+#else
+    gf->SetInputData(input);
+#endif
 	gf->Update();
 
 	for (vtkIdType i=0; i<gf->GetOutput()->GetNumberOfCells();i++) {

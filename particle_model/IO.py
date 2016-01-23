@@ -1042,7 +1042,11 @@ def test_in_cell(cell, position):
     args.append(ppos)
     linear_cell.BarycentricCoords(position[:dim], *args)
 
-    return cell.GetParametricDistance(ppos[:3]) == 0
+    out = cell.GetParametricDistance(ppos[:3])
+    if out > 0:
+        print 'point %s'%position 
+        print 'outside cell by %s '%out
+    return out == 0
 
 def write_to_file(vtk_data, outfile):
     """ Wrapper around the various VTK writer routines"""

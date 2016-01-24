@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <fluidity_options>
   <simulation_name>
-    <string_value lines="1">move_boundaries</string_value>
+    <string_value lines="1">move_boundaries_beta</string_value>
   </simulation_name>
   <problem_type>
     <string_value lines="1">fluids</string_value>
@@ -331,7 +331,7 @@ writer.SetFileName('boundary_%s.vtu'%i)
 writer.SetInput(ug)
 writer.Write()
 
-wear = 1.0e-5*pm.Coupling.get_wear_rate_source(PB,1.0e1,dt)
+wear = 1.0e-4*pm.Coupling.get_wear_rate_source(PB,1.0e1,dt)
 print wear.max(), wear.min()
 state.scalar_fields['WearSource'].val[:]=0.0
 state.scalar_fields['WearSource'].val[map(round,state.scalar_fields['SurfaceLocalNodeIds'].val)] = wear[:]
@@ -509,7 +509,7 @@ persistent['particle_model_step']=i+1</string_value>
           <integer_value shape="1" rank="1">4</integer_value>
         </surface_ids>
         <insertion_rate>
-          <real_value rank="0">10000</real_value>
+          <real_value rank="0">100000</real_value>
         </insertion_rate>
         <particle_velocity>
           <python>
@@ -533,7 +533,7 @@ persistent['particle_model_step']=i+1</string_value>
       </inlet>
       <outlet_ids>
         <surface_ids>
-          <integer_value shape="2" rank="1">1 3</integer_value>
+          <integer_value shape="3" rank="1">1 3 4</integer_value>
         </surface_ids>
       </outlet_ids>
       <particle_classes>

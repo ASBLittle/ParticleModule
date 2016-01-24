@@ -23,7 +23,7 @@ def setup(mb,time,dt):
     writer.SetInput(SYSTEM.boundary.bnd)
     writer.Write()
 
-    PB = pm.Particles.ParticleBucket(X, V, time, 1.0e-2,
+    PB = pm.Particles.ParticleBucket(X, V, time, delta_t=0.2*dt,
                                  system=SYSTEM,
                                  parameters=PAR)
 

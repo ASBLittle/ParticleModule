@@ -1,4 +1,5 @@
 NS=40;
+NS2=100;
 
 Point(1)={0,0,0};
 Point(2)={1,0,0};
@@ -14,9 +15,10 @@ Line Loop(1)={1,2,3,4};
 
 Plane Surface(1)=1;
 
-Transfinite Line {1,2,3,4}=NS;
+Transfinite Line {1,3,4}=NS;
+Transfinite Line {2}=NS2;
 
-Transfinite Surface(1)={1,2,3,4} Alternate;
+//Transfinite Surface(1)={1,2,3,4} Alternate;
 
 Physical Surface(1)=1;
 Physical Line(1)={1};

@@ -198,6 +198,10 @@ class Particle(ParticleBase.ParticleBase):
 
 
         locator.FindClosestPoint(point, ARGV, cell_index, ARGI, ARGR)
+#        locator.FindCell(point)
+
+        if cell_index==-1:
+            cell_index = None
 
         return cell_index
 
@@ -290,21 +294,23 @@ class Particle(ParticleBase.ParticleBase):
         bndl = self.system.boundary.bndl
 
         intersect = bndl.IntersectWithLine(pa, pos,
-                                           1.0e-6, s,
+                                           1.0e-8, s,
                                            x, ARGV, ARGI, cell_index)
 
         if intersect:
+            if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
+                if self.system.boundary.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index) in self.system.boundary.outlet_ids:
+                    return pos - pa, None, vel + delta_t * force - self.vel, None
+
             data, _, names = self.system.temporal_cache(self.time)
-            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa)
+#            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa) or sum((pa-x)**2)<1.0-10
 
             print 'collision', intersect, cell_index, s, x, pos, pa
             x = numpy.array(x)
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
-            if self.system.boundary.bnd.GetCellData().HasArray('surface_ids'):
-                if self.system.boundary.bnd.GetCellData().GetScalars('surface_ids').GetValue(cell_index) in self.system.boundary.outlet_ids:
-                    return pos - pa, None, vel + delta_t * force - self.vel, None
+
 
             normal = numpy.zeros(3)
 
@@ -358,9 +364,9 @@ class Particle(ParticleBase.ParticleBase):
 
             px, col, velo, dummy_vel = self.collide(vels, (1 - s) * delta_t,
                                          vel=vels, force=force,
-                                         pa=x + 1.0e-10 * vels,
+                                         pa=x + 1.0e-9 * vels,
                                          level=level + 1)
-            pos = px + x + 1.0e-10 * vels
+            pos = px + x + 1.0e-9 * vels
 
             if col:
                 coldat += col
@@ -457,13 +463,12 @@ class ParticleBucket(object):
                                         self.system.boundary.bnd)
                 vel = numpy.array(inlet.velocity(pos, time))
 
-                par = Particle((pos, vel, self.time + self.delta_t,
-                                self.delta_t),
+                par = Particle((pos, vel, time,
+                                (1.0-prob)*self.delta_t),
                                system=self.system,
                                parameters=self.parameters.randomize())
 
-#                par.update()
-                par.pos = par.pos + par.vel*(1.0-prob)*self.delta_t
+                par.update()
                 par.time = self.time + self.delta_t
                 par.delta_t = self.delta_t
 

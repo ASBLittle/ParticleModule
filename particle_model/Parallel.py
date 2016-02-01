@@ -115,3 +115,23 @@ class particle_id(object):
     def __eq__(self,obj):
         return self()==obj()
 
+
+def cell_owned(block, ele):
+    if not is_parallel():
+        return True
+    if not block.IsA("vtkMultiblockDataSet"):
+        return True
+    if not block.GetBlock(0).GetCellData().HasArray("ElementOwner"):
+        return True
+    return  block.GetBlock(0).GetCellData().GetScalar("ElementOwner").GetValue(ele) == get_rank()+1
+
+
+def point_owned(block,X):
+    out = numpy.empty(X.shape[0],bool)
+    for k, x in enumerate(X):
+        ele = find_cell(block, x)
+        if ele > -1:
+            out[i] = cell_owned(block, ele)
+        else:
+            out[i] = False
+    

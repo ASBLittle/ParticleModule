@@ -60,7 +60,7 @@ class Inlet(object):
        total_weight=weights[-1][-1]
        prob = total_weight*numpy.random.random()
        for index, weight_low, weight_high in weights:
-           if weight_low<prob and weight_high>prob:
+           if weight_low<prob and weight_high>=prob:
                break
 
        ## quick test code
@@ -68,16 +68,18 @@ class Inlet(object):
        cell = boundary.GetCell(index)
        pnt0 = numpy.array(cell.GetPoints().GetPoint(0))
 
-       prob = numpy.random.random()
-       pnrm = 1.0 - prob
 
-       pnt=pnt0
+       pnrm = 1.0 
+
+       pnt = numpy.empty(3)
+       pnt[:] = pnt0[:]
 
        for _ in range(1,cell.GetNumberOfPoints()):
-           d = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
-           pnt = pnt+pnrm*d 
            prob = numpy.random.random()
-           pnrm -= (1-pnrm)*prob
+           pnrm = pnrm*prob
+           d = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
+           pnt += pnrm*d
+           pnrm = 1.0-pnrm
 
        return pnt
 

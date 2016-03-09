@@ -597,7 +597,8 @@ def get_measure(cell):
     elif cell.GetCellType() == vtk.VTK_TRIANGLE:
         return cell.ComputeArea()
     elif cell.GetCellType() == vtk.VTK_TETRA:
-        return cell.ComputeVolume()
+        pts = [cell.GetPoints().GetPoint(i) for i in range(4)]
+        return cell.ComputeVolume(*pts)
     return None
     
 

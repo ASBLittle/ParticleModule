@@ -12,7 +12,7 @@ class System(object):
     """ Class decribes the fixed properties of the underlying system and its
     fluid dynamical solution."""
 
-    def __init__(self, boundary=None, temporal_cache=None, base_name=None, options=None, block=None, **kwargs):
+    def __init__(self, boundary=None, temporal_cache=None, base_name=None, options=None, block=None, velocity_name='Velocity', **kwargs):
         """ Initialise the system class. """
         self.boundary = boundary
         if temporal_cache:
@@ -20,7 +20,8 @@ class System(object):
         elif base_name:
             self.temporal_cache = TemporalCache.TemporalCache(base_name)
         elif block:
-            self.temporal_cache = TemporalCache.FluidityCache(*block)
+            self.temporal_cache = TemporalCache.FluidityCache(*block,
+                                                               velocity_name=velocity_name)
         else:
             self.temporal_cache = None
         self.options = options
@@ -75,7 +76,8 @@ class System(object):
         return out
             
 
-def get_system_from_options(options_file=None, boundary_grid=None, block=None):
+def get_system_from_options(options_file=None, boundary_grid=None,
+                            block=None, velocity_name='Velocity'):
 
     reader=Options.OptionsReader(options_file)
 
@@ -93,11 +95,13 @@ def get_system_from_options(options_file=None, boundary_grid=None, block=None):
     if block is None:
         system = System(boundary,base_name=reader.get_name(),
                          gravity=reader.get_gravity(),
-                        omega=reader.get_rotation()[0])
+                        omega=reader.get_rotation()[0],
+                        velocity_name=velocity_name)
     else:
         system = System(boundary,block=block,
                         gravity=reader.get_gravity(),
-                        omega=reader.get_rotation()[0])
+                        omega=reader.get_rotation()[0],
+                        velocity_name=velocity_name)
 
     return system
 

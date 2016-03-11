@@ -86,9 +86,9 @@ class Particle(ParticleBase.ParticleBase):
         if col:
             self.collisions += col
 
-            kap = (self.vel, self.force(col[-1].pos,
+            kap = (self.vel, self.force(col[-1].pos+1.0e-8*col_vel,
                                      col_vel,
-                                     col[-1].time), col[-1].time)
+                                     col[-1].time+1.0e-8), col[-1].time+1.0e-8)
 
         self._old=kap
             

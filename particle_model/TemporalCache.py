@@ -129,7 +129,7 @@ class TemporalCache(object):
 class FluidityCache(object):
     """Cache like object used when running particles online."""
 
-    def __init__(self, block, time, dt):
+    def __init__(self, block, time, dt, velocity_name='Velocity'):
         """ Initialise the cache. 
              block  -- The VTK multiblock object
              time   -- The (current) simulation time
@@ -137,6 +137,7 @@ class FluidityCache(object):
         self.block = block
         self.time = time
         self.delta_t = dt
+        self.velocity_name = velocity_name
         self.cloc = vtk.vtkCellLocator()
         self.cloc.SetDataSet(self.block.GetBlock(0))
         self.cloc.SetTolerance(0.0)
@@ -159,7 +160,8 @@ class FluidityCache(object):
         return ([[self.time,None,self.block,self.cloc],
                  [self.time+self.delta_t,None,self.block,self.cloc]],
                 (ptime-self.time+self.delta_t)/self.delta_t,
-                [['OldVelocity', 'OldPressure'], ['Velocity', 'Pressure']])
+                [['Old'+self.velocity_name, 'OldPressure'],
+                 [self.velocity_name, 'Pressure']])
 
     def get_bounds(self,ptime):
         """ Get the bounds of the underlying vtk object,  in the form (xmin,xmax, ymin,ymax, zmin,zmax)"""

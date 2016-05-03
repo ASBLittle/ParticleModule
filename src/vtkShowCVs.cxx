@@ -33,8 +33,9 @@
 #include <cmath>
 
 
-
+#if VTK_MAJOR_VERSION <= 5
 vtkCxxRevisionMacro(vtkShowCVs, "$Revision: 0.5$");
+#endif
 vtkStandardNewMacro(vtkShowCVs);
 
 double myAngle(double x[3]) {

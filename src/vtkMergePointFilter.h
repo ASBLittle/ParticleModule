@@ -9,7 +9,11 @@ class vtkMergePointFilter : public vtkUnstructuredGridAlgorithm
 {
 public:
   static vtkMergePointFilter *New();
+#if VTK_MAJOR_VERSION <= 5
   vtkTypeRevisionMacro(vtkMergePointFilter,vtkUnstructuredGridAlgorithm);
+#else
+  vtkTypeMacro(vtkMergePointFilter,vtkUnstructuredGridAlgorithm);
+#endif
 
   int Degree, Continuity;
 

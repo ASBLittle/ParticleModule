@@ -7,8 +7,11 @@ class vtkShowCVs : public vtkUnstructuredGridAlgorithm
 {
 public:
   static vtkShowCVs* New();
+#if VTK_MAJOR_VERSION <= 5
   vtkTypeRevisionMacro(vtkShowCVs,vtkUnstructuredGridAlgorithm);
-
+#else
+  vtkTypeMacro(vtkShowCVs,vtkUnstructuredGridAlgorithm);
+#endif
 
   int Degree, Continuity;
 

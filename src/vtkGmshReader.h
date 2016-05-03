@@ -5,8 +5,11 @@ class vtkGmshReader : public vtkUnstructuredGridAlgorithm
 {
 public:
   static vtkGmshReader* New();
+#if VTK_MAJOR_VERSION <= 5
   vtkTypeRevisionMacro(vtkGmshReader,vtkUnstructuredGridAlgorithm);
-
+#else
+  vtkTypeMacro(vtkGmshReader,vtkUnstructuredGridAlgorithm);
+#endif
   vtkSetStringMacro(FileName);
   vtkGetStringMacro(FileName);
   void PrintSelf(ostream& os, vtkIndent indent);

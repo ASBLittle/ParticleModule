@@ -19,8 +19,9 @@
 #include <set>
 #include <math.h> 
 
-
+#if VTK_MAJOR_VERSION <= 5
 vtkCxxRevisionMacro(vtkGranularTemperature, "$Revision: 0.0$");
+#endif
 vtkStandardNewMacro(vtkGranularTemperature);
 
 double radial_distribution(double volfrac){

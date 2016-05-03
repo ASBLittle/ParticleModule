@@ -16,8 +16,9 @@
 #include <set>
 #include <math.h> 
 
-
+#if VTK_MAJOR_VERSION <= 5
 vtkCxxRevisionMacro(vtkGenericProbe, "$Revision: 0.0$");
+#endif
 vtkStandardNewMacro(vtkGenericProbe);
 
 void GetPcoordsTriangle(double x[3],double pcoords[3], vtkGenericCell* cell)

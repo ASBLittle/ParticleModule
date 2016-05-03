@@ -4,7 +4,11 @@ class vtkGranularTemperature : public vtkPolyDataAlgorithm
 {
 public:
   static vtkGranularTemperature *New();
+#if VTK_MAJOR_VERSION <= 5
   vtkTypeRevisionMacro(vtkGranularTemperature,vtkPolyDataAlgorithm);
+#else
+  vtkTypeMacro(vtkGranularTemperature,vtkPolyDataAlgorithm);
+#endif
 
  protected:
 

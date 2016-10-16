@@ -66,7 +66,10 @@ def fluidity_to_mblock(state):
     mblock.GetMetaData(dummy).Set(vtk.vtkCompositeDataSet.NAME(), 'Boundary' )
 
     writer=vtk.vtkXMLMultiBlockDataWriter()
-    writer.SetInput(mblock)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        writer.SetInput(mblock)
+    else:
+        writer.SetInputData(mblock)
     writer.SetFileName('bob.vtm')
     writer.Write()
 
@@ -230,9 +233,17 @@ def fluidity_data_to_ugrid(state, meshes, ugrid):
         if field.val.shape[0] == 1:
             val = field.node_val(0)
             data = vtk.vtkDoubleArray()
-            data.SetNumberOfComponents(numpy.prod(val.shape))
+            if val.shape == ():
+                size=1
+            else:
+                size=numpy.prod(val.shape)
+            data.SetNumberOfComponents(size)
             for k in range(ugrid.GetNumberOfPoints()):
-                data.InsertNextTuple(val.ravel())
+                if val.shape == ():
+                   data.InsertNextTuple([val])
+                else:
+                    data.InsertNextTuple(val.ravel()) 
+                   
         else:
             try:
                 data = numpy_support.numpy_to_vtk(field.val)
@@ -317,7 +328,10 @@ def write_ugrid(data,basename,path='.'):
 
         writer = vtk.vtkXMLUnstructuredGridWriter()
         writer.SetFileName(path+'/'+filename)
-        writer.SetInput(data)
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            writer.SetInput(data)
+        else:
+            writer.SetInputData(data)
         writer.Write()
 
         return
@@ -338,7 +352,10 @@ def write_ugrid(data,basename,path='.'):
     writer.SetEndPiece(rank)
 
     writer.SetFileName(path+'/'+basename+'/'+filename)
-    writer.SetInput(data)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        writer.SetInput(data)
+    else:
+        writer.SetInputData(data)
     writer.Write()
 
 

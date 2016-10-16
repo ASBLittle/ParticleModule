@@ -18,7 +18,10 @@ def get_cv_fraction(bucket, data):
 
     cvs = vtp.vtkShowCVs()
     cvs.SetContinuity(-1)
-    cvs.SetInput(linear_data)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        cvs.SetInput(linear_data)
+    else:
+        cvs.SetInputData(linear_data)
     cvs.Update()
     cv_data = cvs.GetOutput()
 
@@ -65,7 +68,10 @@ def get_solid_velocity(bucket, data, volfrac):
 
     cvs = vtp.vtkShowCVs()
     cvs.SetContinuity(-1)
-    cvs.SetInput(linear_data)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        cvs.SetInput(linear_data)
+    else:
+        cvs.SetInputData(linear_data)
     cvs.Update()
     cv_data = cvs.GetOutput()
 

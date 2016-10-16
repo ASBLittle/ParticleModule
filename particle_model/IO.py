@@ -151,12 +151,15 @@ class PolyData(object):
 
         writer = vtk.vtkXMLPolyDataWriter()
         writer.SetFileName(self.filename)
-        writer.SetInput(self.poly_data)
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            writer.SetInput(self.poly_data)
+        else:
+            writer.SetInputData(self.poly_data)
         writer.Write()
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename=None,bnd=None,outlet_ids=None, inlets=[]):
+    def __init__(self, filename=None,bnd=None,outlet_ids=[], inlets=[], dist=None):
         """Class containing the information about the boundary of the domain.
 
         Args:
@@ -168,12 +171,26 @@ class BoundaryData(object):
         self.geom_filter = vtk.vtkGeometryFilter()
         self.outlet_ids=outlet_ids
         self.inlets=inlets
+        self.dist = dist
+
+        open_ids = [] + self.outlet_ids
+        for inlet in self.inlets:
+            open_ids+=inlet.surface_ids
 
         if filename is not None:
-            self.update_boundary_file(filename)
+            self.update_boundary_file(filename, open_ids)
         else:
             self.bnd=bnd
-            self.geom_filter.SetInput(self.bnd)
+            if self.dist:
+                self.phys_bnd = IO.move_boundary_through_normal(self.bnd,
+                                                                ids = open_ids)
+            else:
+                self.phys_bnd = self.bnd
+
+            if vtk.vtkVersion.GetVTKMajorVersion()<6:
+                self.geom_filter.SetInput(self.phys_bnd)
+            else:
+                self.geom_filter.SetInputData(self.phys_bnd)
             self.geom_filter.Update()
 
             self.bndl.SetDataSet(self.geom_filter.GetOutput())
@@ -193,7 +210,7 @@ class BoundaryData(object):
         self.bndl.SetDataSet(self.bnd)
         self.bndl.BuildLocator()
 
-    def update_boundary_file(self, filename):
+    def update_boundary_file(self, filename, open_ids=[]):
         """ Update the boundary data from the file."""
         if not os.path.isfile(filename):
             print os.getcwd()
@@ -202,10 +219,17 @@ class BoundaryData(object):
         self.reader.SetFileName(filename)
         self.reader.Update()
         self.bnd = self.reader.GetOutput()
-        self.bnd.Update()
 
+        if self.dist:
+            self.phys_bnd = IO.move_boundary_through_normal(self.bnd, self.dist,
+                                                            ids = open_ids)
+        else:
+            self.phys_bnd = self.bnd
 
-        self.geom_filter.SetInput(self.bnd)
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            self.geom_filter.SetInput(self.phys_bnd)
+        else:
+            self.geom_filter.SetInputData(self.phys_bnd)
         self.geom_filter.Update()
 
         self.bndl.SetDataSet(self.geom_filter.GetOutput())
@@ -469,7 +493,10 @@ def distance2(pnt1,pnt2):
 def calculate_averaged_properties_cpp(poly_data):
 
     filter = vtkParticlesPython.vtkGranularTemperature()
-    filter.SetInput(poly_data)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        filter.SetInput(poly_data)
+    else:
+        filter.SetInputData(poly_data)
     filter.Update()
     poly_data.DeepCopy(filter.GetOutput())
 
@@ -1054,7 +1081,10 @@ def write_to_file(vtk_data, outfile):
 
     writer = WRITER[vtk_data.GetDataObjectType()]()
     writer.SetFileName(outfile)
-    writer.SetInput(vtk_data)
+    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        writer.SetInput(vtk_data)
+    else:
+        writer.SetInputData(vtk_data)
     writer.Write()
 
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
@@ -1190,6 +1220,7 @@ def get_vector(infile, name, index):
         ids = infile.GetCell(index).GetPointIds()
         data = infile.GetPointData().GetVectors(name)
     else:
+        ids = None
         for _ in range(infile.GetNumberOfBlocks()):
             if infile.GetBlock(_).GetPointData().HasArray(name):
                 ids = infile.GetBlock(_).GetCell(index).GetPointIds()
@@ -1271,8 +1302,135 @@ def get_boundary_from_fluidity_mesh(positions):
 
     return ugrid
 
+def move_boundary_through_normal(ugrid, distance, Ids=[]):
+
+    r = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
+    area = numpy.zeros(ugrid.GetNumberOfPoints())
+    n = numpy.zeros((ugrid.GetNumberOfCells(), 3))
+    local_area =  numpy.zeros(ugrid.GetNumberOfCells())
+
+
     
-                             
+    if ugrid.GetCell(0).GetClassName() == 'vtkLine':
+    
+
+        for i in range(ugrid.GetNumberOfCells()):
+
+            cell = ugrid.GetCell(i)
+
+            x = numpy.array(cell.GetPoints().GetPoint(1))
+            p = x - numpy.array(cell.GetPoints().GetPoint(0))
+
+            local_area = numpy.sqrt(p.dot(p))
+            p = p/local_area
+
+            pid0 = cell.GetPointId(0)
+            pid1 = cell.GetPointId(1)
+
+            print pid1
+            print pid0
+
+            n[i,0] = p[1]
+            n[i,1] = -p[0]
+            
+            if abs(n[i,0])>0.0:
+                if x[0]>0.11:
+                    n[i,0]=1.0
+                else:
+                    n[i,0]=-1.0
+            else:
+                if x[1]>0.0:
+                    n[i,1]=1.0
+                else:
+                    n[i,1]=-1.0
+                
+
+    else:
+
+        gf = vtk.vtkGeometryFilter()
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            gf.SetInput(ugrid)
+        else:
+            gf.SetInput(ugrid)
+        gf.Update()
+        
+        pd = gf.GetOutput()
+
+        pn = vtk.vtkPolyDataNormals()
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            pn.SetInput(pd)
+        else:
+            pn.SetInputData(pd)
+        pn.ComputeCellNormalsOn()
+        pn.AutoOrientNormalsOn()
+        pn.Update()
+        norms = pn.GetOutput().GetCellData().GetNormals()
+        
+        N=10
+
+        for k in range(N):
+           
+            r0 = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
+
+            physical_ids = ugrid.GetCellData().GetScalars("PhysicalIds")
+
+            for i in range(ugrid.GetNumberOfCells()):
+
+                if physical_ids.GetValue(i) in Ids:
+                    continue
+
+                cell = ugrid.GetCell(i)
+                n[i,:] = norms.GetTuple(i)
+
+                p0 = (numpy.array(cell.GetPoints().GetPoint(0))-
+                      k/float(N-1)*distance*r[cell.GetPointId(0),:])
+                p1 = (numpy.array(cell.GetPoints().GetPoint(1))-
+                      k/float(N-1)*distance*r[cell.GetPointId(1),:])
+                p2 = (numpy.array(cell.GetPoints().GetPoint(2))-
+                      k/float(N-1)*distance*r[cell.GetPointId(2),:])
+                    
+                local_area[i] = cell.TriangleArea(p0,p1,p2)
+
+                for j in range(cell.GetNumberOfPoints()):
+               
+                    pid = cell.GetPointId(j) 
+                    r0[pid,:] += local_area[i] * n[i,:]
+                    area[pid] += local_area[i]
+
+            r[:,:] = 0.0
+
+            for i in range(ugrid.GetNumberOfCells()):
+
+                if physical_ids.GetValue(i) in Ids:
+                    continue
+
+                cell = ugrid.GetCell(i)
+
+                for j in range(cell.GetNumberOfPoints()):
+
+                    pid = cell.GetPointId(j) 
+                    
+                    r[pid,:] += local_area[i] * n[i,:] / n[i,:].dot(r0[pid,:])
+
+        for i in range(ugrid.GetNumberOfPoints()):
+
+            x=numpy.empty(3)
+            ugrid.GetPoints().GetPoint(i,x)
+            ugrid.GetPoints().SetPoint(i,x-distance*r[i,:])
+
+    return ugrid
+
+    
+def get_real_x(cell, locx):
+    ### Return physical coordinate of cell corresponding to locx in vcell
+    ### Note the ordering used here is because vtk is weird.
+
+    if cell.GetCellType() == vtk.VTK_LINE:
+        return numpy.array(cell.GetPoint(0))*(1.0-locx[0])+numpy.array(cell.GetPoint(1))*locx[0]
+    else:
+        return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]
+
+        
         
             
             

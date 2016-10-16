@@ -307,6 +307,7 @@ class Particle(ParticleBase.ParticleBase):
 
             print 'collision', intersect, cell_index, s, x, pos, pa
             x = numpy.array(x)
+            old_pos = pos
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
@@ -354,7 +355,10 @@ class Particle(ParticleBase.ParticleBase):
                 vels = self.vel + s * delta_t * force
 
             par_col = copy.copy(self)
-            par_col.pos = x
+            if self.system.boundary.dist:
+                par_col.pos = IO.get_real_x(cell, ARGV)
+            else:
+                par_col.pos = x
             par_col.vel = vels
             par_col.time = self.time + s * delta_t
 

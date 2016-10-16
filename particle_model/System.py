@@ -77,7 +77,7 @@ class System(object):
             
 
 def get_system_from_options(options_file=None, boundary_grid=None,
-                            block=None, velocity_name='Velocity'):
+                            block=None, velocity_name='Velocity',dist=None):
 
     reader=Options.OptionsReader(options_file)
 
@@ -90,7 +90,7 @@ def get_system_from_options(options_file=None, boundary_grid=None,
 
     boundary = IO.BoundaryData(bnd=boundary_grid,
                                outlet_ids=reader.get_outlet_ids(),
-                               inlets=reader.get_inlets())
+                               inlets=reader.get_inlets(), dist=dist)
 
     if block is None:
         system = System(boundary,base_name=reader.get_name(),

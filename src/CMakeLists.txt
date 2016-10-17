@@ -22,9 +22,11 @@ if(COMMAND cmake_policy)
 endif(COMMAND cmake_policy)
 
 if (VTK_MAJOR_VERSION LESS 6)
-   set(VTK_MODULES_USED vtkFiltering vtkIO vtkGraphics)
+  set(VTK_MODULES_USED vtkFiltering vtkIO vtkGraphics)
+  set(PYTHOND_SUFFIX PythonD${VTK_LIBRARY_SUFFIX})
 else(VTK_MAJOR_VERSION LESS 6)
-   set(VTK_MODULES_USED vtkFiltersCore vtkCommonExecutionModel vtkCommonCore)
+  set(VTK_MODULES_USED vtkFiltersCore vtkCommonExecutionModel vtkCommonCore)
+  set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX})
 endif()
 
 link_directories(${VTK_DIR})
@@ -46,7 +48,7 @@ target_link_libraries(vtkParticlesPythonD
     
 add_library(../particle_model/vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
 
-set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX})
+
 
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})

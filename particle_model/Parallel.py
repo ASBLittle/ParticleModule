@@ -1,23 +1,38 @@
 """ Module containing helper routines for use with MPI parallelisation."""
 
-from mpi4py import MPI
+try:
+    from mpi4py import MPI
+except:
+    MPI = None
 
 import itertools 
 
 def is_parallel():
     """ Check if this is a parallel run."""
+
+    if MPI is None:
+        return False
+    
     comm = MPI.COMM_WORLD
 
     return comm.Get_size()>1
 
 def get_rank():
     """ Get MPI rank."""
+
+    if MPI is None:
+        return 0
+    
     comm = MPI.COMM_WORLD
 
     return comm.Get_rank()
 
 def get_size():
     """ Get MPI size. """
+
+    if MPI is None:
+        return 1
+    
     comm = MPI.COMM_WORLD
 
     return comm.Get_size()

@@ -1,7 +1,10 @@
 """ Module dealing with initialising the code from an xml format options file using spud"""
 
-
-import libspud
+try:
+    import libspud
+except:
+    print "Need the libspud python package. Try: \n sudo apt-get install python-spud"
+    raise ImportError
 import numpy
 import vtk
 

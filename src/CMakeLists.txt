@@ -48,11 +48,15 @@ target_link_libraries(vtkParticlesPythonD
     
 add_library(../particle_model/vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
 
-
+if(DEFINED VTK_CUSTOM_LIBRARY_SUFFIX)
+  set(VTK_LIB_SUFFIX "${VTK_CUSTOM_LIBRARY_SUFFIX}")
+else()
+  set(VTK_LIB_SUFFIX "-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
+endif()
 
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})
-     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX})
+     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX}${VTK_LIB_SUFFIX})
 endforeach()    
 
 target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})

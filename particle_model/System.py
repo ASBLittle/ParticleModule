@@ -3,6 +3,8 @@
 from particle_model import TemporalCache
 from particle_model import Options
 from particle_model import IO
+from particle_model import Parallel
+
 
 from numpy import zeros, empty, bool
 from numpy.linalg import norm
@@ -55,7 +57,7 @@ class System(object):
 
         out = empty(points.shape[0],bool)
 
-        if self.temporal_cache is None:
+        if self.temporal_cache is None or Parallel.is_parallel():
             out[:] = True
             return out
 
@@ -74,6 +76,36 @@ class System(object):
             out[k] = loc.FindCell(point)> -1
 
         return out
+
+    def particle_in_system(self, particle_list, time, rank):
+        """ Check that the particles of X are inside the system data """
+
+        out = []
+
+        if self.temporal_cache is None:
+            out[:] = True
+            return out
+
+        obj = self.temporal_cache(time)[0][0][2]
+        loc=vtk.vtkCellLocator()
+
+        if obj.IsA('vtkUnstructuredGrid'):
+            loc.SetDataSet(obj)
+        else:
+            loc.SetDataSet(obj.GetBlock(0))
+        loc.BuildLocator()
+
+
+        cell = vtk.vtkGenericCell()
+        pcoords = [0.0,0.0,0.0]
+        w=[0.0,0.0,0.0,0.0]
+
+
+        for par in particle_list:
+            out.append(loc.FindCell(par.pos)> -1)
+
+        return out
+        
             
 
 def get_system_from_options(options_file=None, boundary_grid=None,

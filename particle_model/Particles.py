@@ -6,6 +6,7 @@ from particle_model import Collision
 from particle_model import System
 from particle_model import Options
 from particle_model import ParticleBase
+from particle_model import Parallel
 
 import numpy
 import vtk
@@ -40,6 +41,14 @@ class Particle(ParticleBase.ParticleBase):
         self.system = system
         self.solid_pressure_gradient=numpy.zeros(3)
         self.volume = self.parameters.get_volume()
+
+    def copy(self):
+        par = Particle((self.pos, self.vel, self.time,self.delta_t),
+                 parameters=self.parameters,system=None)
+        par.id=self.id
+        par._old=self._old
+        return par
+
 
     def update(self, delta_t=None, method=None):
         """ Update the state of the particle to the next time level."""
@@ -420,6 +429,9 @@ class ParticleBucket(object):
         self.solid_pressure_gradient = numpy.zeros((len(self.particles),3))
         for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
             particle.solid_pressure_gradient=gsp
+
+        self.redistribute()
+        self.reset_globals()
             
         if filename:
             self.outfile = open(filename, 'w')
@@ -436,7 +448,17 @@ class ParticleBucket(object):
             else:
                 self.dead_particles.append(part)
                 self.particles.remove(part)
+        self.redistribute()
         self.insert_particles()
+        self.reset_globals()
+        self.time += self.delta_t
+
+    def redistribute(self):
+        if Parallel.is_parallel():
+            self.particles = Parallel.distribute_particles(self.particles,
+                                                           self.system)
+
+    def reset_globals(self):
         if self.system.temporal_cache:
             self.fluid_velocity=numpy.empty((len(self.particles),3),float)
             self.grad_p=numpy.empty((len(self.particles),3),float)
@@ -447,8 +469,7 @@ class ParticleBucket(object):
                 self.vel[k,:]=part.vel
                 self.fluid_velocity[k, :], self.grad_p[k, :] = \
                         part.get_fluid_properties()
-
-        self.time += self.delta_t
+        
 
     def insert_particles(self):
         """Deal with particle insertion"""
@@ -498,7 +519,7 @@ class ParticleBucket(object):
         self.outfile.write('\n')
 
     def set_solid_pressure_gradient(self,solid_pressure_gradient):
-        self.solid_pressure_gradient[:,:]=solid_pressure_gradient
+        self.solid_pressure_gradient=solid_pressure_gradient
         for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
             particle.solid_pressure_gradient=gsp
 

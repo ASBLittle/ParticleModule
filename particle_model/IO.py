@@ -51,27 +51,47 @@ class GmshMesh(object):
         Reads Gmsh format 1.0 and 2.0 mesh files, storing the nodes and
         elements in the appropriate dicts.
         """
+        
+        import struct
 
         mshfile = open(filename, 'r')
 
         mode_dict = {'$NOD' : 1, '$Nodes' : 1,
                      '$ELM' : 2,
-                     '$Elements' : 3}
+                     '$Elements' : 3,
+                     '$MeshFormat' : 4}
 
         readmode = 0
-        for line in mshfile:
+        line = 'a'
+        while line:
+            line = mshfile.readline()
             line = line.strip()
             if line.startswith('$'):
                 readmode = mode_dict.get(line, 0)
             elif readmode:
                 columns = line.split()
-                if readmode == 1 and len(columns) == 4:
+                if readmode == 4:
+                    if len(columns)==3:
+                        vno,ftype,dsize=(float(columns[0]),
+                                         int(columns[1]),
+                                         int(columns[2]))
+                    else:
+                        endian=struct.unpack('i',columns[0])
+                if readmode == 1:
                     # Version 1.0 or 2.0 Nodes
                     try:
-                        self.nodes[int(columns[0])] = [float(c) for c in columns[1:]]
+                        if ftype==0 and len(columns)==4:
+                            self.nodes[int(columns[0])] = [float(c) for c in columns[1:]]
+                        elif ftype==1:
+                            nnods=int(columns[0])
+                            for N in range(nnods):
+                                data=mshfile.read(4+3*dsize)
+                                i,x,y,z=struct.unpack('=i3d',data)
+                                self.nodes[i]=[x,y,z]
+                            mshfile.read(1)
                     except ValueError:
                         readmode = 0
-                elif readmode > 1 and len(columns) > 5:
+                elif ftype==0 and readmode > 1 and len(columns) > 5:
                     # Version 1.0 or 2.0 Elements
                     try:
                         columns = [int(c) for c in columns]
@@ -89,6 +109,24 @@ class GmshMesh(object):
                             tags = columns[3:3+ntags]
                             nodes = columns[3+ntags:]
                         self.elements[ele_id] = (ele_type, tags, nodes)
+                elif readmode == 3 and ftype==1:
+                    tdict={1:2,2:3,3:4,4:4,5:5,6:6,7:5,8:3,9:6,10:9,11:10}
+                    try:
+                        neles=int(columns[0])
+                        k=0
+                        while k<neles:
+                            ele_type,ntype,ntags=struct.unpack('=3i',mshfile.read(3*4))
+                            k+=ntype
+                            for j in range(ntype):
+                                mysize=1+ntags+tdict[ele_type]
+                                data=struct.unpack('=%di'%mysize,
+                                                   mshfile.read(4*mysize))
+                                self.elements[data[0]]=(ele_type,
+                                                        data[1:1+ntags],
+                                                        data[1+ntags:])
+                    except:
+                        raise
+                    mshfile.read(1)
 
         mshfile.close()
 
@@ -848,7 +886,12 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
     if do_average:
         gsp=calculate_averaged_properties_cpp(poly_data)
 
-    write_to_file(poly_data, "%s_%d.vtp"%(basename, level))
+    if Parallel.is_parallel():
+        file_ext='pvtp'
+    else:
+        file_ext='vtp'
+
+    write_to_file(poly_data, "%s_%d.%s"%(basename, level,file_ext))
 
     if do_average:
         return gsp
@@ -1081,6 +1124,11 @@ def write_to_file(vtk_data, outfile):
 
     writer = WRITER[vtk_data.GetDataObjectType()]()
     writer.SetFileName(outfile)
+    if Parallel.is_parallel():
+        writer.SetNumberOfPieces(Parallel.get_size())
+        writer.SetStartPiece(Parallel.get_rank())
+        writer.SetEndPiece(Parallel.get_rank())
+        writer.SetWriteSummaryFile(Parallel.get_rank()==0)
     if vtk.vtkVersion.GetVTKMajorVersion()<6:
         writer.SetInput(vtk_data)
     else:

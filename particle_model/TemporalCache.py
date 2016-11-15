@@ -3,6 +3,7 @@
 import vtk
 import glob
 import numpy
+from particle_model import Parallel
 from lxml import etree
 
 class TemporalCache(object):
@@ -15,7 +16,11 @@ class TemporalCache(object):
         """
         Initialise the cache from a base file name and optional limits on the time levels desired.
         """
-        files = glob.glob(base_name+'_[0-9]*.vtu')
+
+        if Parallel.is_parallel():
+            files = glob.glob(base_name+'_[0-9]*.pvtu')
+        else:
+            files = glob.glob(base_name+'_[0-9]*.vtu')
 
         self.data = []
         self.reset()
@@ -23,8 +28,12 @@ class TemporalCache(object):
         print files
 
         for filename in files:
-            time = self.get_time_from_vtk(filename)
-            self.data.append([time, filename, None, None])
+            if Parallel.is_parallel():
+                pfilename=self.get_piece_filename_from_vtk(filename)
+            else:
+                pfilename=filename
+            time = self.get_time_from_vtk(pfilename)
+            self.data.append([time, pfilename, None, None])
 
         self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
         self.range(t_min, t_max)
@@ -78,6 +87,11 @@ class TemporalCache(object):
         self.data[k].append(None)
         self.data[k].append(None)
 
+    def get_piece_filename_from_vtk(self, filename, piece=Parallel.get_rank()):
+         e = etree.ElementTree(file=filename,
+                              parser=etree.XMLParser(recover=True)).getroot()
+         return e[0].findall('Piece')[Parallel.get_rank()].get('Source')
+
     def get_time_from_vtk(self, filename):
         """ Get the time from a vtk XML formatted file."""
 
@@ -90,7 +104,7 @@ class TemporalCache(object):
                               parser=etree.XMLParser(recover=True)).getroot()   
         assert e.tag == 'VTKFile' 
         if parallel:
-            return self.get_time_from_vtk(file=e[0][0].get('file'))
+            return self.get_time_from_vtk(e[0].findall('Piece')[Parallel.get_rank()].get('Source'))
         else:
             for piece in e[0]:
                 for data in piece[0]:
@@ -121,8 +135,8 @@ class TemporalCache(object):
         """ Get the bounds of the underlying vtk object,  in the form (xmin,xmax, ymin,ymax, zmin,zmax)"""
         data=self(ptime)
         bounds=numpy.zeros(6)
-        data[0][1].ComputeBounds()
-        data[0][1].GetBounds(bounds)
+        data[0][1][-2].ComputeBounds()
+        data[0][1][-2].GetBounds(bounds)
         return bounds
 
 

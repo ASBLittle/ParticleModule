@@ -5,6 +5,8 @@ try:
 except:
     MPI = None
 
+import numpy
+import copy
 import itertools 
 
 def is_parallel():
@@ -57,11 +59,11 @@ def point_in_bound(pnt, bound):
         return False
     if pnt[1]<bound[2]:
         return False
-    if pnt[1]<bound[3]:
+    if pnt[1]>bound[3]:
         return False
     if pnt[2]<bound[4]:
         return False
-    if pnt[2]<bound[5]:
+    if pnt[2]>bound[5]:
         return False
     return True
 
@@ -77,8 +79,17 @@ def gather_bounds(bounds):
 
     return all_bounds
 
-def distribute_particles(particle_list,bounds):
+def distribute_particles(particle_list, system, time=0.0):
     """ Handle exchanging particles across multiple processors """
+
+    try:
+        block = system.temporal_cache.block
+    except:
+        data = system.temporal_cache(time)
+        block = data[0][1][-2]
+    bounds = system.temporal_cache.get_bounds(time)
+    
+
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
@@ -86,24 +97,39 @@ def distribute_particles(particle_list,bounds):
     if not is_parallel():
         return set(particle_list)
 
-    all_bounds = np.empty([size, 6], dtype=float)
+    all_bounds = numpy.empty([size, 6], dtype=float)
 
     comm.Allgather(bounds, all_bounds)
 
-    data=[]
+    odata=[]
 
+    for i in range(size):
+        if i==rank:
+            odata.append([])
+            continue
+        plist=[]
+        for par in particle_list:
+            if not point_in_bound(par.pos, all_bounds[i]):
+                continue
+            par=par.copy()
+            plist.append(par)
+        odata.append(plist)
+
+    data = comm.alltoall(sendobj=odata)
+
+    output=set(particle_list)
     for i in range(size):
         if i==rank: continue
-        data.append([par for par in particle_list 
-                     if point_in_bound(par.pos, all_bounds[i])])
 
-    data = comm.alltoall(data)
+        for par in data[i]:
+            par.system = system
+            output.add(par)
 
-    output=set()
-    for i in range(size):
-        set.add(data[i])
+    b = system.particle_in_system(output, time, rank)
+    output =  list(itertools.compress(output,
+                                   b))
 
-    return set
+    return output
 
 newid = itertools.count().next
 
@@ -146,7 +172,7 @@ def point_owned(block,X):
     for k, x in enumerate(X):
         ele = find_cell(block, x)
         if ele > -1:
-            out[i] = cell_owned(block, ele)
+            out[k] = cell_owned(block, ele)
         else:
-            out[i] = False
+            out[k] = False
     

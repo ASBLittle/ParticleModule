@@ -26,7 +26,7 @@ CELL_DICT ={ ('lagrangian', 1, 2) : vtk.VTK_LINE,
              ('lagrangian', 3, 4) : vtk.VTK_TETRA,
              ('lagrangian', 3, 10) : vtk.VTK_QUADRATIC_TETRA}
 
-def fluidity_to_mblock(state):
+def fluidity_to_mblock(state, dump_filename=None):
 
     """Convert a fluidity python state into a vtk multiblock dataset. 
 
@@ -65,13 +65,15 @@ def fluidity_to_mblock(state):
     mblock.SetBlock(dummy, ugrid)
     mblock.GetMetaData(dummy).Set(vtk.vtkCompositeDataSet.NAME(), 'Boundary' )
 
-    writer=vtk.vtkXMLMultiBlockDataWriter()
-    if vtk.vtkVersion.GetVTKMajorVersion()<6:
-        writer.SetInput(mblock)
-    else:
-        writer.SetInputData(mblock)
-    writer.SetFileName('bob.vtm')
-    writer.Write()
+
+    if dump_filename:
+        writer=vtk.vtkXMLMultiBlockDataWriter()
+        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            writer.SetInput(mblock)
+        else:
+            writer.SetInputData(mblock)
+        writer.SetFileName(dump_filename)
+        writer.Write()
 
     return mblock
 

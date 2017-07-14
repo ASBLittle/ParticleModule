@@ -1,6 +1,7 @@
 """ Module containing input-output routines between the particle model and
 the file system. Mostly vtk."""
 
+from particle_model.Debug import profile
 from particle_model import Collision
 from particle_model import vtkParticlesPython
 from particle_model import Parallel
@@ -18,6 +19,15 @@ from scipy.interpolate import griddata
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
 TYPES_1D = [vtk.VTK_LINE]
+
+scalar_ugrid_no = None
+vector_ugrid_no = None
+
+
+
+ARGV = [0.0, 0.0, 0.0]
+WEIGHTS = numpy.zeros(10)
+SUB_ID = vtk.mutable(0)
 
 TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
@@ -1263,39 +1273,61 @@ def get_linear_block(infile):
     else:
         raise AttributeError
 
-def get_vector(infile, name, index):
+@profile
+def get_vector(infile, name, index, pcoords):
+
+    global vector_ugrid_no
+
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
         data = infile.GetPointData().GetVectors(name)
+        ugrid = infile
     else:
-        ids = None
-        for _ in range(infile.GetNumberOfBlocks()):
-            if infile.GetBlock(_).GetPointData().HasArray(name):
-                ids = infile.GetBlock(_).GetCell(index).GetPointIds()
-                data = infile.GetBlock(_).GetPointData().GetVectors(name)
-                break
+        if vector_ugrid_no:
+            ids = infile.GetBlock(vector_ugrid_no).GetCell(index).GetPointIds()
+            data = infile.GetBlock(vector_ugrid_no).GetPointData().GetScalars(name)
+            ugrid = infile.GetBlock(vector_ugrid_no)
+        else:
+            for _ in range(infile.GetNumberOfBlocks()):
+                if infile.GetBlock(_).GetPointData().HasArray(name):
+                    ids = infile.GetBlock(_).GetCell(index).GetPointIds()
+                    data = infile.GetBlock(_).GetPointData().GetVectors(name)
+                    ugrid = infile.GetBlock(_)
+                    vector_ugrid_no = _
+                    break
 
-    out = numpy.empty((ids.GetNumberOfIds(),data.GetNumberOfComponents()),float)
+    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
+
+    out = numpy.zeros(data.GetNumberOfComponents(), float)
     for _ in range(ids.GetNumberOfIds()):
-        out[_,:]=data.GetTuple(ids.GetId(_))
-    return out
+        out[:] += WEIGHTS[_]*numpy.array(data.GetTuple(ids.GetId(_)))
+    return out 
             
-
+@profile
 def get_scalar(infile, name, index):
+        
+    global scalar_ugrid_no
+
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
         data = infile.GetPointData().GetScalars(name)
+        scalar_ugrid = infile
     else:
-        for _ in range(infile.GetNumberOfBlocks()):
-            if infile.GetBlock(_).GetPointData().HasArray(name):
-                ids = infile.GetBlock(_).GetCell(index).GetPointIds()
-                data = infile.GetBlock(_).GetPointData().GetScalars(name)
-                break
+        if scalar_ugrid_no:
+            ids = infile.GetBlock(scalar_ugrid_no).GetCell(index).GetPointIds()
+            data = infile.GetBlock(scalar_ugrid_no).GetPointData().GetScalars(name)
+        else:
+            for _ in range(infile.GetNumberOfBlocks()):
+                if infile.GetBlock(_).GetPointData().HasArray(name):
+                    ids = infile.GetBlock(_).GetCell(index).GetPointIds()
+                    data = infile.GetBlock(_).GetPointData().GetScalars(name)
+                    scalar_ugrid_no = _
+                    break
 
     out = numpy.empty(ids.GetNumberOfIds(),float)
     for _ in range(ids.GetNumberOfIds()):
         out[_]=data.GetValue(ids.GetId(_))
-    return out
+    return out 
 
 def get_mesh_from_reader(reader):
     MESH = GmshMesh()
@@ -1478,9 +1510,14 @@ def get_real_x(cell, locx):
     else:
         return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]
 
-        
-        
-            
-            
-            
-
+def output_test(reader, time, counter=[0]):
+    otime, steps = reader.get_dump_period()
+    if steps:
+        flag = counter[0]%otime
+        counter[0] += 1
+    else:
+        flag = counter[0]//otime != time//otime
+        counter[0] = time
+    return flag
+    
+    

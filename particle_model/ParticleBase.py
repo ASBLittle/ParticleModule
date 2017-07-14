@@ -47,7 +47,10 @@ class PhysicalParticle(object):
         self.distribution = distribution
         self.material_name = material_name
         self.data_dict = kwargs
-        self.drag = kwargs.get('drag', DragModels.transitional_drag)
+        self.drag = kwargs.get('drag',
+                               DragModels.model(DragModels.transitional_drag_coefficient))
+        self.drag_coefficient = kwargs.get('drag_coefficient',
+                                           DragModels.transitional_drag_coefficient)
 
     def __call__(self, key='diameter'):
         """Get attributes."""

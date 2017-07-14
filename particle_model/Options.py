@@ -177,10 +177,6 @@ class OptionsReader(object):
 
         return inlets
 
-
-        
-    
-
     def get_mesh_filename(self):
         """Return the mesh file name"""
         return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
@@ -203,3 +199,14 @@ class OptionsReader(object):
             return libspud.get_option('/mesh_adaptivity/hr_adaptivity/adapt_at_first_timestep/number_of_adapts')
         else:
             return 0
+
+    def get_dump_period(self):
+        """Return the dump period and whether this is measured in timesteps."""
+        if libspud.have_option('/io/dump_period_in_timesteps'):
+            opt_type = libspud.get_child_name('/io/dump_period_in_timesteps', 0)
+            period = libspud.get_option('/io/dump_period_in_timesteps/'+opt_type)
+            return period, True
+        else:
+            opt_type = libspud.get_child_name('/io/dump_period', 0)
+            period = libspud.get_option('/io/dump_period/'+opt_type)
+            return period, False

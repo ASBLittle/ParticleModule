@@ -16,6 +16,8 @@ INCLUDE(${VTK_USE_FILE})
 INCLUDE(${VTK_CMAKE_DIR}/vtkWrapPython.cmake)
 find_program(PYTHON python)
 find_package(PythonInterp 2.7 REQUIRED)
+find_path(NUMPY_INCLUDE_DIR numpy/arrayobject.h)
+include_directories(${NUMPY_INCLUDE_DIR})
 
 if(COMMAND cmake_policy)
   cmake_policy(SET CMP0003 NEW)
@@ -23,7 +25,7 @@ endif(COMMAND cmake_policy)
 
 if (VTK_MAJOR_VERSION LESS 6)
   set(VTK_MODULES_USED vtkFiltering vtkIO vtkGraphics)
-  set(PYTHOND_SUFFIX PythonD${VTK_LIBRARY_SUFFIX})
+  set(PYTHOND_SUFFIX PythonD)
 else(VTK_MAJOR_VERSION LESS 6)
   set(VTK_MODULES_USED vtkFiltersCore vtkCommonExecutionModel vtkCommonCore)
   set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX})
@@ -35,6 +37,7 @@ include_directories("${PYTHON_INCLUDE_DIRS}")
 
 add_library(vtkParticles SHARED ${FILE_SRCS})
 target_link_libraries(vtkParticles ${VTK_LIBRARIES})
+add_library(vtk_extras SHARED Picker.cxx BoundingSurface.cxx)
 
 # Generate wrapper code
 vtk_wrap_python3(vtkParticlesPython vtkParticlesPython_SRCS "${FILE_SRCS}")
@@ -48,6 +51,10 @@ target_link_libraries(vtkParticlesPythonD
     
 add_library(../particle_model/vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
 
+add_library(../particle_model/vtk_extras MODULE vtk_extras.cxx)
+        
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 if(DEFINED VTK_CUSTOM_LIBRARY_SUFFIX)
   set(VTK_LIB_SUFFIX "${VTK_CUSTOM_LIBRARY_SUFFIX}")
 else()
@@ -56,10 +63,12 @@ endif()
 
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})
-     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX}${VTK_LIB_SUFFIX})
+     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX})
 endforeach()    
 
 target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})
+target_link_libraries(../particle_model/vtk_extras vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS} vtk_extras)
 
 set_target_properties(../particle_model/vtkParticlesPython PROPERTIES PREFIX "")
+set_target_properties(../particle_model/vtk_extras PROPERTIES PREFIX "")
 

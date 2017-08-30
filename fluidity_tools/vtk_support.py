@@ -53,11 +53,16 @@ def fluidity_to_mblock(state, dump_filename=None):
     for name, mesh_test in (('P1DG', is_p1dg),
                             ('P2CG', is_p2),
                             ('P2DG', is_p2dg)):
-        ugrid = fluidity_to_ugrid_by_mesh(state, mesh_test)
+#        ugrid = fluidity_to_ugrid_by_mesh(state, mesh_test, exclude=['Old'])
+#        old_ugrid = fluidity_to_ugrid_by_mesh(state, mesh_test, prefix='Old')
+        ugrid = fluidity_to_ugrid_by_mesh(state, mesh_test, exclude=['Old'])
         if ugrid:
             mblock.SetBlock(dummy, ugrid)
             mblock.GetMetaData( dummy ).Set( vtk.vtkCompositeDataSet.NAME(),
                                              name )
+            #mblock.SetBlock(dummy+1, old_ugrid)
+            #mblock.GetMetaData( dummy+1 ).Set( vtk.vtkCompositeDataSet.NAME(),
+            #                                 'Old'+name )
             dummy += 1
 
     ugrid = fluidity_to_ugrid_p1(state,is_surface_p1, is_surface_p0,
@@ -82,7 +87,7 @@ def fluidity_to_ugrid_p1(state, p1_check, p0_check, coordinates):
 
     Fields on P0 meshes are stored as cell data, while data on P1 continuous meshes is stored as point data."""
 
-    dimension=    dimension=state.vector_fields['Coordinate'].dimension
+    dimension=state.vector_fields['Coordinate'].dimension
 
     meshes = [mesh for mesh in state.meshes.values() if p1_check(mesh,
                                                                  dimension)]
@@ -180,7 +185,7 @@ def is_p2dg(mesh, dimension):
             mesh.shape.type == 'lagrangian' and
             mesh.shape.degree == 2)
 
-def fluidity_to_ugrid_by_mesh(state, test):
+def fluidity_to_ugrid_by_mesh(state, test, prefix='', exclude=[]):
     """ Extract fludity data on a generic mesh to a vtkUnstructuredGrid data object.
 
     test should be a function which returns True when passed the desired mesh type."""
@@ -192,7 +197,10 @@ def fluidity_to_ugrid_by_mesh(state, test):
     if not meshes:
         return None
 
-    coordinates = state.vector_fields['Coordinate']
+    try:
+        coordinates = state.vector_fields['OldCoordinate']
+    except:
+        coordinates = state.vector_fields['Coordinate']
 
     pts = vtk.vtkPoints()
     pts.Allocate(meshes[0].node_count)
@@ -218,11 +226,11 @@ def fluidity_to_ugrid_by_mesh(state, test):
         ugrid.InsertNextCell(CELL_DICT[(shape.type, shape.dimension, shape.loc)], id_list)
 
     ugrid.SetPoints(pts)
-    ugrid = fluidity_data_to_ugrid(state, meshes, ugrid)
+    ugrid = fluidity_data_to_ugrid(state, meshes, ugrid, prefix, exclude)
 
     return ugrid
 
-def fluidity_data_to_ugrid(state, meshes, ugrid):
+def fluidity_data_to_ugrid(state, meshes, ugrid, prefix=None, exclude=[]):
     """ Extract fluidity data from meshes on a desired type to an existing unstructured grid object's point data."""
 
     for name, field in (state.scalar_fields.items()
@@ -231,6 +239,12 @@ def fluidity_data_to_ugrid(state, meshes, ugrid):
         
         if field.mesh not in meshes:
             continue
+        if prefix:
+            if not name.startswith(prefix):
+                continue
+        for _ in exclude:
+            if name.startswith(prefix):
+                continue
 
         if field.val.shape[0] == 1:
             val = field.node_val(0)

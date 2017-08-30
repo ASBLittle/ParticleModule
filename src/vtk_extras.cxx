@@ -1,6 +1,8 @@
 #include "vtkPythonArgs.h"
 #include "vtkUnstructuredGrid.h"
 #include "vtkDoubleArray.h"
+#include "vtkPointData.h"
+#include "vtkCellData.h"
 #include "vtkCellLocator.h"
 #include "stdio.h"
 #include "numpy/arrayobject.h"
@@ -27,7 +29,7 @@ extern "C" {
     npy_intp dims[1]={3};
     PyObject* pcoords = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
     vtkIdType cellId;
-    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1(pcoords,0));
+    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1(pcoords,0), 1.0e-6);
 
 
     // Now back to Python
@@ -63,11 +65,51 @@ extern "C" {
     return pyugrid;
   }
 
+  static PyObject *extras_evaluate_field(PyObject *self, PyObject *args) {
+
+    vtkPythonArgs argument_parser(args, "extras_evaluate_field");
+    vtkCellLocator *locator;
+    vtkUnstructuredGrid *ugrid;
+    double x[3];
+    char* name;
+
+    if (!argument_parser.GetVTKObject(ugrid, "vtkUnstructuredGrid")) {
+      PyErr_SetString(PyExc_TypeError, "Need VTK unstructured grid as first argument");
+      return NULL;
+    }
+
+    if (!argument_parser.GetVTKObject(locator, "vtkCellLocator")) {
+      PyErr_SetString(PyExc_TypeError, "Need VTK cell locator as second argument");
+      return NULL;
+    }
+
+    argument_parser.GetArray(x,3);
+    argument_parser.GetValue(name);
+    
+    npy_intp dims[1] = {0};
+    
+    if (ugrid->GetPointData()->HasArray(name)) {
+      dims[1] = ugrid->GetPointData()->GetArray(name)->GetNumberOfComponents();
+    } else if (ugrid->GetCellData()->HasArray(name)) {
+      dims[1] = ugrid->GetCellData()->GetArray(name)->GetNumberOfComponents();
+    }
+
+    PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
+
+    // apply our function
+    evaluate_field(ugrid, locator, x, name, (double*) PyArray_GETPTR1(output,0), 1.0e-6);
+
+
+    // Now back to Python
+    return output;
+  }
+
   char bounding_surface_docstring[] = "ReadGmsh(vtkUnstructuredGrid) -> vtkUnstructuredGrid\n\n Extract the boundary from a VTK unstructured grid object.";  
 
   static PyMethodDef extrasMethods[] = {
     { (char *)"BoundingSurface", (PyCFunction) extras_bounding_surface, METH_VARARGS, bounding_surface_docstring},
     { (char *)"FindCell", (PyCFunction) extras_find_cell, METH_VARARGS, bounding_surface_docstring},
+    { (char *)"EvaluateField", (PyCFunction) extras_evaluate_field, METH_VARARGS, bounding_surface_docstring},    
     { NULL, NULL, 0, NULL }
   };
 

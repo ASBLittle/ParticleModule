@@ -1,5 +1,7 @@
 """ Baseline module for the package. Contains the main classes, particle and particle_bucket. """
 
+import vtk
+
 from particle_model.Debug import profile
 from particle_model import IO
 from particle_model import DragModels
@@ -8,9 +10,10 @@ from particle_model import System
 from particle_model import Options
 from particle_model import ParticleBase
 from particle_model import Parallel
+from particle_model import vtk_extras
+
 
 import numpy
-import vtk
 import scipy.linalg as la
 import itertools
 import copy
@@ -191,7 +194,6 @@ class Particle(ParticleBase.ParticleBase):
         fluid_velocity, grad_p = self.picker(position, time)
 
         if drag and (fluid_velocity is not None):
-            fluid_velocity, grad_p = self.picker(position, time)
             drag_force = self.parameters.drag(fluid_velocity,
                                               particle_velocity,
                                               diameter=self.parameters.diameter,
@@ -200,7 +202,8 @@ class Particle(ParticleBase.ParticleBase):
                                               fluid_viscosity=self.system.viscosity)
         else:
             drag_force=0.0
-            grad_p = numpy.zeros(3)
+#            grad_p = numpy.zeros(3)
+            fluid_velocity, grad_p = self.picker(position, time)
 
         if grad_p is None:
 
@@ -242,8 +245,10 @@ class Particle(ParticleBase.ParticleBase):
 
 
 #        locator.FindClosestPoint(point, ARGV, cell_index, ARGI, ARGR)
-        cell_index = locator.FindCell(point, 0.0, CELL, PCOORDS, WEIGHT) 
+#        cell_index = locator.FindCell(point, 0.0, CELL, PCOORDS, WEIGHT) 
 #        locator.FindCell(point)
+
+        cell_index, PCOORDS = vtk_extras.FindCell(locator, point)
 
         if cell_index==-1:
             cell_index = None
@@ -251,11 +256,11 @@ class Particle(ParticleBase.ParticleBase):
         return cell_index, PCOORDS
 
     @profile
-    def picker(self, pos, time):
+    def picker(self, pos, time, gvel_out=None):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
         @profile
-        def fpick(infile, locator,names):
+        def fpick(infile, locator, names):
             """ Extract fluid velocity and pressure from single .vtu file"""
 
             locator.BuildLocatorIfNeeded()
@@ -278,6 +283,7 @@ class Particle(ParticleBase.ParticleBase):
 #           collision == Collision.testInCell(linear_cell, pos)
 
             out = IO.get_vector(infile, names[0], cell_index, pcoords)
+
             data_p = IO.get_scalar(infile, names[1], cell_index)
             rhs = data_p[1:dim+1]-data_p[0]
 
@@ -293,12 +299,21 @@ class Particle(ParticleBase.ParticleBase):
             grad_p = numpy.zeros(3)
             grad_p[:dim] = numpy.dot(mat, rhs)
 
-            return out, grad_p
+            if len(names)==3:
+                gout = IO.get_vector(infile, names[2], cell_index, pcoords)
+                return out, grad_p, gout
+            else:
+                return out, grad_p
 
         data, alpha, names = self.system.temporal_cache(time)
 
-        vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
-        vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
+
+        if (len(names[0])==3):
+            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
+        else:
+            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
 
         if vel0 is None or vel1 is None:
             return None, None
@@ -306,6 +321,8 @@ class Particle(ParticleBase.ParticleBase):
         vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
         vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
 
+        if gvel_out:
+            gvel_out = gvel_out
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
@@ -328,7 +345,139 @@ class Particle(ParticleBase.ParticleBase):
         if level == 10:
             return k * delta_t, None, vel - self.vel, None
 
+
+        data, alpha, names = self.system.temporal_cache(time)
+
+
+        if (len(names[0])==3):
+            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
+        else:
+            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
+
+        if vel0 is None or vel1 is None:
+            return None, None
+
+        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
+        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
+
+        if gvel_out:
+            gvel_out = gvel_out
+
+        return ((1.0-alpha) * vel0 + alpha * vel1,
+                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
+
+
+    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
+        """Collision detection routine.
+
+        Args:
+            k  (float): Displacement
+            dt (float): Timestep
+            v  (float, optional): velocity
+            f  (float, optional): forcing
+            pa (float, optional): starting position in subcycle
+            level (int) count to control maximum depth
+        """
+        if pa  is None:
+            pa = self.pos
+
+        if level == 10:
+            return k * delta_t, None, vel - self.vel, None
+
+
+        
+
+
+        if (len(names[0])==3):
+            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
+        else:
+            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
+
+        if vel0 is None or vel1 is None:
+            return None, None
+
+        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
+        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
+
+        if gvel_out:
+            gvel_out = gvel_out
+
+        return ((1.0-alpha) * vel0 + alpha * vel1,
+                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
+
+
+    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
+        """Collision detection routine.
+
+        Args:
+            k  (float): Displacement
+            dt (float): Timestep
+            v  (float, optional): velocity
+            f  (float, optional): forcing
+            pa (float, optional): starting position in subcycle
+            level (int) count to control maximum depth
+        """
+        if pa  is None:
+            pa = self.pos
+
+        if level == 10:
+            return k * delta_t, None, vel - self.vel, None
+
+
+        data, alpha, names = self.system.temporal_cache(time)
+
+
+        if (len(names[0])==3):
+            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
+        else:
+            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
+            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
+
+        if vel0 is None or vel1 is None:
+            return None, None
+
+        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
+        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
+
+        if gvel_out:
+            gvel_out = gvel_out
+
+        return ((1.0-alpha) * vel0 + alpha * vel1,
+                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
+
+
+    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
+        """Collision detection routine.
+
+        Args:
+            k  (float): Displacement
+            dt (float): Timestep
+            v  (float, optional): velocity
+            f  (float, optional): forcing
+            pa (float, optional): starting position in subcycle
+            level (int) count to control maximum depth
+        """
+        if pa  is None:
+            pa = self.pos
+
+        if level == 10:
+            return k * delta_t, None, vel - self.vel, None
+
+
+        data, alpha, names = self.system.temporal_cache(self.time)
+        idx, pcoords =self.find_cell(data[0][3], pa)
+        gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+            
         pos = pa+delta_t*k
+        if gridv is not None:
+            paC = pa-delta_t*gridv
+        else:
+            paC = pa
 
         s = vtk.mutable(-1.0)
         x = [0.0, 0.0, 0.0]
@@ -336,8 +485,8 @@ class Particle(ParticleBase.ParticleBase):
 
         bndl = self.system.boundary.bndl
 
-        intersect = bndl.IntersectWithLine(pa, pos,
-                                           1.0e-8, s,
+        intersect = bndl.IntersectWithLine(paC, pos,
+                                           1.0e-16, s,
                                            x, ARGV, ARGI, cell_index)
 
         if intersect:
@@ -348,9 +497,12 @@ class Particle(ParticleBase.ParticleBase):
             data, _, names = self.system.temporal_cache(self.time)
 #            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa) or sum((pa-x)**2)<1.0-10
 
-            print 'collision', intersect, cell_index, s, x, pos, pa
+            print 'collision', intersect, cell_index, s, x, pos, paC
             x = numpy.array(x)
             old_pos = pos
+
+            idx, pcoords =self.find_cell(data[0][3], x)
+            gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
@@ -395,27 +547,35 @@ class Particle(ParticleBase.ParticleBase):
             if any(vel):
                 if drag:
                     C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
-                    vels = (vel + s * delta_t * (force+C*(fvel-vel)))
+                    if fvel is not None:
+                        vels = ((vel + s*delta_t*(force+C*(fvel)))
+                                /(1.0+s*delta_t*C))
+                    else:
+                        vels = (vel+s*delta_t*force)/(1.0+s*delta_t*C)
                 else:
-                    vels = vel + s * delta_t * force
+                    vels = vel+s*delta_t*force
             else:
                 if drag:
                     C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
-                    vels = self.vel + s * delta_t * (force+C*(fvel-self.vel))
+                    if fvel is not None:
+                        vels = (self.vel + s*delta_t*(force+C*(fvel))
+                                /(1.0+s*delta_t*C))
+                    else:
+                        vels = 0.0*(self.vel + s*delta_t*(force))
                 else:
-                    vels = self.vel + s * delta_t * force
+                    vels = self.vel+s*delta_t*force
 
             par_col = copy.copy(self)
             if self.system.boundary.dist:
                 par_col.pos = IO.get_real_x(cell, ARGV)
             else:
                 par_col.pos = x
-            par_col.vel = vels
+            par_col.vel = vels-gridv
             par_col.time = self.time + s * delta_t
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index,
                                                   theta, normal))
-            vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels)
+            vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels-gridv)
 
             px, col, velo, dummy_vel = self.collide(vels, (1 - s) * delta_t,
                                          vel=vels, force=force,
@@ -431,10 +591,10 @@ class Particle(ParticleBase.ParticleBase):
             C, fvel = self.drag_coefficient(pos, vel, self.time)
             if fvel is None:
                 return (pos - pa, None,
-                    vel + delta_t * (force)/(1.0+delta_t*C) - self.vel, None)
+                        0.0*(vel + delta_t * (force)) - self.vel , None)
             else:
                 return (pos - pa, None,
-                        vel + delta_t * (force+C*(fvel-vel))/(1.0+delta_t*C) - self.vel, None)
+                        (vel + delta_t * (force+C*fvel))/(1.0+delta_t*C)  - self.vel, None)
         else:
             return pos - pa, None, vel + delta_t * force - self.vel, None
 
@@ -488,6 +648,11 @@ class ParticleBucket(object):
     @profile
     def update(self, delta_t=None, *args, **kwargs):
         """ Update all the particles in the bucket to the next time level."""
+        # redistribute particles to partitions in case of parallel adaptivity
+        if Parallel.is_parallel():
+            self.redistribute()
+            self.reset_globals()
+        # reset the particle timestep
         if delta_t is not None:
             self.delta_t = delta_t
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
@@ -499,8 +664,8 @@ class ParticleBucket(object):
                 self.dead_particles.append(part)
                 self.particles.remove(part)
         self.redistribute()
-        self.insert_particles(*args, **kwargs)
         self.reset_globals()
+        self.insert_particles(*args, **kwargs)
         self.time += self.delta_t
 
     def redistribute(self):
@@ -527,7 +692,16 @@ class ParticleBucket(object):
         """Deal with particle insertion"""
 
         for inlet in self.system.boundary.inlets:
-            n_par = inlet.get_number_of_insertions(self.time,
+            if Parallel.is_parallel():
+                n_par = inlet.get_number_of_insertions(self.time,
+                                                       self.delta_t)
+#                if Parallel.get_rank() == 0:
+#                    n_par_0 = inlet.get_number_of_insertions(self.time,
+#                                                           self.delta_t)
+#                    for i in range(n_par_0):
+#                        prob = numpy.random.random()
+            else:
+                n_par = inlet.get_number_of_insertions(self.time,
                                                    self.delta_t)
             if n_par == 0:
                 continue
@@ -540,12 +714,20 @@ class ParticleBucket(object):
                                         self.system.boundary.bnd)
                 vel = numpy.array(inlet.velocity(pos, time))
 
+
+                pos = pos + vel * (1-prob)*self.delta_t
+
+                data, alpha, names = self.system.temporal_cache(time)
+                cell_id, PCOORDS =vtk_extras.FindCell(data[0][3], pos)
+
+                if (cell_id == -1):
+                    continue
+
                 par = Particle((pos, vel, time,
                                 (1.0-prob)*self.delta_t),
                                system=self.system,
                                parameters=self.parameters.randomize())
 
-                par.update(*args, **kwargs)
                 par.time = self.time + self.delta_t
                 par.delta_t = self.delta_t
 

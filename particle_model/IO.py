@@ -20,8 +20,9 @@ TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
 TYPES_1D = [vtk.VTK_LINE]
 
-scalar_ugrid_no = None
-vector_ugrid_no = None
+scalar_ugrid_no = {}
+vector_ugrid_no = {}
+tensor_ugrid_no = {}
 
 
 
@@ -174,10 +175,12 @@ class PolyData(object):
         for name in ('Time',):
             array = vtk.vtkDoubleArray()
             array.SetName(name)
-            self.poly_data.GetPointData().AddArray(array)
+            self.poly_data.GetFieldData().AddArray(array)
 
     def append_data(self, bucket):
         """ Add the data from the current time level"""
+
+        self.poly_data.GetFieldData().GetScalars('Time').InsertNextValue(bucket.time)
 
         for particle in bucket.particles:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
@@ -186,7 +189,7 @@ class PolyData(object):
 
             ids.InsertNextId(part_id)
 
-            self.poly_data.GetPointData().GetScalars('Time').InsertNextValue(bucket.time)
+            
 
     def write(self):
         """ Write the staged vtkPolyData to a file."""
@@ -864,14 +867,24 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     outtime = vtk.vtkDoubleArray()
     outtime.SetName('Time')
-    outtime.Allocate(bucket.pos.shape[0])
+    outtime.Allocate(1)
 
     particle_id = vtk.vtkDoubleArray()
     particle_id.SetName('ParticleID')
     particle_id.Allocate(bucket.pos.shape[0])
 
-    for par in enumerate(bucket.particles):
-        particle_id.InsertNextValue(par[1].id())
+    live = vtk.vtkDoubleArray()
+    live.SetName('Live')
+    live.Allocate(bucket.pos.shape[0])
+
+    plive = bucket.system.in_system(bucket.pos, bucket.time)
+
+    for k, par in enumerate(bucket.particles):
+        particle_id.InsertNextValue(par.id())
+        if plive[k]:
+            live.InsertNextValue(1.0)
+        else:
+            live.InsertNextValue(0.0)
 
 
     velocity = vtk.vtkDoubleArray()
@@ -885,13 +898,15 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
                                      poly_data.GetPoints().InsertNextPoint(positions[0],
                                                                            positions[1],
                                                                            positions[2]))
-        outtime.InsertNextValue(bucket.time)
         velocity.InsertNextTuple3(vel[0], vel[1], vel[2])
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
-    poly_data.GetPointData().AddArray(outtime)
+    outtime.InsertNextValue(bucket.time)
+
+    poly_data.GetFieldData().AddArray(outtime)
     poly_data.GetPointData().AddArray(velocity)
     poly_data.GetPointData().AddArray(particle_id)
+    poly_data.GetCellData().AddArray(live)
 
     if do_average:
         gsp=calculate_averaged_properties_cpp(poly_data)
@@ -1042,7 +1057,7 @@ def ascii_to_polydata(filename, outfile):
                                                                               data[3]))
             poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
 
-    poly_data.GetPointData().AddArray(outtime)
+    poly_data.GetFieldData().AddArray(outtime)
 
     write_to_file(poly_data, outfile)
 
@@ -1204,8 +1219,6 @@ def make_boundary_from_msh(mesh, outfile=None):
 
     """Given a mesh (in Gmsh format), store the boundary data in a vtkUnstructuredGridFormat."""
 
-    print mesh
-
     pnts = vtk.vtkPoints()
     pnts.Allocate(len(mesh.nodes))
 
@@ -1274,6 +1287,38 @@ def get_linear_block(infile):
         raise AttributeError
 
 @profile
+def get_tensor(infile, name, index, pcoords):
+
+    global tensor_ugrid_no
+
+    if infile.IsA('vtkUnstructuredGrid'):
+        ids = infile.GetCell(index).GetPointIds()
+        data = infile.GetPointData().GetVectors(name)
+        ugrid = infile
+    else:
+        if tensor_ugrid_no.setdefault(name, None):
+            ids = infile.GetBlock(tensor_ugrid_no[name]).GetCell(index).GetPointIds()
+            data = infile.GetBlock(tensor_ugrid_no[name]).GetPointData().GetScalars(name)
+            ugrid = infile.GetBlock(tensor_ugrid_no[name])
+        else:
+            for _ in range(infile.GetNumberOfBlocks()):
+                if infile.GetBlock(_).GetPointData().HasArray(name):
+                    ids = infile.GetBlock(_).GetCell(index).GetPointIds()
+                    data = infile.GetBlock(_).GetPointData().GetVectors(name)
+                    ugrid = infile.GetBlock(_)
+                    tensor_ugrid_no[name] = _
+                    break
+
+#    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
+    ugrid.GetCell(index).InterpolateFunctions(pcoords, WEIGHTS[:ids.GetNumberOfIds()])
+
+    dim = numpy.sqrt(data.GetNumberOfComponents())
+    out = numpy.zeros((dim,dim), float)
+    for _ in range(ids.GetNumberOfIds()):
+        out[:] += WEIGHTS[_]*numpy.array(data.GetTuple(ids.GetId(_))).reshape((dim,dim))
+    return out 
+
+@profile
 def get_vector(infile, name, index, pcoords):
 
     global vector_ugrid_no
@@ -1283,20 +1328,23 @@ def get_vector(infile, name, index, pcoords):
         data = infile.GetPointData().GetVectors(name)
         ugrid = infile
     else:
-        if vector_ugrid_no:
-            ids = infile.GetBlock(vector_ugrid_no).GetCell(index).GetPointIds()
-            data = infile.GetBlock(vector_ugrid_no).GetPointData().GetScalars(name)
-            ugrid = infile.GetBlock(vector_ugrid_no)
+        if vector_ugrid_no.setdefault(name,None):
+            ids = infile.GetBlock(vector_ugrid_no[name]).GetCell(index).GetPointIds()
+            data = infile.GetBlock(vector_ugrid_no[name]).GetPointData().GetScalars(name)
+            ugrid = infile.GetBlock(vector_ugrid_no[name])
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
                     data = infile.GetBlock(_).GetPointData().GetVectors(name)
                     ugrid = infile.GetBlock(_)
-                    vector_ugrid_no = _
+                    vector_ugrid_no[name] = _
                     break
+            if vector_ugrid_no[name] is None: return None
+                
 
-    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
+#    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
+    ugrid.GetCell(index).InterpolateFunctions(pcoords, WEIGHTS[:ids.GetNumberOfIds()])
 
     out = numpy.zeros(data.GetNumberOfComponents(), float)
     for _ in range(ids.GetNumberOfIds()):
@@ -1313,15 +1361,15 @@ def get_scalar(infile, name, index):
         data = infile.GetPointData().GetScalars(name)
         scalar_ugrid = infile
     else:
-        if scalar_ugrid_no:
-            ids = infile.GetBlock(scalar_ugrid_no).GetCell(index).GetPointIds()
-            data = infile.GetBlock(scalar_ugrid_no).GetPointData().GetScalars(name)
+        if scalar_ugrid_no.setdefault(name,None):
+            ids = infile.GetBlock(scalar_ugrid_no[name]).GetCell(index).GetPointIds()
+            data = infile.GetBlock(scalar_ugrid_no[name]).GetPointData().GetScalars(name)
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
                     data = infile.GetBlock(_).GetPointData().GetScalars(name)
-                    scalar_ugrid_no = _
+                    scalar_ugrid_no[name] = _
                     break
 
     out = numpy.empty(ids.GetNumberOfIds(),float)

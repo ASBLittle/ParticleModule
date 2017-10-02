@@ -4,7 +4,14 @@ import vtk
 import glob
 import numpy
 from particle_model import Parallel
-from lxml import etree
+try:
+    from lxml import etree as ET
+    def ElementTree(**kwargs):
+        ET.ElementTree(parser=etree.XMLParser(recover=True), **kwargs)
+except:
+    from xml.etree import ElementTree as ET
+    def ElementTree(**kwargs):
+        ET.ElementTree(**kwargs)
 
 class TemporalCache(object):
     """ The base object containing the vtu files.
@@ -88,8 +95,7 @@ class TemporalCache(object):
         self.data[k].append(None)
 
     def get_piece_filename_from_vtk(self, filename, piece=Parallel.get_rank()):
-         e = etree.ElementTree(file=filename,
-                              parser=etree.XMLParser(recover=True)).getroot()
+         e = ElementTree(file=filename).getroot()
          return e[0].findall('Piece')[Parallel.get_rank()].get('Source')
 
     def get_time_from_vtk(self, filename):
@@ -100,8 +106,7 @@ class TemporalCache(object):
 
 
         ftext = open (filename, 'r')
-        e = etree.ElementTree(file=filename,
-                              parser=etree.XMLParser(recover=True)).getroot()   
+        e = etree.ElementTree(file=filename).getroot()   
         assert e.tag == 'VTKFile' 
         if parallel:
             return self.get_time_from_vtk(e[0].findall('Piece')[Parallel.get_rank()].get('Source'))

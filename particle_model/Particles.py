@@ -18,7 +18,10 @@ import scipy.linalg as la
 import itertools
 import copy
 
-import IPython
+try:
+    import IPython
+except ImportError:
+    pass
 
 ARGV = [0.0, 0.0, 0.0]
 ARGI = vtk.mutable(0)
@@ -471,7 +474,10 @@ class Particle(ParticleBase.ParticleBase):
 
         data, alpha, names = self.system.temporal_cache(self.time)
         idx, pcoords =self.find_cell(data[0][3], pa)
-        gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+        try:
+            gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+        except TypeError:
+            gridv = None
             
         pos = pa+delta_t*k
         if gridv is not None:
@@ -656,6 +662,7 @@ class ParticleBucket(object):
         if delta_t is not None:
             self.delta_t = delta_t
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
+        self.reset_globals()
         live=self.system.in_system(self.pos, self.time)
         for k, part in enumerate(self.particles):
             if live[k]:

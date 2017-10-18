@@ -63,7 +63,7 @@ endif()
 
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})
-     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX})
+     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX}-6.2)
 endforeach()    
 
 target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})

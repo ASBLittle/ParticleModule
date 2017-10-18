@@ -481,7 +481,8 @@ class Particle(ParticleBase.ParticleBase):
             
         pos = pa+delta_t*k
         if gridv is not None:
-            paC = pa-delta_t*gridv
+            paC = pa
+            pa[:len(gridv)] -= delta_t*gridv
         else:
             paC = pa
 

@@ -859,6 +859,8 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     del kwargs
 
+    bucket.reset_globals()
+    
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
     pnts.Allocate(0)

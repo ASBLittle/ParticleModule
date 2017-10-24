@@ -476,6 +476,7 @@ class Particle(ParticleBase.ParticleBase):
         idx, pcoords =self.find_cell(data[0][3], pa)
         try:
             gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+            gridv.resize([3])
         except TypeError:
             gridv = None
             
@@ -510,6 +511,7 @@ class Particle(ParticleBase.ParticleBase):
 
             idx, pcoords =self.find_cell(data[0][3], x)
             gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+            gridv.resize([3])
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
@@ -577,7 +579,8 @@ class Particle(ParticleBase.ParticleBase):
                 par_col.pos = IO.get_real_x(cell, ARGV)
             else:
                 par_col.pos = x
-            par_col.vel = vels-gridv
+            par_col.vel =vels
+            par_col.vel[:len(gridv)] -=gridv
             par_col.time = self.time + s * delta_t
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index,

@@ -634,13 +634,18 @@ class ParticleBucket(object):
         self.dead_particles = []
         self.parameters = parameters
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
-            self.particles.append(Particle((dummy_pos, dummy_vel, time, delta_t),
+            par = Particle((dummy_pos, dummy_vel, time, delta_t),
                                            system=self.system,
-                                           parameters=parameters.randomize()))
+                                           parameters=parameters.randomize())
+            
             if self.system.temporal_cache:
-                dummy_u, dummy_p = self.particles[-1].get_fluid_properties()
-                self.fluid_velocity[_, :len(dummy_u)]=dummy_u
-                self.grad_p[_, :] = dummy_p
+                dummy_u, dummy_p = par.get_fluid_properties()
+                if dummy_u is not None:
+                    self.particles.append(par)
+            else:
+                self.particles.append(par)
+        self.redistribute()
+        self.reset_globals()
         self.time = time
         self.delta_t = delta_t
         self.pos = X

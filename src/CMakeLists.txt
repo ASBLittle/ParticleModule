@@ -28,7 +28,7 @@ if (VTK_MAJOR_VERSION LESS 6)
   set(PYTHOND_SUFFIX PythonD)
 else(VTK_MAJOR_VERSION LESS 6)
   set(VTK_MODULES_USED vtkFiltersCore vtkCommonExecutionModel vtkCommonCore)
-  set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX})
+  set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX}"-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
 endif()
 
 link_directories(${VTK_DIR})
@@ -63,7 +63,7 @@ endif()
 
 set(VTK_PYTHOND_LIBS)
 foreach(TMP_LIB ${VTK_MODULES_USED})
-     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX}-6.2)
+     set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX})
 endforeach()    
 
 target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})

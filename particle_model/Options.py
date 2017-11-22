@@ -1,5 +1,8 @@
 """ Module dealing with initialising the code from an xml format options file using spud"""
 
+from particle_model import Parallel
+from particle_model import IO
+
 try:
     import libspud
 except:
@@ -179,7 +182,10 @@ class OptionsReader(object):
 
     def get_mesh_filename(self):
         """Return the mesh file name"""
-        return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
+        if (Parallel.is_parallel()):
+            return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'_%d.msh'%Parallel.get_rank()
+        else:
+            return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
     
     def get_current_time(self):
         """Return the current time from the options file."""

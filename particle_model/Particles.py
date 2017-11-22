@@ -505,7 +505,7 @@ class Particle(ParticleBase.ParticleBase):
             data, _, names = self.system.temporal_cache(self.time)
 #            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa) or sum((pa-x)**2)<1.0-10
 
-            print 'collision', intersect, cell_index, s, x, pos, paC
+#            print 'collision', intersect, cell_index, s, x, pos, paC
             x = numpy.array(x)
             old_pos = pos
 
@@ -723,31 +723,34 @@ class ParticleBucket(object):
                 continue
             weights = inlet.cum_weight(self.time+0.5*self.delta_t,
                                        self.system.boundary.bnd)
-            for i in range(n_par):
-                prob = numpy.random.random()
-                time =  self.time+prob*self.delta_t 
-                pos =inlet.select_point(time, weights,
-                                        self.system.boundary.bnd)
-                vel = numpy.array(inlet.velocity(pos, time))
+            if weights:
+                for i in range(n_par):
+                    prob = numpy.random.random()
+                    time =  self.time+prob*self.delta_t 
+                    pos =inlet.select_point(time, weights,
+                                            self.system.boundary.bnd)
+                    vel = numpy.array(inlet.velocity(pos, time))
 
 
-                pos = pos + vel * (1-prob)*self.delta_t
+                    ## update position by fractional timestep
+                    pos = pos + vel*(1-prob)*self.delta_t
+                    
 
-                data, alpha, names = self.system.temporal_cache(time)
-                cell_id, PCOORDS =vtk_extras.FindCell(data[0][3], pos)
+                    data, alpha, names = self.system.temporal_cache(time)
+                    cell_id, PCOORDS =vtk_extras.FindCell(data[0][3], pos)
 
-                if (cell_id == -1):
-                    continue
+                    if (cell_id == -1):
+                        continue
 
-                par = Particle((pos, vel, time,
-                                (1.0-prob)*self.delta_t),
-                               system=self.system,
-                               parameters=self.parameters.randomize())
+                    par = Particle((pos, vel, time,
+                                    (1.0-prob)*self.delta_t),
+                                   system=self.system,
+                                   parameters=self.parameters.randomize())
 
-                par.time = self.time + self.delta_t
-                par.delta_t = self.delta_t
+                    par.time = self.time + self.delta_t
+                    par.delta_t = self.delta_t
 
-                self.particles.append(par)
+                    self.particles.append(par)
 
 
     def collisions(self):

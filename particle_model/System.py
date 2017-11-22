@@ -105,6 +105,12 @@ class System(object):
             out.append(loc.FindCell(par.pos)> -1)
 
         return out
+
+    def update_boundary_from_mesh(self, mesh):
+        self.boundary.update_boundary_file(IO.make_boundary_from_msh(mesh))
+
+    def update_boundary_from_block(self, mblock):
+        self.boundary.update_boundary_file(IO.get_boundary_from_block(mblock))
         
             
 

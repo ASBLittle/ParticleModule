@@ -19,6 +19,18 @@ def is_parallel():
 
     return comm.Get_size()>1
 
+def barrier():
+    """ Set up an MPI barrier."""
+
+    if MPI is None:
+        return None
+
+    comm = MPI.COMM_WORLD
+    
+    comm.Barrier()
+
+    return None
+
 def get_rank():
     """ Get MPI rank."""
 

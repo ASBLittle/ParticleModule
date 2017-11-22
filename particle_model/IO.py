@@ -12,6 +12,7 @@ from vtk.util import numpy_support
 import numpy
 import os
 import os.path
+import glob
 import scipy
 import copy
 from scipy.interpolate import griddata
@@ -261,15 +262,21 @@ class BoundaryData(object):
         self.bndl.SetDataSet(self.bnd)
         self.bndl.BuildLocator()
 
-    def update_boundary_file(self, filename, open_ids=[]):
+    def update_boundary_file(self, file, open_ids=[]):
         """ Update the boundary data from the file."""
-        if not os.path.isfile(filename):
-            print os.getcwd()
-            raise OSError
 
-        self.reader.SetFileName(filename)
-        self.reader.Update()
-        self.bnd = self.reader.GetOutput()
+        if type(file) == type('abc'):
+            if not os.path.isfile(file):
+                print os.getcwd()
+                raise OSError
+
+            self.reader.SetFileName(filename)
+            self.reader.Update()
+            self.bnd = self.reader.GetOutput()
+
+        else:
+            del self.bnd
+            self.bnd = file
 
         if self.dist:
             self.phys_bnd = IO.move_boundary_through_normal(self.bnd, self.dist,
@@ -1159,8 +1166,24 @@ def write_to_file(vtk_data, outfile):
     if vtk.vtkVersion.GetVTKMajorVersion()<6:
         writer.SetInput(vtk_data)
     else:
-        writer.SetInputData(vtk_data)
+        writer.SetInputData(vtk_data)        
     writer.Write()
+
+    if Parallel.is_parallel():
+        make_subdirectory(outfile)
+
+def make_subdirectory(fname):
+    Parallel.barrier()
+    if Parallel.get_rank()==0:
+        base_name, file_type = fname.rsplit('.',1)
+        if not os.path.isdir(base_name):
+            os.mkdir(base_name)
+        for _ in glob.glob(base_name+'_*.%s'%file_type[1:]):
+            os.rename(_, base_name+'/'+_)
+            with open(fname) as summary_file:
+                new_text = summary_file.read().replace(_, base_name+'/'+_)
+            with open(fname,'w') as summary_file:
+                summary_file.write(new_text)
 
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     """Given a mesh (in Gmsh format), velocity and pressure fields, and a
@@ -1216,6 +1239,41 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
         write_to_file(ugrid, outfile)
 
     return ugrid
+
+def get_boundary_from_block(mblock):
+    """ Get properly formed boundary data from a fluidity vtk block."""
+    
+    ugrid = None
+
+    for _ in range(mblock.GetNumberOfBlocks()):
+        if mblock.GetMetaData(_).Get(vtk.vtkCompositeDataSet.NAME()) == 'Boundary':
+            ugrid = mblock.GetBlock(_)
+
+    if not ugrid:
+        return None
+
+    vgrid = vtk.vtkUnstructuredGrid()
+
+    pts = vtk.vtkPoints()
+    pts.DeepCopy(ugrid.GetPoints())
+
+    vgrid.SetPoints(pts)
+
+    surface_ids=vtk.vtkIntArray()
+    surface_ids.SetName('SurfaceIds')
+    surface_ids.SetNumberOfComponents(1)
+    surface_ids.SetNumberOfTuples(ugrid.GetNumberOfCells())
+    
+    sids = ugrid.GetCellData().GetArray('SurfaceIds')
+
+    for _ in range(ugrid.GetNumberOfCells()):
+        cell = ugrid.GetCell(_)
+        vgrid.InsertNextCell(cell.GetCellType(), cell.GetPointIds())
+        surface_ids.SetValue(_, int(sids.GetValue(_)))
+
+    vgrid.GetCellData().AddArray(surface_ids)
+
+    return vgrid
 
 def make_boundary_from_msh(mesh, outfile=None):
 

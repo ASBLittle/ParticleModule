@@ -1070,6 +1070,16 @@ def ascii_to_polydata(filename, outfile):
 
     write_to_file(poly_data, outfile)
 
+def update_collision_polydata(pb, base_name, **kwargs):
+    """ Update collisions from data in the particle bucket."""
+
+    if Parallel.is_parallel():
+        fext = 'pvtp'
+    else:
+        fext = 'vtp'
+
+    collision_list_to_polydata(pb.collisions(), base_name+'_collisions.'+fext)
+
 def collision_list_to_polydata(col_list, outfile,
                                model=Collision.mclaury_mass_coeff, **kwargs):
     """Convert collision data to a single vtkPolyData (.vtp) files.
@@ -1162,7 +1172,8 @@ def write_to_file(vtk_data, outfile):
         writer.SetNumberOfPieces(Parallel.get_size())
         writer.SetStartPiece(Parallel.get_rank())
         writer.SetEndPiece(Parallel.get_rank())
-        writer.SetWriteSummaryFile(Parallel.get_rank()==0)
+        if vtk.vtkVersion.GetVTKMajorVersion()==6:
+            writer.SetWriteSummaryFile(Parallel.get_rank()==0)
     if vtk.vtkVersion.GetVTKMajorVersion()<6:
         writer.SetInput(vtk_data)
     else:

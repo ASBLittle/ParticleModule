@@ -349,129 +349,6 @@ class Particle(ParticleBase.ParticleBase):
             return k * delta_t, None, vel - self.vel, None
 
 
-        data, alpha, names = self.system.temporal_cache(time)
-
-
-        if (len(names[0])==3):
-            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
-        else:
-            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
-
-        if vel0 is None or vel1 is None:
-            return None, None
-
-        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
-        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
-
-        if gvel_out:
-            gvel_out = gvel_out
-
-        return ((1.0-alpha) * vel0 + alpha * vel1,
-                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
-
-
-    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
-        """Collision detection routine.
-
-        Args:
-            k  (float): Displacement
-            dt (float): Timestep
-            v  (float, optional): velocity
-            f  (float, optional): forcing
-            pa (float, optional): starting position in subcycle
-            level (int) count to control maximum depth
-        """
-        if pa  is None:
-            pa = self.pos
-
-        if level == 10:
-            return k * delta_t, None, vel - self.vel, None
-
-
-        
-
-
-        if (len(names[0])==3):
-            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
-        else:
-            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
-
-        if vel0 is None or vel1 is None:
-            return None, None
-
-        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
-        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
-
-        if gvel_out:
-            gvel_out = gvel_out
-
-        return ((1.0-alpha) * vel0 + alpha * vel1,
-                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
-
-
-    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
-        """Collision detection routine.
-
-        Args:
-            k  (float): Displacement
-            dt (float): Timestep
-            v  (float, optional): velocity
-            f  (float, optional): forcing
-            pa (float, optional): starting position in subcycle
-            level (int) count to control maximum depth
-        """
-        if pa  is None:
-            pa = self.pos
-
-        if level == 10:
-            return k * delta_t, None, vel - self.vel, None
-
-
-        data, alpha, names = self.system.temporal_cache(time)
-
-
-        if (len(names[0])==3):
-            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3],names[1])
-        else:
-            vel0, grad_p0 = fpick(data[0][2], data[0][3],names[0])
-            vel1, grad_p1 = fpick(data[1][2], data[1][3],names[1])
-
-        if vel0 is None or vel1 is None:
-            return None, None
-
-        vel0=numpy.append(vel0,numpy.zeros(3-vel0.size))
-        vel1=numpy.append(vel1,numpy.zeros(3-vel1.size))
-
-        if gvel_out:
-            gvel_out = gvel_out
-
-        return ((1.0-alpha) * vel0 + alpha * vel1,
-                (1.0 - alpha) * grad_p0 + alpha * grad_p1)
-
-
-    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
-        """Collision detection routine.
-
-        Args:
-            k  (float): Displacement
-            dt (float): Timestep
-            v  (float, optional): velocity
-            f  (float, optional): forcing
-            pa (float, optional): starting position in subcycle
-            level (int) count to control maximum depth
-        """
-        if pa  is None:
-            pa = self.pos
-
-        if level == 10:
-            return k * delta_t, None, vel - self.vel, None
-
-
         data, alpha, names = self.system.temporal_cache(self.time)
         idx, pcoords =self.find_cell(data[0][3], pa)
         try:
@@ -497,7 +374,7 @@ class Particle(ParticleBase.ParticleBase):
                                            1.0e-16, s,
                                            x, ARGV, ARGI, cell_index)
 
-        if intersect:
+        if intersect and cell_index>=0:
             if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
                 if self.system.boundary.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index) in self.system.boundary.outlet_ids:
                     return pos - pa, None, vel-self.vel, None

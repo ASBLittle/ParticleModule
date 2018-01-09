@@ -29,13 +29,13 @@ TEMP_CACHE.data[1][0] = 100.0
 
 PD = pm.IO.PolyData(NAME+'.vtp')
 PD.append_data(PB)
-gsp = pm.IO.write_level_to_polydata(PB, 0, NAME, do_average=True)
-PB.set_solid_pressure_gradient(gsp)
+GSP = pm.IO.write_level_to_polydata(PB, 0, NAME, do_average=True)
+PB.set_solid_pressure_gradient(GSP)
 
-for i in range(300):
+for i in range(10):
     print PB.time
-    print 'min, max: pos_x', numpy.array(list(PB.pos()))[:, 0].ravel().min(), numpy.array(list(PB.pos()))[:, 0].ravel().max()
-    print 'min, max: vel_x', numpy.array(list(PB.vel()))[:, 0].ravel().min(), numpy.array(list(PB.vel()))[:, 0].ravel().max()
+    print 'min, max: pos_x', PB.pos_as_array()[:, 0].min(), PB.pos_as_array()[:, 0].max()
+    print 'min, max: vel_x', PB.vel_as_array()[:, 0].min(), PB.vel_as_array()[:, 0].max()
     PB.update()
     PD.append_data(PB)
     gsp = pm.IO.write_level_to_polydata(PB, i+1, NAME, do_average=True)
@@ -46,5 +46,3 @@ for i in range(300):
 #                               PB.system.temporal_cache.data[0][2])
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
-
-

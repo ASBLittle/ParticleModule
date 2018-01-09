@@ -1,21 +1,22 @@
 """ Module containing input-output routines between the particle model and
 the file system. Mostly vtk."""
 
-from particle_model.Debug import profile
-from particle_model import Collision
-from particle_model import vtkParticlesPython
-from particle_model import Parallel
-from particle_model import vtk_extras
-
-import particle_model.vtkParticlesPython as vtp
-import vtk
-from vtk.util import numpy_support
-import numpy
 import os
 import os.path
 import glob
-import scipy
 import copy
+
+from particle_model.Debug import profile, logger
+from particle_model import Collision
+from particle_model import Parallel
+from particle_model import vtk_extras
+
+from particle_model.GmshIO import GmshMesh
+from particle_model.SolidInteractions import *
+
+import vtk
+from vtk.util import numpy_support
+import numpy
 from scipy.interpolate import griddata
 
 TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
@@ -26,8 +27,6 @@ scalar_ugrid_no = {}
 vector_ugrid_no = {}
 tensor_ugrid_no = {}
 
-
-
 ARGV = [0.0, 0.0, 0.0]
 WEIGHTS = numpy.zeros(10)
 SUB_ID = vtk.mutable(0)
@@ -35,131 +34,12 @@ SUB_ID = vtk.mutable(0)
 TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
 
-WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter 
-                                     if Parallel.is_parallel() 
+WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
+                                     if Parallel.is_parallel()
                                      else vtk.vtkXMLUnstructuredGridWriter),
           vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
-                             if Parallel.is_parallel() 
+                             if Parallel.is_parallel()
                              else vtk.vtkXMLPolyDataWriter),}
-
-class GmshMesh(object):
-    """This is a class for storing nodes and elements.
-
-    Members:
-    nodes -- A dict of the form { nodeID: [ xcoord, ycoord, zcoord] }
-    elements -- A dict of the form { elemID: (type, [tags], [nodeIDs]) }
-
-    Methods:
-    read(file) -- Parse a Gmsh version 1.0 or 2.0 mesh file
-    write(file) -- Output a Gmsh version 2.0 mesh file
-    """
-
-    def __init__(self):
-        self.nodes = {}
-        self.elements = {}
-
-    def read(self, filename):
-        """Read a Gmsh .msh file.
-
-        Reads Gmsh format 1.0 and 2.0 mesh files, storing the nodes and
-        elements in the appropriate dicts.
-        """
-        
-        import struct
-
-        mshfile = open(filename, 'r')
-
-        mode_dict = {'$NOD' : 1, '$Nodes' : 1,
-                     '$ELM' : 2,
-                     '$Elements' : 3,
-                     '$MeshFormat' : 4}
-
-        readmode = 0
-        line = 'a'
-        while line:
-            line = mshfile.readline()
-            line = line.strip()
-            if line.startswith('$'):
-                readmode = mode_dict.get(line, 0)
-            elif readmode:
-                columns = line.split()
-                if readmode == 4:
-                    if len(columns)==3:
-                        vno,ftype,dsize=(float(columns[0]),
-                                         int(columns[1]),
-                                         int(columns[2]))
-                    else:
-                        endian=struct.unpack('i',columns[0])
-                if readmode == 1:
-                    # Version 1.0 or 2.0 Nodes
-                    try:
-                        if ftype==0 and len(columns)==4:
-                            self.nodes[int(columns[0])] = [float(c) for c in columns[1:]]
-                        elif ftype==1:
-                            nnods=int(columns[0])
-                            for N in range(nnods):
-                                data=mshfile.read(4+3*dsize)
-                                i,x,y,z=struct.unpack('=i3d',data)
-                                self.nodes[i]=[x,y,z]
-                            mshfile.read(1)
-                    except ValueError:
-                        readmode = 0
-                elif ftype==0 and readmode > 1 and len(columns) > 5:
-                    # Version 1.0 or 2.0 Elements
-                    try:
-                        columns = [int(c) for c in columns]
-                    except ValueError:
-                        readmode = 0
-                    else:
-                        (ele_id, ele_type) = columns[0:2]
-                        if readmode == 2:
-                            # Version 1.0 Elements
-                            tags = columns[2:4]
-                            nodes = columns[5:]
-                        else:
-                            # Version 2.0 Elements
-                            ntags = columns[2]
-                            tags = columns[3:3+ntags]
-                            nodes = columns[3+ntags:]
-                        self.elements[ele_id] = (ele_type, tags, nodes)
-                elif readmode == 3 and ftype==1:
-                    tdict={1:2,2:3,3:4,4:4,5:5,6:6,7:5,8:3,9:6,10:9,11:10}
-                    try:
-                        neles=int(columns[0])
-                        k=0
-                        while k<neles:
-                            ele_type,ntype,ntags=struct.unpack('=3i',mshfile.read(3*4))
-                            k+=ntype
-                            for j in range(ntype):
-                                mysize=1+ntags+tdict[ele_type]
-                                data=struct.unpack('=%di'%mysize,
-                                                   mshfile.read(4*mysize))
-                                self.elements[data[0]]=(ele_type,
-                                                        data[1:1+ntags],
-                                                        data[1+ntags:])
-                    except:
-                        raise
-                    mshfile.read(1)
-
-        mshfile.close()
-
-    def write(self, filename):
-        """Dump the mesh out to a Gmsh 2.0 msh file."""
-
-        mshfile = open(filename, 'w')
-
-        print >>mshfile, '$MeshFormat\n2.0 0 8\n$EndMeshFormat'
-        print >>mshfile, '$Nodes\n%d'%len(self.nodes)
-        for node_id, coord in self.nodes.items():
-            print >>mshfile, node_id, ' '.join([str(c) for c in  coord])
-        print >>mshfile, '$EndNodes'
-        print >>mshfile, '$Elements\n%d'%len(self.elements)
-        for ele_id, elem in self.elements.items():
-            (ele_type, tags, nodes) = elem
-            print >>mshfile, ele_id, ele_type, len(tags)
-            print >>mshfile, ' '.join([str(c) for c in tags])
-            print >>mshfile, ' '.join([str(c) for c in nodes])
-        print >>mshfile, '$EndElements'
 
 class PolyData(object):
     """ Class storing a living vtkPolyData construction"""
@@ -184,14 +64,12 @@ class PolyData(object):
 
         self.poly_data.GetFieldData().GetArray('Time').InsertNextValue(bucket.time)
 
-        for particle in bucket.particles:
+        for particle in bucket:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
 
             part_id = self.pnts.InsertNextPoint(particle.pos)
 
             ids.InsertNextId(part_id)
-
-            
 
     def write(self):
         """ Write the staged vtkPolyData to a file."""
@@ -204,7 +82,7 @@ class PolyData(object):
 
         writer = vtk.vtkXMLPolyDataWriter()
         writer.SetFileName(self.filename)
-        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        if vtk.vtkVersion.GetVTKMajorVersion() < 6:
             writer.SetInput(self.poly_data)
         else:
             writer.SetInputData(self.poly_data)
@@ -212,35 +90,35 @@ class PolyData(object):
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename=None,bnd=None,outlet_ids=[], inlets=[], dist=None):
+    def __init__(self, filename=None, bnd=None, outlet_ids=[], inlets=[], dist=None):
         """Class containing the information about the boundary of the domain.
 
         Args:
             filename (str): Name of the file containing the
             vtkUnstructuredGrid denoting the boundary of the domain."""
 
-        self.reader = vtk.vtkXMLUnstructuredGridReader() 
+        self.reader = vtk.vtkXMLUnstructuredGridReader()
         self.bndl = vtk.vtkCellLocator()
         self.geom_filter = vtk.vtkGeometryFilter()
-        self.outlet_ids=outlet_ids
-        self.inlets=inlets
+        self.outlet_ids = outlet_ids
+        self.inlets = inlets
         self.dist = dist
 
         open_ids = [] + self.outlet_ids
         for inlet in self.inlets:
-            open_ids+=inlet.surface_ids
+            open_ids += inlet.surface_ids
 
         if filename is not None:
             self.update_boundary_file(filename, open_ids)
         else:
-            self.bnd=bnd
+            self.bnd = bnd
             if self.dist:
-                self.phys_bnd = IO.move_boundary_through_normal(self.bnd,
-                                                                ids = open_ids)
+                self.phys_bnd = move_boundary_through_normal(self.bnd, self.dist,
+                                                             Ids=open_ids)
             else:
                 self.phys_bnd = self.bnd
 
-            if vtk.vtkVersion.GetVTKMajorVersion()<6:
+            if vtk.vtkVersion.GetVTKMajorVersion() < 6:
                 self.geom_filter.SetInput(self.phys_bnd)
             else:
                 self.geom_filter.SetInputData(self.phys_bnd)
@@ -248,7 +126,7 @@ class BoundaryData(object):
 
             self.bndl.SetDataSet(self.geom_filter.GetOutput())
             self.bndl.BuildLocator()
-            
+
     def update(self, boundary):
         """ Update the boundary data from a new object."""
 
@@ -263,29 +141,28 @@ class BoundaryData(object):
         self.bndl.SetDataSet(self.bnd)
         self.bndl.BuildLocator()
 
-    def update_boundary_file(self, file, open_ids=[]):
+    def update_boundary_file(self, infile, open_ids=None):
         """ Update the boundary data from the file."""
 
-        if type(file) == type('abc'):
-            if not os.path.isfile(file):
-                print os.getcwd()
-                raise OSError
+        open_ids = open_ids or []
 
-            self.reader.SetFileName(file)
+        if isinstance(infile, str):
+            if not os.path.isfile(infile):
+                logger.error(os.getcwd())
+                raise OSError
+            self.reader.SetFileName(infile)
             self.reader.Update()
             self.bnd = self.reader.GetOutput()
-
         else:
-            del self.bnd
-            self.bnd = file
+            self.bnd = infile
 
         if self.dist:
-            self.phys_bnd = IO.move_boundary_through_normal(self.bnd, self.dist,
-                                                            ids = open_ids)
+            self.phys_bnd = move_boundary_through_normal(self.bnd, self.dist,
+                                                         Ids=open_ids)
         else:
             self.phys_bnd = self.bnd
 
-        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        if vtk.vtkVersion.GetVTKMajorVersion() < 6:
             self.geom_filter.SetInput(self.phys_bnd)
         else:
             self.geom_filter.SetInputData(self.phys_bnd)
@@ -369,15 +246,16 @@ def extract_boundary(ugrid):
         dim = 0
 
     def get_dimension(cell):
-        cellType = cell.GetCellType()
-        if cellType in TYPES_3D:
+        """Get dimensionality of cell."""
+        cell_type = cell.GetCellType()
+        if cell_type in TYPES_3D:
             return 3
-        elif cellType in TYPES_2D:
+        if cell_type in TYPES_2D:
             return 2
-        elif cellType in TYPES_1D:
+        if cell_type in TYPES_1D:
             return 1
-        else:
-            return 0
+        #otherwise
+        return 0
 
     ncells = ugrid.GetNumberOfCells()
     ncda = ugrid.GetCellData().GetNumberOfArrays()
@@ -495,7 +373,7 @@ def ascii_to_polydata_time_series(filename, basename):
         write_to_file(poly_data, "%s_%d.vtp"%(basename, i))
 
 def write_bucket_to_polydata(bucket):
-    
+
     """ Output the points of a bucket to a vtkPoints object. """
 
     poly_data = vtk.vtkPolyData()
@@ -511,348 +389,18 @@ def write_bucket_to_polydata(bucket):
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
 def write_bucket_to_points(bucket):
-    
+
     """ Output the basic data of a bucket to a vtkPolyData object. """
 
     pnts = vtk.vtkPoints()
     pnts.Allocate(len(bucket))
 
     for positions in bucket.pos():
-        pts.InsertNextPoint(*positions)
+        pnts.InsertNextPoint(*positions)
 
-    return pts
+    return pnts
 
-def radial_distribution_function(alpha):
-
-    ALPHA_MAX = 0.59999
-
-    ALPHA0 =0.6
-
-    numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
-
-    return 1.0/(1.0-(alpha/ALPHA0)**(1.0/3.0))
-
-def rdf_deriv(alpha):
-
-
-    ALPHA_MAX = 0.59999
-
-    ALPHA0 = 0.6
-
-    numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
-
-    return -1.0/(3.0*ALPHA0)*(alpha/ALPHA0)**(-2.0/3.0)/(1.0-(alpha/ALPHA0)**(1.0/3.0))**2
-
-
-def distance2(pnt1,pnt2):
-
-    return vtk.vtkMath().Distance2BetweenPoints(pnt1,pnt2)
-
-
-def calculate_averaged_properties_cpp(poly_data):
-
-    filter = vtkParticlesPython.vtkGranularTemperature()
-    if vtk.vtkVersion.GetVTKMajorVersion()<6:
-        filter.SetInput(poly_data)
-    else:
-        filter.SetInputData(poly_data)
-    filter.Update()
-    poly_data.DeepCopy(filter.GetOutput())
-
-    return numpy_support.vtk_to_numpy(poly_data.GetPointData().GetVectors("SolidPressureGradient"))
-
-def calculate_averaged_properties(poly_data, bucket):
-
-    """ Calculate a volume fraction estimate at the level of the particles."""
-
-    locator = vtk.vtkPointLocator()
-    locator.SetDataSet(poly_data)
-    locator.BuildLocator()
-
-    LENGTH = 0.03
-    MODIFIER = 3e3
-
-    volume = numpy.zeros(poly_data.GetNumberOfPoints())
-    temperature = numpy.zeros(poly_data.GetNumberOfPoints())
-    solid_pressure = numpy.zeros(poly_data.GetNumberOfPoints())
-    velocity = numpy.zeros((poly_data.GetNumberOfPoints(), 3))
-    solid_pressure_gradient = numpy.zeros((poly_data.GetNumberOfPoints(),3))
-
-    for ipnt, particle in enumerate(bucket.particles):
-        point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
-        
-        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
-
-        for _ in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(_)
-
-            particle2 = bucket.particles[point_index]
-
-            rad2 = distance2(particle2.pos, particle.pos)
-            rad2 /= LENGTH**2
-            
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
-
-            volume[point_index] += gamma
-
-            velocity[point_index, :] += particle.vel*gamma
-
-    volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
-    velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
-
-    for i in range(3):
-        velocity[:,i] /= volume
-
-    for k, particle in enumerate(bucket.particles):
-        point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
-
-        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
-
-        for _ in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(_)
-
-            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
-            rad2 /= LENGTH**2
-
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
-
-            c = distance2(particle.vel, velocity[k, :])
-
-            temperature[point_index] += c*gamma
-
-
-    for particle in bucket.particles:
-        point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
-
-        beta= 1.0/6.0*numpy.pi*particle.parameters.diameter**3
-
-        for _ in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(_)
-
-            rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
-            rad2 /= LENGTH **2
-
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
-
-            c = distance2(particle.vel, velocity[point_index, :])
-
-            val = (bucket.particles[point_index].pos-particle.pos)/LENGTH**2
-                              
-            spg = ((radial_distribution_function(volume[point_index])
-                   +volume[point_index]*rdf_deriv(volume[point_index]))*temperature[point_index]
-                   +c*volume[point_index]*radial_distribution_function(volume[point_index]))
-
-            solid_pressure_gradient[point_index, :] += (val*spg*gamma)
-
-    for _ in range(poly_data.GetNumberOfPoints()):
-
-        solid_pressure[_] = (bucket.particles[0].parameters.rho*volume[_]
-                             *radial_distribution_function(volume[_])*temperature[_])
-
-    data = [vtk.vtkDoubleArray()]
-    data[0].SetName('SolidVolumeFraction')
-    data.append(vtk.vtkDoubleArray())
-    data[1].SetName('SolidVolumeVelocity')
-    data[1].SetNumberOfComponents(3)
-    data.append(vtk.vtkDoubleArray())
-    data[2].SetName('GranularTemperature')
-    data.append(vtk.vtkDoubleArray())
-    data[3].SetName('SolidPressure')
-    data.append(vtk.vtkDoubleArray())
-    data[4].SetName('SolidPressureGradient')
-    data[4].SetNumberOfComponents(3)
-
-    for _ in range(poly_data.GetNumberOfPoints()):
-        data[0].InsertNextValue(volume[_])
-        data[1].InsertNextTuple3(*velocity[_])
-        data[2].InsertNextValue(temperature[_])
-        data[3].InsertNextValue(solid_pressure[_])
-        data[4].InsertNextTuple3(*solid_pressure_gradient[_])
-
-    for _ in data:
-        poly_data.GetPointData().AddArray(_)
-
-    return data[4]
-
-def get_measure(cell):
-    if cell.GetCellType() == vtk.VTK_LINE:
-        return numpy.sqrt(cell.GetLength2())
-    elif cell.GetCellType() == vtk.VTK_TRIANGLE:
-        return cell.ComputeArea()
-    elif cell.GetCellType() == vtk.VTK_TETRA:
-        pts = [cell.GetPoints().GetPoint(i) for i in range(4)]
-        return cell.ComputeVolume(*pts)
-    return None
-    
-
-def point_average(model, bucket):
-    """ Calculate a volume fraction estimate at the level of the grid."""
-
-    ugrid = vtk.vtkUnstructuredGrid()
-    ugrid.DeepCopy(model)
-
-    locator = vtk.vtkPointLocator()
-    locator.SetDataSet(ugrid)
-    locator.BuildLocator()
-
-    LENGTH = 0.05
-    MODIFIER = 1.0e8
-
-    volfrac = numpy.zeros(ugrid.GetNumberOfPoints())
-    volume = numpy.zeros(ugrid.GetNumberOfPoints())
-    cell_volume = numpy.zeros(ugrid.GetNumberOfPoints())
-    temperature = numpy.zeros(ugrid.GetNumberOfPoints())
-    solid_pressure = numpy.zeros(ugrid.GetNumberOfPoints())
-    velocity = numpy.zeros((ugrid.GetNumberOfPoints(),3))
-
-    for _ in range(ugrid.GetNumberOfCells()):
-        cell = ugrid.GetCell(_)
-
-        loc_vol = get_measure(cell)/cell.GetNumberOfPoints()
-
-        for i in range(cell.GetNumberOfPoints()):
-            print cell.GetPointIds().GetId(i)
-            cell_volume[cell.GetPointIds().GetId(i)] += loc_vol
-
-    for ipnt, particle in enumerate(bucket.particles):
-        point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
-
-        for _ in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(_)
-
-            rad2 = 0.0*distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
-            rad2 /= LENGTH**2
-            
-            gamma = particle.volume*numpy.exp(-rad2)
-
-            volume[point_index] += gamma
-            velocity[point_index, :] += particle.vel*gamma
-
-    for _ in range(ugrid.GetNumberOfPoints()):
-        if volume[_] >1.0e-12:
-            velocity[_, :] /= volume[_]
-
-    volfrac = volume/cell_volume
-
-    for ipnt, particle in enumerate(bucket.particles):
-        point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
-
-        for _ in range(point_list.GetNumberOfIds()):
-            point_index = point_list.GetId(_)
-
-            rad2 = distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
-            rad2 /= LENGTH**2
-            
-            gamma = particle.volume*numpy.exp(-rad2)
-
-            c = distance2(particle.vel, velocity[point_index, :])
-
-            temperature[point_index] += c*gamma
-
-
-
-    for _ in range(ugrid.GetNumberOfPoints()):
-         if volume[_] >1.0e-12:
-             temperature[_] /= volume[_]
-
-    solid_pressure = (bucket.particles[0].parameters.rho*volfrac
-                             *radial_distribution_function(volfrac)*temperature)
-        
-    data = [vtk.vtkDoubleArray()]
-    data[0].SetName('SolidVolumeFraction')
-    data.append(vtk.vtkDoubleArray())
-    data[1].SetName('SolidVolumeVelocity')
-    data[1].SetNumberOfComponents(3)
-    data.append(vtk.vtkDoubleArray())
-    data[2].SetName('GranularTemperature')
-    data.append(vtk.vtkDoubleArray())
-    data[3].SetName('SolidPressure')
-
-    for _ in range(ugrid.GetNumberOfPoints()):
-        data[0].InsertNextValue(cell_volume[_])
-        data[1].InsertNextTuple3(*(velocity[_]))
-        data[2].InsertNextValue(temperature[_])
-        data[3].InsertNextValue(solid_pressure[_])
-
-    pdata = vtk.vtkDoubleArray()
-    pdata.SetName('Time')
-    
-    for _ in range(ugrid.GetNumberOfPoints()):
-        pdata.InsertNextValue(bucket.time)
-
-    for _ in data:
-        ugrid.GetPointData().AddArray(_)
-    ugrid.GetPointData().AddArray(pdata)
-        
-    return ugrid
-
-def cell_average(model, bucket):
-    """ Calculate a volume fraction estimate at the level of the grid."""
-
-    ugrid = vtk.vtkUnstructuredGrid()
-    ugrid.DeepCopy(model)
-
-    locator = vtk.vtkCellLocator()
-    locator.SetDataSet(ugrid)
-    locator.BuildLocator()
-
-    volfrac = numpy.zeros(ugrid.GetNumberOfCells())
-    volume = numpy.zeros(ugrid.GetNumberOfCells())
-    temperature = numpy.zeros(ugrid.GetNumberOfCells())
-    velocity = numpy.zeros((ugrid.GetNumberOfCells(),3))
-
-    for particle in bucket.particles:
-        cell_id = locator.FindCell(particle.pos)
-        volume[cell_id] += particle.volume
-        velocity[cell_id, :] += particle.volume*particle.vel
-
-    for _ in range(ugrid.GetNumberOfCells()):
-        if volume[_] >1.0e-12:
-            velocity[_, :] /= volume[_]
-        volfrac[_] = volume[_] / get_measure(ugrid.GetCell(_))
-
-    for particle in bucket.particles:
-        cell_id = locator.FindCell(particle.pos)
-        temperature[cell_id] += particle.volume*distance2(particle.vel,velocity[cell_id, :])
-
-    for _ in range(ugrid.GetNumberOfCells()):
-         if volume[_] >1.0e-12:
-             temperature[_] /= volume[_]
-        
-    data = [vtk.vtkDoubleArray()]
-    data[0].SetName('SolidVolumeFraction')
-    data.append(vtk.vtkDoubleArray())
-    data[1].SetName('SolidVolumeVelocity')
-    data[1].SetNumberOfComponents(3)
-    data.append(vtk.vtkDoubleArray())
-    data[2].SetName('GranularTemperature')
-#    data.append(vtk.vtkDoubleArray())
-#    data[3].SetName('SolidPressure')
-
-    for _ in range(ugrid.GetNumberOfCells()):
-        data[0].InsertNextValue(volume[_])
-        data[1].InsertNextTuple3(*(velocity[_]))
-        data[2].InsertNextValue(temperature[_])
-#        data[3].InsertNextValue(solid_pressure[_])
-
-    pdata = vtk.vtkDoubleArray()
-    pdata.SetName('Time')
-    
-    for _ in range(ugrid.GetNumberOfPoints()):
-        pdata.InsertNextValue(bucket.time)
-
-    for _ in data:
-        ugrid.GetCellData().AddArray(_)
-    ugrid.GetPointData().AddArray(pdata)
-        
-    return ugrid
-
-def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **kwargs):
+def write_level_to_polydata(bucket, level, basename=None, do_average=False, **kwargs):
 
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
@@ -867,7 +415,6 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     del kwargs
 
-    
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
     pnts.Allocate(0)
@@ -888,9 +435,9 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     plive = bucket.system.in_system(bucket.pos(), len(bucket), bucket.time)
 
-    for k, par in enumerate(bucket.particles):
-        particle_id.InsertNextValue(par.id())
-        if plive[k]:
+    for _, par in zip(plive, bucket):
+        particle_id.InsertNextValue(hash(par))
+        if _:
             live.InsertNextValue(1.0)
         else:
             live.InsertNextValue(0.0)
@@ -918,14 +465,14 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
     poly_data.GetCellData().AddArray(live)
 
     if do_average:
-        gsp=calculate_averaged_properties_cpp(poly_data)
+        gsp = calculate_averaged_properties_cpp(poly_data)
 
     if Parallel.is_parallel():
-        file_ext='pvtp'
+        file_ext = 'pvtp'
     else:
-        file_ext='vtp'
+        file_ext = 'vtp'
 
-    write_to_file(poly_data, "%s_%d.%s"%(basename, level,file_ext))
+    write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))
 
     if do_average:
         return gsp
@@ -964,7 +511,7 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     LENGTH = 0.1
     MULTIPLIER = 1.e3
 
-    for dummy_particle in bucket.particles:
+    for dummy_particle in bucket:
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
 
@@ -980,24 +527,23 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
             velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
                                          *numpy.exp(-rad2**2)*MULTIPLIER)
-        
+
     volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
     velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
 
-    for dummy_particle in bucket.particles:
+    for dummy_particle in bucket:
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
 
         rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
-                              -dummy_particle.pos)**2)
+                          -dummy_particle.pos)**2)
         rad2 /= LENGTH
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
             c = numpy.sum((dummy_particle.vel-velocity[point_index, :])**2)
 
-        
-            temperature [point_index] += (c*1.0/6.0*numpy.pi
+            temperature[point_index] += (c*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
                                          *numpy.exp(-rad2**2)*MULTIPLIER)
 
@@ -1005,7 +551,6 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
 
         solid_pressure[_] = (dummy_particle.parameters.rho*volume[_]
                              *radial_distribution_function(volume[_])*temperature[_])
-            
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -1070,7 +615,7 @@ def ascii_to_polydata(filename, outfile):
 
     write_to_file(poly_data, outfile)
 
-def update_collision_polydata(pb, base_name, **kwargs):
+def update_collision_polydata(bucket, base_name, **kwargs):
     """ Update collisions from data in the particle bucket."""
 
     if Parallel.is_parallel():
@@ -1078,7 +623,7 @@ def update_collision_polydata(pb, base_name, **kwargs):
     else:
         fext = 'vtp'
 
-    collision_list_to_polydata(pb.collisions(), base_name+'_collisions.'+fext)
+    collision_list_to_polydata(bucket.collisions(), base_name+'_collisions.'+fext)
 
 def collision_list_to_polydata(col_list, outfile,
                                model=Collision.mclaury_mass_coeff, **kwargs):
@@ -1159,8 +704,8 @@ def test_in_cell(cell, position):
 
     out = cell.GetParametricDistance(ppos[:3])
     if out > 0:
-        print 'point %s'%position 
-        print 'outside cell by %s '%out
+        logger.warn('point %s'%position)
+        logger.warn('outside cell by %s'%out)
     return out == 0
 
 def write_to_file(vtk_data, outfile):

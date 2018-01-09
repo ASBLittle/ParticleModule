@@ -1,8 +1,8 @@
 """ Module contains routines to deal with calculating wear from
 collision information."""
 
-import numpy
 import copy
+import numpy
 
 class CollisionException(Exception):
     """ Exception to deal with bad collisions"""
@@ -47,8 +47,8 @@ def basic_mclaury_mass_coeff(collision, material=None):
         """ Mclaury angle response function"""
         if numpy.tan(theta) > 1.0/3.0:
             return numpy.cos(theta)**2/3.0
-        else:
-            return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
+        #otherwise
+        return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
 
     vel = numpy.sqrt(numpy.sum(collision.vel**2))
 
@@ -69,14 +69,14 @@ def mclaury_mass_coeff(collision, material=None):
         """ Mclaury angle response function"""
         if numpy.tan(theta) > 1.0/3.0:
             return numpy.cos(theta)**2/3.0
-        else:
-            return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
+        #otherwise
+        return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
 
 
-    vel = numpy.sqrt(numpy.dot(collision.vel,collision.vel))
-
+    vel = numpy.sqrt(numpy.dot(collision.vel, collision.vel))
     vel0 = 0.1
+    beta = 1.0
 
-    beta=1.0
-
-    return coeff*hardness*sharpness_factor*penetration_factor*(vel**n_exp*fun(collision.angle)+max(0.0,beta*(vel*numpy.sin(collision.angle)-vel0)**2))
+    return (coeff*hardness*sharpness_factor*penetration_factor
+            *(vel**n_exp*fun(collision.angle)
+              +max(0.0, beta*(vel*numpy.sin(collision.angle)-vel0)**2)))

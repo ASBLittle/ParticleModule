@@ -34,12 +34,10 @@ pm.IO.write_level_to_polydata(PB, 0, NAME)
 
 for i in range(300):
     print PB.time
-    print 'min, max: pos_x', numpy.array(list(PB.pos()))[:, 0].ravel().min(), numpy.array(list(PB.pos()))[:, 0].ravel().max()
-    print 'min, max: vel_x', numpy.array(list(PB.vel()))[:, 0].ravel().min(), numpy.array(list(PB.vel()))[:, 0].ravel().max()
+    print 'min, max: pos_x', PB.pos_as_array()[:, 2].min(), PB.pos_as_array()[:, 2].max()
+    print 'min, max: vel_x', PB.vel_as_array()[:, 2].min(), PB.vel_as_array()[:, 2].max()
     PB.update()
     PD.append_data(PB)
     pm.IO.write_level_to_polydata(PB, i+1, NAME)
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
-
-

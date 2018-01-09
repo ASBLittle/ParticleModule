@@ -35,15 +35,15 @@ DATA = []
 TIME = []
 
 for i in range(30):
-    DATA.append(-PB.vel[0, 2])
+    DATA.append(-numpy.array(list(PB.vel()))[0, 2])
     TIME.append(PB.time)
     print PB.time
-    print 'min, max: pos_z', PB.pos[:, 2].ravel().min(), PB.pos[:, 2].ravel().max()
-    print 'min, max: vel_z', PB.vel[:, 2].ravel().min(), PB.vel[:, 2].ravel().max()
+    print 'min, max: pos_z', PB.pos_as_array()[:, 2].min(), PB.pos_as_array()[:, 2].max()
+    print 'min, max: vel_z', PB.vel_as_array()[:, 2].min(), PB.vel_as_array()[:, 2].max()
     PB.update()
     PD.append_data(PB)
     pm.IO.write_level_to_polydata(PB, i+1, NAME)
-DATA.append(-PB.vel[0, 2])
+DATA.append(-numpy.array(list(PB.vel()))[0, 2])
 TIME.append(PB.time)
 
 p.plot(TIME, DATA, lw=2)
@@ -51,5 +51,3 @@ p.show()
 
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
-
-

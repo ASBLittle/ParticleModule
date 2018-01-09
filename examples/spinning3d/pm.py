@@ -1,4 +1,4 @@
-"""Example of particles in a centrifuge."""
+"""Example of particles in a centrifuge in 3D."""
 import particle_model as pm
 import numpy
 from numpy import pi
@@ -33,8 +33,8 @@ pm.IO.write_level_to_polydata(PB, 0, NAME)
 
 for i in range(2000):
     print PB.time
-    print 'min, max: pos_z', PB.pos[:, 2].ravel().min(), PB.pos[:, 2].ravel().max()
-    print 'min, max: vel_z', PB.vel[:, 2].ravel().min(), PB.vel[:, 2].ravel().max()
+    print 'min, max: pos_z', PB.pos_as_array()[:, 2].min(), PB.pos_as_array().max()
+    print 'min, max: vel_z', PB.vel_as_array()[:, 2].min(), PB.vel_as_array().max()
     PB.update()
     if i%10 == 0:
         PD.append_data(PB)
@@ -42,5 +42,3 @@ for i in range(2000):
 
 PD.write()
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions%s.vtp'%NAME)
-
-

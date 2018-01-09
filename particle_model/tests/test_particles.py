@@ -21,7 +21,10 @@ class temp_cache(object):
 
         self.fname = fname
         self.ldir = ldir
-        self.dc = dc()
+        self.cache = dc()
+
+    def get(self, infile, name):
+        return None
         
 
     def __call__(self, time):

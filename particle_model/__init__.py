@@ -8,26 +8,29 @@ import particle_model.DragModels
 
 from numpy import zeros
 
-def setup_from_fluidity(mb,time,dt, delta_t=None,
-                        X = zeros((0,3)),
-                        V = zeros((0,3))):
+def setup_from_fluidity(mb, time, dt, delta_t=None,
+                        X=zeros((0, 3)),
+                        V=zeros((0, 3))):
+    """Drive particles from inside Fluidity."""
 
-    SYSTEM=pm.System.get_system_from_options(block=(mb,time,dt))
-    PAR=pm.ParticleBase.get_parameters_from_options()[0]
+    SYSTEM = particle_model.System.get_system_from_options(block=(mb, time, dt))
+    PAR = particle_model.ParticleBase.get_parameters_from_options()[0]
 
-    bucket = pm.Particles.ParticleBucket(X, V, time,delta_t,
-                                 system=SYSTEM,
-                                 parameters=PAR)
+    bucket = particle_model.Particles.ParticleBucket(X, V, time, delta_t,
+                                                     system=SYSTEM,
+                                                     parameters=PAR)
 
     return bucket
 
 
-def debugOn():
+def DebugOn():
+    """ Turn on debug level logging."""
     logging = particle_model.Debug.logging
     logger = particle_model.Debug.logger
     logger.setLevel(level=logging.DEBUG)
 
-def infoOn():
+def InfoOn():
+    """ Turn on info level logging."""
     logging = particle_model.Debug.logging
+    logger = particle_model.Debug.logger
     logger.setLevel(level=logging.INFO)
-

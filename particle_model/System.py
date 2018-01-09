@@ -6,7 +6,7 @@ from particle_model import IO
 from particle_model import Parallel
 
 
-from numpy import zeros, empty, bool
+from numpy import zeros, empty
 from numpy.linalg import norm
 import vtk
 
@@ -14,7 +14,9 @@ class System(object):
     """ Class decribes the fixed properties of the underlying system and its
     fluid dynamical solution."""
 
-    def __init__(self, boundary=None, temporal_cache=None, base_name=None, options=None, block=None, velocity_name='Velocity', **kwargs):
+    def __init__(self, boundary=None, temporal_cache=None,
+                 base_name=None, options=None, block=None,
+                 velocity_name='Velocity', **kwargs):
         """ Initialise the system class. """
         self.boundary = boundary
         if temporal_cache:
@@ -23,7 +25,7 @@ class System(object):
             self.temporal_cache = TemporalCache.TemporalCache(base_name)
         elif block:
             self.temporal_cache = TemporalCache.FluidityCache(*block,
-                                                               velocity_name=velocity_name)
+                                                              velocity_name=velocity_name)
         else:
             self.temporal_cache = None
         self.options = options
@@ -62,7 +64,7 @@ class System(object):
             return out
 
         obj = self.temporal_cache(time)[0][0][2]
-        loc=vtk.vtkCellLocator()
+        loc = vtk.vtkCellLocator()
 
         if obj.IsA('vtkUnstructuredGrid'):
             loc.SetDataSet(obj)
@@ -73,12 +75,14 @@ class System(object):
 
 
         for k, point in enumerate(points):
-            out[k] = loc.FindCell(point)> -1
+            out[k] = loc.FindCell(point) > -1
 
         return out
 
     def particle_in_system(self, particle_list, time, rank):
         """ Check that the particles of X are inside the system data """
+
+        del rank
 
         out = []
 
@@ -87,7 +91,7 @@ class System(object):
             return out
 
         obj = self.temporal_cache(time)[0][0][2]
-        loc=vtk.vtkCellLocator()
+        loc = vtk.vtkCellLocator()
 
         if obj.IsA('vtkUnstructuredGrid'):
             loc.SetDataSet(obj)
@@ -95,33 +99,30 @@ class System(object):
             loc.SetDataSet(obj.GetBlock(0))
         loc.BuildLocator()
 
-
-        cell = vtk.vtkGenericCell()
-        pcoords = [0.0,0.0,0.0]
-        w=[0.0,0.0,0.0,0.0]
-
-
         for par in particle_list:
-            out.append(loc.FindCell(par.pos)> -1)
+            out.append(loc.FindCell(par.pos) > -1)
 
         return out
 
     def update_boundary_from_mesh(self, mesh):
+        """Update boundary object from mesh."""
         self.boundary.update_boundary_file(IO.make_boundary_from_msh(mesh))
 
     def update_boundary_from_block(self, mblock):
+        """Update boundary object from VTK block."""
         self.boundary.update_boundary_file(IO.get_boundary_from_block(mblock))
-        
-            
+
+
 
 def get_system_from_options(options_file=None, boundary_grid=None,
-                            block=None, velocity_name='Velocity',dist=None):
+                            block=None, velocity_name='Velocity', dist=None):
+    """Derive particle system from options file."""
 
-    reader=Options.OptionsReader(options_file)
+    reader = Options.OptionsReader(options_file)
 
     if boundary_grid is None:
 
-        mesh=IO.GmshMesh()
+        mesh = IO.GmshMesh()
         mesh.read(reader.get_mesh_filename())
 
         boundary_grid = IO.make_boundary_from_msh(mesh)
@@ -131,12 +132,12 @@ def get_system_from_options(options_file=None, boundary_grid=None,
                                inlets=reader.get_inlets(), dist=dist)
 
     if block is None:
-        system = System(boundary,base_name=reader.get_name(),
-                         gravity=reader.get_gravity(),
+        system = System(boundary, base_name=reader.get_name(),
+                        gravity=reader.get_gravity(),
                         omega=reader.get_rotation()[0],
                         velocity_name=velocity_name)
     else:
-        system = System(boundary,block=block,
+        system = System(boundary, block=block,
                         gravity=reader.get_gravity(),
                         omega=reader.get_rotation()[0],
                         velocity_name=velocity_name)
@@ -144,20 +145,19 @@ def get_system_from_options(options_file=None, boundary_grid=None,
     return system
 
 def get_system_from_reader(reader, boundary_grid=None):
+    """Derive system from options reader."""
 
     if boundary_grid is None:
 
-        mesh=IO.GmshMesh()
+        mesh = IO.GmshMesh()
         mesh.read(reader.get_mesh_filename())
 
         boundary_grid = IO.make_boundary_from_msh(mesh)
 
 
     boundary = IO.BoundaryData(bnd=boundary_grid)
-    system = System(boundary,base_name=reader.get_name(),
+    system = System(boundary, base_name=reader.get_name(),
                     gravity=reader.get_gravity(),
                     omega=reader.get_rotation()[0])
 
     return system
-
-    

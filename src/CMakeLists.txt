@@ -38,6 +38,7 @@ include_directories("${PYTHON_INCLUDE_DIRS}")
 add_library(vtkParticles SHARED ${FILE_SRCS})
 target_link_libraries(vtkParticles ${VTK_LIBRARIES})
 add_library(vtk_extras SHARED Picker.cxx BoundingSurface.cxx)
+target_link_libraries(vtk_extras ${VTK_LIBRARIES})
 
 # Generate wrapper code
 vtk_wrap_python3(vtkParticlesPython vtkParticlesPython_SRCS "${FILE_SRCS}")
@@ -49,9 +50,9 @@ target_link_libraries(vtkParticlesPythonD
     ${VTK_LIBRARIES}
     ${VTK_PYTHON_LIBRARIES} ${PYTHON_LIBRARY})
     
-add_library(../particle_model/vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
+add_library(vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
 
-add_library(../particle_model/vtk_extras MODULE vtk_extras.cxx)
+add_library(vtk_extras_mod MODULE vtk_extras.cxx)
         
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -66,9 +67,14 @@ foreach(TMP_LIB ${VTK_MODULES_USED})
      set(VTK_PYTHOND_LIBS ${VTK_PYTHOND_LIBS} ${TMP_LIB}${PYTHOND_SUFFIX})
 endforeach()    
 
-target_link_libraries(../particle_model/vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})
-target_link_libraries(../particle_model/vtk_extras vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS} vtk_extras)
+target_link_libraries(vtkParticlesPython vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS})
+target_link_libraries(vtk_extras_mod vtkParticlesPythonD ${VTK_PYTHON_LIBRARIES} ${VTK_PYTHOND_LIBS} vtk_extras)
 
-set_target_properties(../particle_model/vtkParticlesPython PROPERTIES PREFIX "")
-set_target_properties(../particle_model/vtk_extras PROPERTIES PREFIX "")
+set_target_properties(vtkParticlesPython PROPERTIES PREFIX "")
+set_target_properties(vtk_extras_mod PROPERTIES PREFIX "")
+
+ADD_CUSTOM_COMMAND(TARGET vtk_extras_mod POST_BUILD
+                  COMMAND ${CMAKE_COMMAND} -E copy vtk_extras_mod.so ../particle_model/vtk_extras.so)
+ADD_CUSTOM_COMMAND(TARGET vtkParticlesPython POST_BUILD
+                  COMMAND ${CMAKE_COMMAND} -E copy vtkParticlesPython.so ../particle_model/vtkParticlesPython.so)
 

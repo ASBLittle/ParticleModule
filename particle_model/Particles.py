@@ -2,7 +2,9 @@
 
 import vtk
 
-from particle_model.Debug import profile
+from particle_model import Debug
+profile = Debug.profile
+logger = Debug.logger
 from particle_model import IO
 from particle_model import DragModels
 from particle_model import Collision
@@ -285,9 +287,11 @@ class Particle(ParticleBase.ParticleBase):
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
-            out = IO.get_vector(infile, names[0], cell_index, pcoords)
+            vdata = self.system.temporal_cache.dc.get(infile, names[0])
+            out = IO.get_vector(infile, vdata, names[0], cell_index, pcoords)
 
-            data_p = IO.get_scalar(infile, names[1], cell_index)
+            sdata = self.system.temporal_cache.dc.get(infile, names[1])
+            data_p = IO.get_scalar(infile, sdata, names[1], cell_index)
             rhs = data_p[1:dim+1]-data_p[0]
 
             mat = numpy.zeros((dim, dim))
@@ -303,7 +307,8 @@ class Particle(ParticleBase.ParticleBase):
             grad_p[:dim] = numpy.dot(mat, rhs)
 
             if len(names)==3:
-                gout = IO.get_vector(infile, names[2], cell_index, pcoords)
+                vdata = self.system.temporal_cache.dc.get(infile, names[2])
+                gout = IO.get_vector(infile, vdata, names[2], cell_index, pcoords)
                 return out, grad_p, gout
             else:
                 return out, grad_p
@@ -351,10 +356,11 @@ class Particle(ParticleBase.ParticleBase):
 
         data, alpha, names = self.system.temporal_cache(self.time)
         idx, pcoords =self.find_cell(data[0][3], pa)
-        try:
-            gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+        vdata = self.system.temporal_cache.dc.get(data[0][2], "GridVelocity")
+        if vdata:
+            gridv = IO.get_vector(data[0][2], vdata, "GridVelocity", idx, pcoords)
             gridv.resize([3])
-        except TypeError:
+        else:
             gridv = None
             
         pos = pa+delta_t*k
@@ -387,7 +393,7 @@ class Particle(ParticleBase.ParticleBase):
             old_pos = pos
 
             idx, pcoords =self.find_cell(data[0][3], x)
-            gridv = IO.get_vector(data[0][2], "GridVelocity", idx, pcoords)
+            gridv = IO.get_vector(data[0][2], None, "GridVelocity", idx, pcoords)
             gridv.resize([3])
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
@@ -497,15 +503,15 @@ class ParticleBucket(object):
             X (float): Initial particle positions.
             V (float): Initial velocities
         """
+
+        logger.info("Initializing ParticleBucket")
+
         self.system = system
 
         ### pick only points which are actually in our test box
-        live=system.in_system(X, time)
+        live=system.in_system(X, len(X), time)
         X = X.compress(live, axis=0)
         V = V.compress(live, axis=0)
-
-        self.fluid_velocity = numpy.zeros(X.shape)
-        self.grad_p = numpy.zeros(X.shape)
 
         self.particles = []
         self.dead_particles = []
@@ -522,24 +528,34 @@ class ParticleBucket(object):
             else:
                 self.particles.append(par)
         self.redistribute()
-        self.reset_globals()
         self.time = time
         self.delta_t = delta_t
-        self.pos = X
-        self.vel = V
         self.solid_pressure_gradient = numpy.zeros((len(self.particles),3))
         for particle, gsp in zip(self.particles,self.solid_pressure_gradient):
             particle.solid_pressure_gradient=gsp
 
         self.redistribute()
-        self.reset_globals()
             
         if filename:
             self.outfile = open(filename, 'w')
 
+    def __len__(self):
+        return len(self.particles)
+
+    def pos(self):
+        for part in self.particles:
+            yield part.pos
+
+    def vel(self):
+        for part in self.particles:
+            yield part.vel
+
     @profile
     def update(self, delta_t=None, *args, **kwargs):
         """ Update all the particles in the bucket to the next time level."""
+
+        logger.info("In ParticleBucket.Update: %d particles", len(self.particles))
+
         # redistribute particles to partitions in case of parallel adaptivity
         if Parallel.is_parallel():
             self.redistribute()
@@ -548,8 +564,7 @@ class ParticleBucket(object):
         if delta_t is not None:
             self.delta_t = delta_t
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
-        self.reset_globals()
-        live=self.system.in_system(self.pos, self.time)
+        live=self.system.in_system(self.pos(), len(self), self.time)
         for k, part in enumerate(self.particles):
             if live[k]:
                 part.update(self.delta_t,*args,**kwargs)
@@ -557,29 +572,17 @@ class ParticleBucket(object):
                 self.dead_particles.append(part)
                 self.particles.remove(part)
         self.redistribute()
-        self.reset_globals()
         self.insert_particles(*args, **kwargs)
         self.time += self.delta_t
 
     def redistribute(self):
+        """ In parallel, redistrbute particles to their owner process."""
         if Parallel.is_parallel():
+            logger.debug("%d particles before redistribution", len(self.particles))
             self.particles = Parallel.distribute_particles(self.particles,
                                                            self.system)
 
-    def reset_globals(self):
-        if self.system.temporal_cache:
-            self.fluid_velocity=numpy.empty((len(self.particles),3),float)
-            self.grad_p=numpy.empty((len(self.particles),3),float)
-            self.pos=numpy.empty((len(self.particles),3),float)
-            self.vel=numpy.empty((len(self.particles),3),float)
-            for k, part in enumerate(self.particles):
-                self.pos[k,:]=part.pos
-                self.vel[k,:]=part.vel
-                fluid_properties = part.get_fluid_properties()
-                if fluid_properties is not (None, None):
-                    self.fluid_velocity[k, :], self.grad_p[k, :] = \
-                        fluid_properties
-        
+            logger.debug("%d particles after redistribution", len(self.particles))
 
     def insert_particles(self, *args, **kwargs):
         """Deal with particle insertion"""
@@ -612,7 +615,6 @@ class ParticleBucket(object):
                     ## update position by fractional timestep
                     pos = pos + vel*(1-prob)*self.delta_t
                     
-
                     data, alpha, names = self.system.temporal_cache(time)
                     cell_id, PCOORDS =vtk_extras.FindCell(data[0][3], pos)
 
@@ -640,11 +642,13 @@ class ParticleBucket(object):
 
         self.outfile.write('%f'%self.time)
 
-        for pos in self.pos.ravel():
-            self.outfile.write(' %f'%pos)
+        for pos in self.pos():
+            for p in pos:
+                self.outfile.write(' %f'%p)
 
-        for vel in self.vel.ravel():
-            self.outfile.write(' %f'%vel)
+        for vel in self.vel():
+            for v in vel:
+                self.outfile.write(' %f'%v)
 
         self.outfile.write('\n')
 

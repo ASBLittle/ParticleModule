@@ -52,10 +52,10 @@ class System(object):
 
         return self.coeff
 
-    def in_system(self, points, time):
+    def in_system(self, points, size, time):
         """ Check that the points of X are inside the system data """
 
-        out = empty(points.shape[0],bool)
+        out = empty(size, bool)
 
         if self.temporal_cache is None or Parallel.is_parallel():
             out[:] = True

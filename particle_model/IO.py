@@ -5,6 +5,7 @@ from particle_model.Debug import profile
 from particle_model import Collision
 from particle_model import vtkParticlesPython
 from particle_model import Parallel
+from particle_model import vtk_extras
 
 import particle_model.vtkParticlesPython as vtp
 import vtk
@@ -181,7 +182,7 @@ class PolyData(object):
     def append_data(self, bucket):
         """ Add the data from the current time level"""
 
-        self.poly_data.GetFieldData().GetScalars('Time').InsertNextValue(bucket.time)
+        self.poly_data.GetFieldData().GetArray('Time').InsertNextValue(bucket.time)
 
         for particle in bucket.particles:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
@@ -270,7 +271,7 @@ class BoundaryData(object):
                 print os.getcwd()
                 raise OSError
 
-            self.reader.SetFileName(filename)
+            self.reader.SetFileName(file)
             self.reader.Update()
             self.bnd = self.reader.GetOutput()
 
@@ -501,9 +502,9 @@ def write_bucket_to_polydata(bucket):
     pnts = vtk.vtkPoints()
     pnts.Allocate(0)
     poly_data.SetPoints(pnts)
-    poly_data.Allocate(bucket.pos.shape[0])
+    poly_data.Allocate(len(bucket))
 
-    for positions, in bucket.pos :
+    for positions, in bucket.pos():
         pixel = vtk.vtkPixel()
         pixel.GetPointIds().InsertId(0,
                                      poly_data.GetPoints().InsertNextPoint(*positions))
@@ -514,9 +515,9 @@ def write_bucket_to_points(bucket):
     """ Output the basic data of a bucket to a vtkPolyData object. """
 
     pnts = vtk.vtkPoints()
-    pnts.Allocate(bucket.pos.shape[0])
+    pnts.Allocate(len(bucket))
 
-    for positions in bucket.pos:
+    for positions in bucket.pos():
         pts.InsertNextPoint(*positions)
 
     return pts
@@ -866,13 +867,12 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     del kwargs
 
-    bucket.reset_globals()
     
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
     pnts.Allocate(0)
     poly_data.SetPoints(pnts)
-    poly_data.Allocate(bucket.pos.shape[0])
+    poly_data.Allocate(len(bucket))
 
     outtime = vtk.vtkDoubleArray()
     outtime.SetName('Time')
@@ -880,13 +880,13 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     particle_id = vtk.vtkDoubleArray()
     particle_id.SetName('ParticleID')
-    particle_id.Allocate(bucket.pos.shape[0])
+    particle_id.Allocate(len(bucket))
 
     live = vtk.vtkDoubleArray()
     live.SetName('Live')
-    live.Allocate(bucket.pos.shape[0])
+    live.Allocate(len(bucket))
 
-    plive = bucket.system.in_system(bucket.pos, bucket.time)
+    plive = bucket.system.in_system(bucket.pos(), len(bucket), bucket.time)
 
     for k, par in enumerate(bucket.particles):
         particle_id.InsertNextValue(par.id())
@@ -898,10 +898,10 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,  **k
 
     velocity = vtk.vtkDoubleArray()
     velocity.SetNumberOfComponents(3)
-    velocity.Allocate(bucket.pos.shape[0])
+    velocity.Allocate(len(bucket))
     velocity.SetName('Particle Velocity')
 
-    for positions, vel in zip(bucket.pos, bucket.vel):
+    for positions, vel in zip(bucket.pos(), bucket.vel()):
         pixel = vtk.vtkPixel()
         pixel.GetPointIds().InsertId(0,
                                      poly_data.GetPoints().InsertNextPoint(positions[0],
@@ -1390,56 +1390,60 @@ def get_tensor(infile, name, index, pcoords):
     return out 
 
 @profile
-def get_vector(infile, name, index, pcoords):
+def get_vector(infile, data, name, index, pcoords):
 
     global vector_ugrid_no
 
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
-        data = infile.GetPointData().GetVectors(name)
+        if not data:
+            data = infile.GetPointData().GetVectors(name)
         ugrid = infile
     else:
         if vector_ugrid_no.setdefault(name,None):
             ids = infile.GetBlock(vector_ugrid_no[name]).GetCell(index).GetPointIds()
-            data = infile.GetBlock(vector_ugrid_no[name]).GetPointData().GetScalars(name)
+            if not data:
+                data = infile.GetBlock(vector_ugrid_no[name]).GetPointData().GetScalars(name)
             ugrid = infile.GetBlock(vector_ugrid_no[name])
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
-                    data = infile.GetBlock(_).GetPointData().GetVectors(name)
+                    if not data:
+                        data = infile.GetBlock(_).GetPointData().GetVectors(name)
                     ugrid = infile.GetBlock(_)
                     vector_ugrid_no[name] = _
                     break
             if vector_ugrid_no[name] is None: return None
-                
+    if not data: return numpy.zeros(3) 
 
 #    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
     ugrid.GetCell(index).InterpolateFunctions(pcoords, WEIGHTS[:ids.GetNumberOfIds()])
 
-    out = numpy.zeros(data.GetNumberOfComponents(), float)
-    for _ in range(ids.GetNumberOfIds()):
-        out[:] += WEIGHTS[_]*numpy.array(data.GetTuple(ids.GetId(_)))
+    out = vtk_extras.vInterpolate(data, ids, WEIGHTS) 
     return out 
             
 @profile
-def get_scalar(infile, name, index):
+def get_scalar(infile, data, name, index):
         
     global scalar_ugrid_no
 
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
-        data = infile.GetPointData().GetScalars(name)
+        if not data:
+            data = infile.GetPointData().GetScalars(name)
         scalar_ugrid = infile
     else:
         if scalar_ugrid_no.setdefault(name,None):
             ids = infile.GetBlock(scalar_ugrid_no[name]).GetCell(index).GetPointIds()
-            data = infile.GetBlock(scalar_ugrid_no[name]).GetPointData().GetScalars(name)
+            if not data:
+                data = infile.GetBlock(scalar_ugrid_no[name]).GetPointData().GetScalars(name)
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
-                    data = infile.GetBlock(_).GetPointData().GetScalars(name)
+                    if not data:
+                        data = infile.GetBlock(_).GetPointData().GetScalars(name)
                     scalar_ugrid_no[name] = _
                     break
 

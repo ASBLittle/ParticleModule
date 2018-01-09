@@ -9,24 +9,36 @@ from particle_model import System
 import vtk
 import numpy
 
-def temp_cache(fname='rightward_0.vtu', ldir='particle_model/tests/data'):
-    """Mock temporal cache."""
-    def fun(time):
+class dc(object):
+    def __init__(self):
+        """Mock data cache."""
+        self.get = lambda x,y: None
+
+class temp_cache(object):
+    
+    def __init__(self, fname='rightward_0.vtu', ldir='particle_model/tests/data'):
+        """Mock temporal cache."""
+
+        self.fname = fname
+        self.ldir = ldir
+        self.dc = dc()
+        
+
+    def __call__(self, time):
         """Factory function to mock a temporal cache."""
         del time
         reader = vtk.vtkXMLUnstructuredGridReader()
-        reader.SetFileName(ldir+'/'+fname)
+        reader.SetFileName(self.ldir+'/'+self.fname)
         reader.Update()
 
         locator = vtk.vtkCellLocator()
         locator.SetDataSet(reader.GetOutput())
         locator.BuildLocator()
 
-        return ([[0.0, fname, reader.GetOutput(), locator],
-                 [1.0, fname, reader.GetOutput(), locator]], 0.0,
+        return ([[0.0, self.fname, reader.GetOutput(), locator],
+                 [1.0, self.fname, reader.GetOutput(), locator]], 0.0,
                 [['Velocity', 'Pressure'], ['Velocity', 'Pressure']])
 
-    return fun
 
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')

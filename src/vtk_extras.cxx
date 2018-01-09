@@ -65,6 +65,50 @@ extern "C" {
     return pyugrid;
   }
 
+  static PyObject *extras_vInterpolate(PyObject *self, PyObject *args) {
+
+    vtkPythonArgs argument_parser(args, "extras_vInterpolate");
+    vtkDoubleArray *data;
+    vtkIdList *ids;
+    PyObject* weights;
+
+    if (!argument_parser.GetVTKObject(data, "vtkDoubleArray")) {
+      PyErr_SetString(PyExc_TypeError, "Need VTK double array as first argument");
+      return NULL;
+    }
+
+    if (!argument_parser.GetVTKObject(ids, "vtkIdList")) {
+      PyErr_SetString(PyExc_TypeError, "Need VTK id list as second argument");
+      return NULL;
+    }
+
+    argument_parser.GetPythonObject(weights);
+
+    npy_intp dims[1] = {0};
+
+    dims[0] = data->GetNumberOfComponents();
+
+    PyObject* output = PyArray_ZEROS(1,dims,NPY_DOUBLE,0);
+
+    double *doutput = (double*) PyArray_GETPTR1(output,0);
+    double *dweights = (double*) PyArray_GETPTR1(weights,0);
+
+    for (int c=0; c<ids->GetNumberOfIds(); ++c) {
+      for (int i=0; i<dims[0]; ++i) {
+	doutput[i] = doutput[i] 
+	  + dweights[c] * data->GetComponent(ids->GetId(c), i);
+      }	
+    }
+
+
+
+    return output;
+
+  }
+
+  char vInterpolate_docstring[] = "vInterpolate(vtkDoubleArray, vtkIdList, ndarray weights) -> ndarray result\n\n Interpolate values from a VTK double array.";  
+
+
   static PyObject *extras_evaluate_field(PyObject *self, PyObject *args) {
 
     vtkPythonArgs argument_parser(args, "extras_evaluate_field");
@@ -89,9 +133,9 @@ extern "C" {
     npy_intp dims[1] = {0};
     
     if (ugrid->GetPointData()->HasArray(name)) {
-      dims[1] = ugrid->GetPointData()->GetArray(name)->GetNumberOfComponents();
+      dims[0] = ugrid->GetPointData()->GetArray(name)->GetNumberOfComponents();
     } else if (ugrid->GetCellData()->HasArray(name)) {
-      dims[1] = ugrid->GetCellData()->GetArray(name)->GetNumberOfComponents();
+      dims[0] = ugrid->GetCellData()->GetArray(name)->GetNumberOfComponents();
     }
 
     PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
@@ -109,7 +153,8 @@ extern "C" {
   static PyMethodDef extrasMethods[] = {
     { (char *)"BoundingSurface", (PyCFunction) extras_bounding_surface, METH_VARARGS, bounding_surface_docstring},
     { (char *)"FindCell", (PyCFunction) extras_find_cell, METH_VARARGS, bounding_surface_docstring},
-    { (char *)"EvaluateField", (PyCFunction) extras_evaluate_field, METH_VARARGS, bounding_surface_docstring},    
+    { (char *)"EvaluateField", (PyCFunction) extras_evaluate_field, METH_VARARGS, bounding_surface_docstring},  
+    { (char *)"vInterpolate", (PyCFunction) extras_vInterpolate, METH_VARARGS, vInterpolate_docstring},    
     { NULL, NULL, 0, NULL }
   };
 

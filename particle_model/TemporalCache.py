@@ -7,11 +7,43 @@ from particle_model import Parallel
 try:
     from lxml import etree as ET
     def ElementTree(**kwargs):
-        ET.ElementTree(parser=etree.XMLParser(recover=True), **kwargs)
+        return ET.ElementTree(parser=ET.XMLParser(recover=True), **kwargs)
 except:
     from xml.etree import ElementTree as ET
     def ElementTree(**kwargs):
-        ET.ElementTree(**kwargs)
+        return ET.ElementTree(**kwargs)
+
+class DataCache(object):
+    """ Store data in a cyclical cache. """
+
+    def __init__(self, max_size = 2):
+        self._keys = [ None for _ in range(max_size) ]
+        self._values = [ {} for _ in range(max_size) ]
+
+    def get(self, infile, name):
+        try:
+            d = self._values[self._keys.index(infile)]
+        except ValueError:
+            self._keys[1:] = self._keys[:-1]
+            self._values[1:] = self._values[:-1]
+            self._keys[0] = infile
+            self._values[0] = {}
+            d = self._values[0]
+
+        data = d.get(name)
+        if not data:
+            if infile.IsA('vtkUnstructuredGrid'):
+                data = infile.GetPointData().GetArray(name)
+            else:
+                data = None
+                for _ in range(infile.GetNumberOfBlocks()):
+                    if infile.GetBlock(_).GetPointData().HasArray(name):
+                        data = infile.GetBlock(_).GetPointData().GetArray(name)
+                        break
+
+        return data
+
+        
 
 class TemporalCache(object):
     """ The base object containing the vtu files.
@@ -44,6 +76,8 @@ class TemporalCache(object):
 
         self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
         self.range(t_min, t_max)
+
+        self.dc = DataCache()
 
     def reset(self):
         """ Reset the bounds on the loaded cache data"""
@@ -106,7 +140,7 @@ class TemporalCache(object):
 
 
         ftext = open (filename, 'r')
-        e = etree.ElementTree(file=filename).getroot()   
+        e = ElementTree(file=filename).getroot()   
         assert e.tag == 'VTKFile' 
         if parallel:
             return self.get_time_from_vtk(e[0].findall('Piece')[Parallel.get_rank()].get('Source'))
@@ -161,6 +195,7 @@ class FluidityCache(object):
         self.cloc.SetDataSet(self.block.GetBlock(0))
         self.cloc.SetTolerance(0.0)
         self.cloc.BuildLocator()
+        self.dc = DataCache()
 
     def update(self, block, time, dt):
         self.block = block

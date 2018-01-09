@@ -8,3 +8,9 @@ try:
 except:
     def profile(obj):
         return obj
+
+import logging
+logging.basicConfig(format='%(module)s:%(funcName)s:%(lineno)d - %(message)s')
+logger = logging.getLogger('particle_model')
+
+

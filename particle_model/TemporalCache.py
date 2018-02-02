@@ -15,8 +15,10 @@ except ImportError:
         """ Wrapper for xml ElementTree."""
         return ET.ElementTree(**kwargs)
 
-def get_piece_filename_from_vtk(self, filename, piece=Parallel.get_rank()):
+def get_piece_filename_from_vtk(filename, piece=Parallel.get_rank()):
+
     """Get the filename of individual VTK file piece."""
+
     etree = element_tree(file=filename).getroot()
     return etree[0].findall('Piece')[piece].get('Source')
 
@@ -71,20 +73,19 @@ class TemporalCache(object):
     This scans the files for their timelevel information and provides a pair
     of files bracketing the desired timelevel when called
     """
-    def __init__(self, base_name, t_min=0., t_max=numpy.infty):
+    def __init__(self, base_name, t_min=0., t_max=numpy.infty, parallel_files=False, **kwargs):
         """
         Initialise the cache from a base file name and optional limits on the time levels desired.
         """
 
-        if Parallel.is_parallel():
+        if Parallel.is_parallel() or parallel_files:
             files = glob.glob(base_name+'_[0-9]*.pvtu')
         else:
             files = glob.glob(base_name+'_[0-9]*.vtu')
 
         self.data = []
+        self.set_field_names(**kwargs)
         self.reset()
-
-        print files
 
         for filename in files:
             if Parallel.is_parallel():
@@ -99,7 +100,15 @@ class TemporalCache(object):
 
         self.cache = DataCache()
 
+    def set_field_names(self, velocity_name="Velocity", pressure_name="Pressure", time_name="Time"):
+        """Set the names used to look up pressure and velocity fields."""
+        self.field_names = {} 
+        self.field_names["Velocity"] = velocity_name or ""
+        self.field_names["Pressure"] = pressure_name or ""
+        self.field_names["Time"] = time_name or ""
+
     def get(self, infile, name):
+        """Find array, possibly from cache."""
         return self.cache.get(infile, name)
 
     def reset(self):
@@ -165,17 +174,16 @@ class TemporalCache(object):
         else:
             for piece in etree[0]:
                 for data in piece[0]:
-                    if data.get('Name') != 'Time':
+                    if data.get('Name') != self.field_names["Time"]:
                         continue
                     return float(data.get('RangeMin'))
-
 
     def __call__(self, time):
         """ Get the data bracketing time level."""
         lower = self.lower
         upper = self.upper
 
-        assert self.data[lower][0] <= time and self.data[upper][0] >= time
+        assert self.data[lower][0] <= time and self.data[upper][0]+1.0e-8 >= time
 
         while lower < len(self.data)-2 and self.data[lower+1][0] <= time:
             lower += 1
@@ -186,7 +194,11 @@ class TemporalCache(object):
             t_max = numpy.infty
 
         return (self.data[lower:lower+2], (time-t_min)/(t_max-t_min),
-                [['Velocity', 'Pressure'], ['Velocity', 'Pressure']])
+                [[self.field_names["Velocity"], self.field_names["Pressure"]],
+                 [self.field_names["Velocity"], self.field_names["Pressure"]]])
+
+    def __iter__(self):
+        return self.data.__iter__()
 
     def get_bounds(self, ptime):
         """ Get bounds of vtk object, in form (xmin, xmax, ymin, ymax, zmin, zmax)."""
@@ -195,7 +207,6 @@ class TemporalCache(object):
         data[0][1][-2].ComputeBounds()
         data[0][1][-2].GetBounds(bounds)
         return bounds
-
 
 class FluidityCache(object):
     """Cache like object used when running particles online."""
@@ -216,6 +227,7 @@ class FluidityCache(object):
         self.cache = DataCache()
 
     def get(self, infile, name):
+        """Get array, possibly from cache."""
         return self.cache.get(infile, name)
 
     def update(self, block, time, delta_t):

@@ -49,6 +49,7 @@ class Particle(ParticleBase.ParticleBase):
 
         self.collisions = []
         self.parameters = parameters
+        self.pure_lagrangian = self.parameters.pure_lagrangian()
         self.system = system
         self.solid_pressure_gradient = numpy.zeros(3)
         self.volume = self.parameters.get_volume()
@@ -69,7 +70,6 @@ class Particle(ParticleBase.ParticleBase):
         par.set_hash(self._hash)
         par.set_old(self._old)
         return par
-
 
     def update(self, delta_t=None, method=None):
         """ Update the state of the particle to the next time level."""
@@ -282,12 +282,13 @@ class Particle(ParticleBase.ParticleBase):
             linear_cell = IO.get_linear_cell(cell)
 
             dim = linear_cell.GetNumberOfPoints()-1
-            upos = numpy.zeros(linear_cell.GetNumberOfPoints())
             dummy_func = linear_cell.GetPoints().GetPoint
-            args = [dummy_func(i+1)[:dim] for i in range(dim)]
-            args.append(dummy_func(0)[:dim])
-            args.append(upos)
-            linear_cell.BarycentricCoords(pos[:dim], *args)
+            if linear_cell.GetCellDimension() > 1:
+                upos = numpy.zeros(linear_cell.GetNumberOfPoints())
+                args = [dummy_func(i+1)[:dim] for i in range(dim)]
+                args.append(dummy_func(0)[:dim])
+                args.append(upos)
+                linear_cell.BarycentricCoords(pos[:dim], *args)
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
@@ -296,19 +297,20 @@ class Particle(ParticleBase.ParticleBase):
 
             sdata = self.system.temporal_cache.get(infile, names[1])
             data_p = IO.get_scalar(infile, sdata, names[1], cell_index)
-            rhs = data_p[1:dim+1]-data_p[0]
-
-            mat = numpy.zeros((dim, dim))
-
-            pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(dim+1)])
-            for i in range(dim):
-                mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
-
-#            mat=la.inv(mat)
-            mat = invert(mat)
 
             grad_p = numpy.zeros(3)
-            grad_p[:dim] = numpy.dot(mat, rhs)
+            if data_p is not None:
+                rhs = data_p[1:dim+1]-data_p[0]
+
+                mat = numpy.zeros((dim, dim))
+                
+                pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(dim+1)])
+                for i in range(dim):
+                    mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
+
+                mat = invert(mat)
+
+                grad_p[:dim] = numpy.dot(mat, rhs)
 
             if len(names) == 3:
                 vdata = self.system.temporal_cache.get(infile, names[2])
@@ -439,7 +441,10 @@ class Particle(ParticleBase.ParticleBase):
             coldat = []
 
             if any(vel):
-                if drag:
+                if self.pure_lagrangian:
+                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
+                    vels = fvel
+                elif drag:
                     C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
                     if fvel is not None:
                         vels = ((vel + s*delta_t*(force+C*(fvel)))
@@ -449,7 +454,10 @@ class Particle(ParticleBase.ParticleBase):
                 else:
                     vels = vel+s*delta_t*force
             else:
-                if drag:
+                if self.pure_lagrangian:
+                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
+                    vels = fvel
+                elif drag:
                     C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
                     if fvel is not None:
                         vels = (self.vel + s*delta_t*(force+C*(fvel))
@@ -482,7 +490,10 @@ class Particle(ParticleBase.ParticleBase):
                 coldat += col
 
             return pos - pa, coldat, velo, vels
-        if drag:
+        if self.pure_lagrangian:
+            C, fvel = self.drag_coefficient(pos, vel, self.time)
+            return  (pos - pa, None, fvel  - self.vel, None)
+        elif drag:
             C, fvel = self.drag_coefficient(pos, vel, self.time)
             if fvel is None:
                 return (pos - pa, None,
@@ -604,6 +615,8 @@ class ParticleBucket(object):
         self.redistribute()
         self.insert_particles(*args, **kwargs)
         self.time += self.delta_t
+        for part in self:
+            part.time = self.time
 
     def redistribute(self):
         """ In parallel, redistrbute particles to their owner process."""
@@ -656,16 +669,13 @@ class ParticleBucket(object):
                                    system=self.system,
                                    parameters=self.parameters.randomize())
 
-                    par.time = self.time + self.delta_t
                     par.delta_t = self.delta_t
 
                     self.particles.append(par)
 
-
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""
         return [i for i in itertools.chain(*[p.collisions for p in self.particles+self.dead_particles])]
-
 
     def write(self):
         """Write timelevel data to file."""

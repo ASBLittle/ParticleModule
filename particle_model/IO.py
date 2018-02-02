@@ -991,10 +991,12 @@ def get_scalar(infile, data, name, index):
                         data = infile.GetBlock(_).GetPointData().GetScalars(name)
                     scalar_ugrid_no[name] = _
                     break
-
-    out = numpy.empty(ids.GetNumberOfIds(),float)
-    for _ in range(ids.GetNumberOfIds()):
-        out[_]=data.GetValue(ids.GetId(_))
+    if data:
+        out = numpy.empty(ids.GetNumberOfIds(),float)
+        for _ in range(ids.GetNumberOfIds()):
+            out[_]=data.GetValue(ids.GetId(_))
+    else:
+        out = None
     return out 
 
 def get_mesh_from_reader(reader):

@@ -56,7 +56,7 @@ class PhysicalParticle(object):
         self.material_name = material_name
         self.data_dict = kwargs
         self.drag = kwargs.get('drag',
-                               DragModels.model(DragModels.transitional_drag_coefficient))
+                               DragModels.Model(DragModels.transitional_drag_coefficient))
         self.drag_coefficient = kwargs.get('drag_coefficient',
                                            DragModels.transitional_drag_coefficient)
 
@@ -69,6 +69,8 @@ class PhysicalParticle(object):
         #otherwise
         return self.data_dict[key]
 
+    def pure_lagrangian(self):
+        return self.base_diameter == 0
 
     def get_area(self):
         """Return particle volume."""

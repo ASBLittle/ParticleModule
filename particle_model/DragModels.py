@@ -2,7 +2,7 @@
 
 import numpy
 
-class model(object):
+class Model(object):
     def __init__(self, coefficient):
         self.coefficient = coefficient
     def __call__(self, fluid_velocity, particle_velocity, *args, **kwargs):
@@ -12,9 +12,9 @@ class model(object):
 
 def stokes_drag_coefficient(fluid_velocity, particle_velocity,
                             diameter, rho, fluid_viscosity, **kwargs):
+    """ Return Stokes drag force for particle parameters"""
     del fluid_velocity
     del particle_velocity
-    """ Return Stokes drag force for particle parameters"""
     del kwargs ## supress argument unused warning
     return rho*18./diameter**2*fluid_viscosity
 
@@ -73,6 +73,7 @@ def transitional_drag_coefficient(fluid_velocity, particle_velocity,
 
 def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f,
                    fluid_viscosity, **kwargs):
+    """Calculate transitional drag force."""
     return transitional_drag_coefficient(fluid_velocity,
                                          particle_velocity,
                                          diameter, rho_f,

@@ -4,6 +4,7 @@
 #include "vtkPointData.h"
 #include "vtkCellData.h"
 #include "vtkCellLocator.h"
+#include "vtkIdList.h"
 #include "stdio.h"
 #include "numpy/arrayobject.h"
 

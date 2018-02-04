@@ -10,6 +10,7 @@ from particle_model import Collision
 from particle_model import System
 from particle_model import ParticleBase
 from particle_model import Parallel
+from particle_model import Timestepping
 from particle_model import vtk_extras
 from particle_model.Debug import profile, logger
 
@@ -75,99 +76,11 @@ class Particle(ParticleBase.ParticleBase):
         """ Update the state of the particle to the next time level."""
         if delta_t is not None:
             self.delta_t = delta_t
-        if method == "AdamsBashforth2":
-            self.update_ab2()
-        else:
-            self.update_rk4()
-
-    def update_ab2(self):
-        """Update the state of the particle to the next time level
-
-        The method uses the Adams Bashforth second order method"""
-
-        if self._old:
-
-            kap = (self.vel, self.force(self.pos,
-                                        self.vel,
-                                        self.time, drag=False), self.time)
-
-            beta = 0.5*self.delta_t/(self.time-self._old[2])
-
-            step, col, vel, col_vel = self.collide((1.0+beta)*self.vel-beta*self._old[0],
-                                                   self.delta_t,
-                                                   self.vel,
-                                                   force=(1.0+beta)*kap[1]-beta*self._old[1],
-                                                   drag=True)
-
-        else:
-            ## reduced to using the Euler method for the first timestep:
-
-            kap = (self.vel, self.force(self.pos,
-                                        self.vel,
-                                        self.time, drag=False), self.time)
-
-            step, col, vel, col_vel = self.collide(self.vel,
-                                                   self.delta_t,
-                                                   self.vel,
-                                                   force=kap[1],
-                                                   drag=True)
-
-        self.pos += step
-        self.vel += vel
-        if col:
-            self.collisions += col
-
-            kap = (self.vel, self.force(col[-1].pos+1.0e-8*col_vel,
-                                        col_vel,
-                                        col[-1].time+1.0e-8, drag=False), col[-1].time+1.0e-8)
-
-        self.set_old(kap)
-
-        self.time += self.delta_t
-
-    def update_rk4(self):
-        """Update the state of the particle to the next time level
-
-        The method uses relatively simple RK4 time integration."""
-
-        kap1 = (self.vel, self.force(self.pos,
-                                     self.vel,
-                                     self.time))
-
-        step, col, vel, col_vel = self.collide(kap1[0], 0.5 * self.delta_t,
-                                               self.vel,
-                                               force=kap1[1])
-
-        kap2 = (self.vel + 0.5*self.delta_t * kap1[1],
-                self.force(self.pos + step,
-                           self.vel + vel,
-                           self.time + 0.5 * self.delta_t))
-
-        step, col, vel, col_vel = self.collide(kap2[0], 0.5 * self.delta_t,
-                                               vel=self.vel, force=kap2[1])
-        kap3 = (self.vel+0.5 * self.delta_t * kap2[1],
-                self.force(self.pos + step,
-                           self.vel + vel,
-                           self.time + 0.5*self.delta_t))
-
-        step, col, vel, col_vel = self.collide(kap3[0], self.delta_t,
-                                               vel=self.vel,
-                                               force=kap3[1])
-        kap4 = (self.vel + self.delta_t * kap3[1],
-                self.force(self.pos + step,
-                           self.vel + vel,
-                           self.time + self.delta_t))
-
-        step, col, vel, col_vel = self.collide((kap1[0]+2.0*(kap2[0]+kap3[0])+kap4[0])/6.0,
-                                               self.delta_t, vel=self.vel,
-                                               force=(kap1[1]+2.0*(kap2[1]+kap3[1])+kap4[1])/6.0)
-        self.pos += step
-        self.vel += vel
-        if col:
-            self.collisions += col
-
-
-        self.time += self.delta_t
+        try:
+            Timestepping.methods[method](self)
+        except KeyError:
+            logger.warning("Timestepping method %s unknown, using RungeKutta4."%method)
+            Timestepping.methods["RungeKutta4"](self)
 
     def drag_coefficient(self, position, particle_velocity, time):
         """ Get particle drag coefficent for specified position and velocity. """
@@ -492,6 +405,9 @@ class Particle(ParticleBase.ParticleBase):
             return pos - pa, coldat, velo, vels
         if self.pure_lagrangian:
             C, fvel = self.drag_coefficient(pos, vel, self.time)
+            if fvel is None:
+                return (pos - pa, None,
+                        self.vel , None)
             return  (pos - pa, None, fvel  - self.vel, None)
         elif drag:
             C, fvel = self.drag_coefficient(pos, vel, self.time)
@@ -509,7 +425,8 @@ class ParticleBucket(object):
 
     def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
                  parameters=ParticleBase.PhysicalParticle(),
-                 system=System.System()):
+                 system=System.System(),
+                 field_data=None, online=True):
         """Initialize the bucket
 
         Args:
@@ -518,6 +435,8 @@ class ParticleBucket(object):
         """
 
         logger.info("Initializing ParticleBucket")
+
+        field_data = field_data or {} 
 
         self.system = system
 
@@ -533,16 +452,17 @@ class ParticleBucket(object):
             par = Particle((dummy_pos, dummy_vel, time, delta_t),
                            system=self.system,
                            parameters=parameters.randomize())
-
+            for name, value in field_data.items():
+                par.fields[name] = copy.deepcopy(value[_])
             if self.system.temporal_cache:
                 dummy_u, dummy_p = par.get_fluid_properties()
                 if dummy_u is not None:
                     self.particles.append(par)
             else:
                 self.particles.append(par)
-        self.redistribute()
         self.time = time
         self.delta_t = delta_t
+        self._online = online
         self.solid_pressure_gradient = numpy.zeros((len(self.particles), 3))
         for particle, gsp in zip(self, self.solid_pressure_gradient):
             particle.solid_pressure_gradient = gsp
@@ -620,7 +540,7 @@ class ParticleBucket(object):
 
     def redistribute(self):
         """ In parallel, redistrbute particles to their owner process."""
-        if Parallel.is_parallel():
+        if self._online and Parallel.is_parallel():
             logger.debug("%d particles before redistribution", len(self.particles))
             self.particles = Parallel.distribute_particles(self.particles,
                                                            self.system)
@@ -671,6 +591,7 @@ class ParticleBucket(object):
 
                     par.delta_t = self.delta_t
 
+                    par.fields["InsertionTime"] = time
                     self.particles.append(par)
 
     def collisions(self):

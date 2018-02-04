@@ -1,6 +1,11 @@
 from distutils.core import setup
+import distutils.sysconfig
 
-setup(name='vtkPlugins',
+data_dir = distutils.sysconfig.get_python_lib() +'/particle_model'
+
+setup(name='particle_model',
       version='${PACKAGE_VERSION}',
       package_dir={ '': '${CMAKE_CURRENT_SOURCE_DIR}/' },
+      data_files = [ (data_dir, ['particle_model/vtk_extras.so',
+                                 'particle_model/vtkParticlesPython.so'])],
       packages=['particle_model'])

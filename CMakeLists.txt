@@ -10,6 +10,7 @@ set(CMAKE_MACOSX_RPATH 1)
 
 add_subdirectory(src)
 
+set(PACKAGE_VERSION 1.1.0)
 set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")	
 set(SETUP_PY    "${CMAKE_CURRENT_BINARY_DIR}/setup.py")
 set(DEPS        "${CMAKE_CURRENT_SOURCE_DIR}/particle_model/__init__.py")

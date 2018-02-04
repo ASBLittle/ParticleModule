@@ -13,8 +13,6 @@ from particle_model import vtk_extras
 
 from particle_model.GmshIO import GmshMesh
 from particle_model.SolidInteractions import *
-
-import vtk
 from vtk.util import numpy_support
 import numpy
 from scipy.interpolate import griddata
@@ -44,25 +42,34 @@ WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
 class PolyData(object):
     """ Class storing a living vtkPolyData construction"""
 
-    def __init__(self, filename):
+    def __init__(self, filename, fields=None):
         """ Initialize the PolyData instance"""
 
-        self.filename = filename
+
+        if filename.rsplit('.',1)[-1] in ('pvtp','vtp'):
+            self.filename = filename
+        else:
+            if Parallel.is_parallel():
+                self.filename = filename +'.pvtp'
+            else:
+                self.filename = filename +'.vtp'
         self.cell_ids = {}
         self.poly_data = vtk.vtkPolyData()
         self.pnts = vtk.vtkPoints()
         self.pnts.Allocate(0)
 
+        self.fields = fields or {}
+        self.fields["Time"] = 1
+
         self.arrays = {}
-        for name in ('Time',):
+        for name, num_comps in self.fields.items():
             array = vtk.vtkDoubleArray()
             array.SetName(name)
-            self.poly_data.GetFieldData().AddArray(array)
+            array.SetNumberOfComponents(num_comps)
+            self.poly_data.GetPointData().AddArray(array)
 
     def append_data(self, bucket):
         """ Add the data from the current time level"""
-
-        self.poly_data.GetFieldData().GetArray('Time').InsertNextValue(bucket.time)
 
         for particle in bucket:
             ids = self.cell_ids.setdefault(particle, vtk.vtkIdList())
@@ -70,6 +77,17 @@ class PolyData(object):
             part_id = self.pnts.InsertNextPoint(particle.pos)
 
             ids.InsertNextId(part_id)
+
+            for name, num_comps in self.fields.items():
+                if name=="Time":
+                    self.poly_data.GetPointData().GetArray('Time').InsertNextValue(bucket.time)
+                elif name in particle.fields:
+                    self.poly_data.GetPointData().GetArray(name).InsertNextValue(particle.fields[name])
+                else:
+                    data=[]
+                    for _ in range(num_comps):
+                        data.append(vtk.vtkMath.Nan())
+                    self.poly_data.GetPointData().GetArray(name).InsertNextValue(*data)
 
     def write(self):
         """ Write the staged vtkPolyData to a file."""
@@ -80,13 +98,26 @@ class PolyData(object):
         for cell_id in self.cell_ids.values():
             self.poly_data.InsertNextCell(vtk.VTK_LINE, cell_id)
 
-        writer = vtk.vtkXMLPolyDataWriter()
+        writer = WRITER[vtk.VTK_POLY_DATA]()
         writer.SetFileName(self.filename)
+        if Parallel.is_parallel():
+            writer.SetNumberOfPieces(Parallel.get_size())
+            writer.SetStartPiece(Parallel.get_rank())
+            writer.SetEndPiece(Parallel.get_rank())
+            if vtk.vtkVersion.GetVTKMajorVersion()==6:
+                writer.SetWriteSummaryFile(Parallel.get_rank()==0)
+            else:
+                controller = vtk.vtkMPIController()
+                controller.SetCommunicator(vtk.vtkMPICommunicator.GetWorldCommunicator())
+                writer.SetController(controller)
         if vtk.vtkVersion.GetVTKMajorVersion() < 6:
             writer.SetInput(self.poly_data)
         else:
             writer.SetInputData(self.poly_data)
         writer.Write()
+
+        if Parallel.is_parallel():
+            make_subdirectory(self.filename)
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
@@ -400,7 +431,8 @@ def write_bucket_to_points(bucket):
 
     return pnts
 
-def write_level_to_polydata(bucket, level, basename=None, do_average=False, **kwargs):
+def write_level_to_polydata(bucket, level, basename=None, do_average=False,
+                            field_data=None, **kwargs):
 
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
@@ -414,6 +446,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False, **kw
         The formula is of the form basename_0.vtp, basename_1.vtp,..."""
 
     del kwargs
+    field_data = field_data or None
 
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
@@ -463,6 +496,15 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False, **kw
     poly_data.GetPointData().AddArray(velocity)
     poly_data.GetPointData().AddArray(particle_id)
     poly_data.GetCellData().AddArray(live)
+
+    for name, num_comps in field_data.items():
+        _ = vtk.vtkDoubleArray()
+        _.SetName(name)
+        _.SetNumberOfComponents(num_comps)
+        _.Allocate(len(bucket))
+        for k, particle in enumerate(bucket):
+            _.InsertNextValue(particle.fields[name])
+        poly_data.GetPointData().AddArray(_)
 
     if do_average:
         gsp = calculate_averaged_properties_cpp(poly_data)
@@ -719,6 +761,10 @@ def write_to_file(vtk_data, outfile):
         writer.SetEndPiece(Parallel.get_rank())
         if vtk.vtkVersion.GetVTKMajorVersion()==6:
             writer.SetWriteSummaryFile(Parallel.get_rank()==0)
+        else:
+            controller = vtk.vtkMPIController()
+            controller.SetCommunicator(vtk.vtkMPICommunicator.GetWorldCommunicator())
+            writer.SetController(controller)
     if vtk.vtkVersion.GetVTKMajorVersion()<6:
         writer.SetInput(vtk_data)
     else:

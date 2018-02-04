@@ -73,12 +73,13 @@ class TemporalCache(object):
     This scans the files for their timelevel information and provides a pair
     of files bracketing the desired timelevel when called
     """
-    def __init__(self, base_name, t_min=0., t_max=numpy.infty, parallel_files=False, **kwargs):
+    def __init__(self, base_name, t_min=0., t_max=numpy.infty, online=False,
+                 parallel_files=False, **kwargs):
         """
         Initialise the cache from a base file name and optional limits on the time levels desired.
         """
 
-        if Parallel.is_parallel() or parallel_files:
+        if (Parallel.is_parallel() and online) or parallel_files:
             files = glob.glob(base_name+'_[0-9]*.pvtu')
         else:
             files = glob.glob(base_name+'_[0-9]*.vtu')
@@ -88,7 +89,7 @@ class TemporalCache(object):
         self.reset()
 
         for filename in files:
-            if Parallel.is_parallel():
+            if (Parallel.is_parallel() and online) or parallel_files:
                 pfilename = get_piece_filename_from_vtk(filename)
             else:
                 pfilename = filename
@@ -141,7 +142,7 @@ class TemporalCache(object):
 
     def open(self, k):
         """ Open a file for reading."""
-        rdr = vtk.vtkXMLUnstructuredGridReader()
+        rdr = vtk.vtkXMLGenericDataObjectReader()
 
         print 'loading %s'%self.data[k][1]
         rdr.SetFileName(self.data[k][1])

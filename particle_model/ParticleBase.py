@@ -17,7 +17,8 @@ class ParticleBase(object):
         self.time = time
         self.delta_t = delta_t
         self._hash = Parallel.ParticleId(phash)
-        self._old = None
+        self.fields = {}
+        self._old = []
 
     def __hash__(self):
         return hash(self._hash)
@@ -37,9 +38,20 @@ class ParticleBase(object):
     def __eq__(self, obj):
         return hash(self) == hash(obj)
 
-    def set_old(self, old):
+    def set_old(self, old, num_time_levels=1):
         """Update old particle data."""
-        self._old = old
+        if self._old:
+            self._old = [None]+self._old[0:num_time_levels-1]
+        else:
+            self._old = [None]
+        self._old[0] = copy.deepcopy(old)
+
+    def get_old(self, time_level, key=None):
+        """ Get old particle data"""
+        if key is None:
+            return self._old[time_level]
+        else:
+            return self._old[time_level][key]
 
 class PhysicalParticle(object):
     """ Class describing the physical properties of a particle drawn from a known distribution."""
@@ -70,6 +82,7 @@ class PhysicalParticle(object):
         return self.data_dict[key]
 
     def pure_lagrangian(self):
+        """Test if particle is purely Lagrangian (ie of zero particle diameter)"""
         return self.base_diameter == 0
 
     def get_area(self):

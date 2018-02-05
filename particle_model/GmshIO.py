@@ -105,17 +105,18 @@ class GmshMesh(object):
     def write(self, filename):
         """Dump the mesh out to a Gmsh 2.0 msh file."""
 
-        mshfile = open(filename, 'w')
+        with open(filename, 'w') as mshfile:
 
-        print >>mshfile, '$MeshFormat\n2.0 0 8\n$EndMeshFormat'
-        print >>mshfile, '$Nodes\n%d'%len(self.nodes)
-        for node_id, coord in self.nodes.items():
-            print >>mshfile, node_id, ' '.join([str(c) for c in  coord])
-        print >>mshfile, '$EndNodes'
-        print >>mshfile, '$Elements\n%d'%len(self.elements)
-        for ele_id, elem in self.elements.items():
-            (ele_type, tags, nodes) = elem
-            print >>mshfile, ele_id, ele_type, len(tags)
-            print >>mshfile, ' '.join([str(c) for c in tags])
-            print >>mshfile, ' '.join([str(c) for c in nodes])
-        print >>mshfile, '$EndElements'
+            mshfile.write('$MeshFormat\n2.0 0 8\n$EndMeshFormat\n')
+            mshfile.write('$Nodes\n%d\n'%len(self.nodes))
+            for node_id, coord in self.nodes.items():
+                mshfile.write('%s %s %s\n'%(mshfile, node_id, ' '.join([str(c) for c in  coord])))
+            mshfile.write('$EndNodes\n')
+            mshfile.write('$Elements\n%d\n'%len(self.elements))
+            for ele_id, elem in self.elements.items():
+                (ele_type, tags, nodes) = elem
+                mshfile.write('%s %s %s '%(ele_id, ele_type, len(tags)))
+                mshfile.write('%s '%' '.join([str(c) for c in tags]))
+                mshfile.write('%s\n'%' '.join([str(c) for c in nodes]))
+            mshfile.write('$EndElements\n')
+            mshfile.close()

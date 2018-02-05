@@ -338,8 +338,8 @@ class Particle(ParticleBase.ParticleBase):
             if sum(normal**2) > 1.0e-32:
                 normal = normal / numpy.sqrt(sum(normal**2))
             else:
-                print normal
-                print vec1, vec2
+                logger.error(normal)
+                logger.error("%s, %s"%(vec1, vec2))
                 raise Collision.CollisionException
 
             normal = normal * numpy.sign(numpy.dot(normal, (pos-pa)))

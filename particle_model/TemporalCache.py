@@ -4,6 +4,8 @@ import glob
 import vtk
 import numpy
 from particle_model import Parallel
+from particle_model import Debug
+from particle_model import vtk_extras
 try:
     from lxml import etree as ET
     def element_tree(**kwargs):
@@ -16,17 +18,17 @@ except ImportError:
         return ET.ElementTree(**kwargs)
 
 def read_pvd(filename):
+    """Read timestep and filename data from a .pvd file."""
     times = []
     names = []
     etree = element_tree(file=filename).getroot()
 
-    print etree[0]
     for data in etree[0].findall('DataSet'):
         times.append(float(data.get('timestep')))
         names.append((data.get('file')))
 
     return zip(times, names)
-    
+
 def get_piece_filename_from_vtk(filename, piece=Parallel.get_rank()):
 
     """Get the filename of individual VTK file piece."""
@@ -86,7 +88,7 @@ class TemporalCache(object):
     of files bracketing the desired timelevel when called
     """
     def __init__(self, base_name, t_min=0., t_max=numpy.infty, online=False,
-                 parallel_files=False, **kwargs):
+                 parallel_files=False, timescale_factor=1.0, **kwargs):
         """
         Initialise the cache from a base file name and optional limits on the time levels desired.
         """
@@ -95,7 +97,7 @@ class TemporalCache(object):
         self.set_field_names(**kwargs)
         self.reset()
 
-        if base_name.rsplit(".",1)[-1]=="pvd":
+        if base_name.rsplit(".", 1)[-1] == "pvd":
             for time, filename in read_pvd(base_name):
                 self.data.append([time, filename, None, None])
         else:
@@ -110,7 +112,7 @@ class TemporalCache(object):
                 else:
                     pfilename = filename
                 time = self.get_time_from_vtk(pfilename)
-                self.data.append([time, pfilename, None, None])
+                self.data.append([timescale_factor*time, pfilename, None, None])
 
         self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
         self.range(t_min, t_max)
@@ -119,7 +121,7 @@ class TemporalCache(object):
 
     def set_field_names(self, velocity_name="Velocity", pressure_name="Pressure", time_name="Time"):
         """Set the names used to look up pressure and velocity fields."""
-        self.field_names = {} 
+        self.field_names = {}
         self.field_names["Velocity"] = velocity_name or ""
         self.field_names["Pressure"] = pressure_name or ""
         self.field_names["Time"] = time_name or ""
@@ -160,7 +162,7 @@ class TemporalCache(object):
         """ Open a file for reading."""
         rdr = vtk.vtkXMLGenericDataObjectReader()
 
-        print 'loading %s'%self.data[k][1]
+        Debug.logger.info('loading %s'%self.data[k][1])
         rdr.SetFileName(self.data[k][1])
         rdr.Update()
 
@@ -224,6 +226,26 @@ class TemporalCache(object):
         data[0][1][-2].ComputeBounds()
         data[0][1][-2].GetBounds(bounds)
         return bounds
+
+    def get_velocity(self, pos, time):
+        """ Get the velocity value from the cache at a given position and time."""
+
+        data, alpha, names = self(time)
+
+        loc0 = data[0][3]
+        loc0.BuildLocatorIfNeeded()
+        loc1 = data[1][3]
+        loc1.BuildLocatorIfNeeded()
+
+#        vel_field0 = self.get(data[0][2], names[0][0])
+#        cell_index, pcoords = vtk_extras.FindCell(loc0, pos)
+#        vel_field1 = self.get(data[1][2], names[1][0])
+#        cell_index, pcoords = vtk_extras.FindCell(loc0, pos)
+
+        vel0 = vtk_extras.EvaluateField(data[0][2], loc0, pos, names[0][0])
+        vel1 = vtk_extras.EvaluateField(data[1][2], loc1, pos, names[1][0])
+
+        return alpha*vel1+(1.0-alpha)*vel0
 
 class FluidityCache(object):
     """Cache like object used when running particles online."""

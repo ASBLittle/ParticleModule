@@ -39,7 +39,7 @@ bool evaluate_field(vtkUnstructuredGrid *ugrid, vtkCellLocator *locator, double*
   if(!data) data = ugrid->GetCellData()->GetArray(name);
 
   if (data) {
-    for (int i=0; i<data->GetNumberOfTuples(); ++i)
+    for (int i=0; i<data->GetNumberOfComponents(); ++i)
       {
 	output[i] = 0.0;
 	

@@ -28,7 +28,7 @@ class CollisionInfo(object):
         """ Write data to polyfile """
         del poly_data
         wear = self.get_wear()
-        print wear
+        del wear
         raise NotImplementedError
 
 STANDARD_MATERIAL = {'n': 2, 'k': 1., 'H':1., 'F_s': 1., 'F_B':1.}

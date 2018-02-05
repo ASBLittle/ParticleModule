@@ -1,7 +1,10 @@
 """ Base module containing classes used at multiple levels."""
 
 import copy
-import libspud
+try:
+    import libspud
+except ImportError:
+    pass
 import numpy
 
 from particle_model import DragModels

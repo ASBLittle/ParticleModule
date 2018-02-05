@@ -921,15 +921,10 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
     data_pts = numpy.array([c.pos for c in col_list])
     wear_pts = numpy.array([c.get_wear() for c in col_list])
 
-    print data_pts, numpy.isfinite(data_pts).all()
-    print wear_pts, numpy.isfinite(wear_pts).all()
-
     wear_on_grid = griddata(data_pts, wear_pts, out_pts, method=method)
 #    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts,
 #    function='gaussian', epsilon=0.1,smooth=3.0)
 #    wear_on_grid = rbfi(out_pts[:,0], out_pts[:, 1], out_pts[:, 2])
-
-    print wear_on_grid.max()
 
     wear_vtk = vtk.vtkDoubleArray()
     wear_vtk.SetName('Wear')
@@ -1122,9 +1117,6 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
 
             pid0 = cell.GetPointId(0)
             pid1 = cell.GetPointId(1)
-
-            print pid1
-            print pid0
 
             n[i,0] = p[1]
             n[i,1] = -p[0]

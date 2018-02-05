@@ -21,18 +21,22 @@ V = numpy.zeros((N, 3)) # initial velocities, not used for passive Lagrangian
 
 NAME = 'gyre%sx%s'%(S,S) # base name for .vtus
 
-TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME, 
+TEMP_CACHE = pm.TemporalCache.TemporalCache(NAME,#   use NAME+'.pvd' for .pvd reader 
                                             velocity_name="Velocity", 
                                             pressure_name=None,
                                             time_name="Time",
                                             online=False)
 
+for k, x in enumerate(X):
+    V[k,:] = TEMP_CACHE.get_velocity(x,0.0)
+
+
 MESH = pm.IO.GmshMesh()
 MESH.read('Structured%sx%s.msh'%(S,S))
 BOUNDARY_MESH = pm.IO.make_boundary_from_msh(MESH)
 INLET = pm.Options.Inlet(surface_ids=[1], insertion_rate=5.0e3,
-                         velocity=lambda X,t,: (-2*numpy.pi*numpy.cos(2*numpy.pi*X[1]),0.0,0.0),
-                         pdf= lambda X,t : max(0,-numpy.cos(2*numpy.pi*X[1]))) # setup inlet, inlet velocity and pdf
+                         velocity=lambda X,t,: TEMP_CACHE.get_velocity(X,t),
+                         pdf= lambda X,t : TEMP_CACHE.get_velocity(X,t)[0]>0.0) # setup inlet, inlet velocity and pdf
 BOUNDARY = pm.IO.BoundaryData(BOUNDARY_MESH, inlets=[INLET])
 SYSTEM = pm.System.System(BOUNDARY, temporal_cache=TEMP_CACHE, outlet_ids=[1], inlets=[INLET]) #outlets allow particles to leave
 
@@ -71,7 +75,7 @@ for i, cache in enumerate(TEMP_CACHE):
 
     # lets explicitly insert a new particle
     xx = numpy.array((0.3, 0.1, 0.0)) # Space is always 3d: in 2d z component is zero
-    vv = numpy.array((0.0, 0.0, 0.0)) # Same for velocity.
+    vv = TEMP_CACHE.get_velocity(xx,PB.time) # Same for velocity.
     part = pm.Particles.Particle((xx, vv, PB.time, PB.delta_t),
                        system=SYSTEM,
                        parameters=PAR) # Make a new particle

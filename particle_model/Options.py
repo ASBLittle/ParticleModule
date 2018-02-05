@@ -1,13 +1,13 @@
 """ Module dealing with initialising the code from an xml format options file using spud"""
 
 from particle_model import Parallel
+from particle_model import Debug
 #from particle_model import IO
 
 try:
     import libspud
 except ImportError:
-    print "Need the libspud python package. Try: \n sudo apt-get install python-spud"
-    raise ImportError
+    Debug.logger.warning("Want the libspud python package. Try: \n sudo apt-get install python-spud")
 import numpy
 import vtk
 

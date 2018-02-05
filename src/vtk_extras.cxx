@@ -144,7 +144,6 @@ extern "C" {
     // apply our function
     evaluate_field(ugrid, locator, x, name, (double*) PyArray_GETPTR1(output,0), 1.0e-6);
 
-
     // Now back to Python
     return output;
   }

@@ -15,6 +15,18 @@ except ImportError:
         """ Wrapper for xml ElementTree."""
         return ET.ElementTree(**kwargs)
 
+def read_pvd(filename):
+    times = []
+    names = []
+    etree = element_tree(file=filename).getroot()
+
+    print etree[0]
+    for data in etree[0].findall('DataSet'):
+        times.append(float(data.get('timestep')))
+        names.append((data.get('file')))
+
+    return zip(times, names)
+    
 def get_piece_filename_from_vtk(filename, piece=Parallel.get_rank()):
 
     """Get the filename of individual VTK file piece."""
@@ -79,22 +91,26 @@ class TemporalCache(object):
         Initialise the cache from a base file name and optional limits on the time levels desired.
         """
 
-        if (Parallel.is_parallel() and online) or parallel_files:
-            files = glob.glob(base_name+'_[0-9]*.pvtu')
-        else:
-            files = glob.glob(base_name+'_[0-9]*.vtu')
-
         self.data = []
         self.set_field_names(**kwargs)
         self.reset()
 
-        for filename in files:
+        if base_name.rsplit(".",1)[-1]=="pvd":
+            for time, filename in read_pvd(base_name):
+                self.data.append([time, filename, None, None])
+        else:
             if (Parallel.is_parallel() and online) or parallel_files:
-                pfilename = get_piece_filename_from_vtk(filename)
+                files = glob.glob(base_name+'_[0-9]*.pvtu')
             else:
-                pfilename = filename
-            time = self.get_time_from_vtk(pfilename)
-            self.data.append([time, pfilename, None, None])
+                files = glob.glob(base_name+'_[0-9]*.vtu')
+
+            for filename in files:
+                if (Parallel.is_parallel() and online) or parallel_files:
+                    pfilename = get_piece_filename_from_vtk(filename)
+                else:
+                    pfilename = filename
+                time = self.get_time_from_vtk(pfilename)
+                self.data.append([time, pfilename, None, None])
 
         self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
         self.range(t_min, t_max)

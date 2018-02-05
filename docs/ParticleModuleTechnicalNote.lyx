@@ -1,0 +1,1196 @@
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass extreport
+\begin_preamble
+\usepackage[a4paper,left=3cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize a4paper
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{titlepage}
+\backslash
+begin{minipage}[b]{0.5
+\backslash
+textwidth} 
+\backslash
+begin{flushleft} 
+\backslash
+vspace{-2cm}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+hspace{-1.5cm}
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/AMCG_logo.pdf
+	lyxscale 30
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+hspace{-1.5cm}
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/Imperial_logo.pdf
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{flushleft}
+\backslash
+end{minipage}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+vspace{3cm}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+
+\size huge
+A Numerical Model for Inertial and Lagrangian
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\size huge
+
+\backslash
+
+\backslash
+
+\end_layout
+
+\end_inset
+
+ Particles in Inertial and Rotating Frames
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+vspace{3cm}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+
+\size large
+AMCG, Department of Earth Science and Engineering, Imperial College London,
+ South Kensington, London, SW7 2AZ
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{titlepage}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Governing equations
+\end_layout
+
+\begin_layout Section
+Force balance for an immersed body
+\end_layout
+
+\begin_layout Standard
+The inertial frame equations of motion for a rigid body of finite size and
+ mass immersed in a fluid are
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\tag{particle motion}\frac{d\bm{r}}{dt}:=\bm{v}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\tag{linear momentum}m\frac{d\bm{v}}{dt}=\oint_{\mbox{boundary}}\bm{f}dS-m\bm{g},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\tag{angular momentum}m\frac{d\bm{\omega}}{dt}=\oint_{\mbox{\mbox{boundary}}}\left(\bm{x}-\bm{r}\right)\times\bm{f}dS
+\]
+
+\end_inset
+
+here 
+\begin_inset Formula $\bm{r}$
+\end_inset
+
+ is the location of the particle's centre of mass,
+\begin_inset Formula 
+\[
+\bm{r}=\frac{1}{m}\int_{\mbox{body}}\rho_{p}\bm{x}dV,
+\]
+
+\end_inset
+
+
+\begin_inset Formula $m$
+\end_inset
+
+ is the body mass, a function of the body density, 
+\begin_inset Formula $\rho_{p}$
+\end_inset
+
+
+\begin_inset Formula 
+\[
+m=\int_{\mbox{body}}\rho_{p}dV,
+\]
+
+\end_inset
+
+
+\begin_inset Formula $\bm{v}$
+\end_inset
+
+ is the particle's linear velocity, 
+\begin_inset Formula 
+\[
+\bm{v}=\frac{1}{m}\int_{\mbox{body}}\rho_{p}\frac{d\bm{x}}{dt}dV,
+\]
+
+\end_inset
+
+
+\begin_inset Formula $\bm{\omega}$
+\end_inset
+
+ is the particle's angular velocity,
+\begin_inset Formula 
+\[
+\bm{\omega}=\frac{1}{m}\int_{\mbox{body}}\rho_{p}\left(\bm{x}-\bm{r}\right)\times\frac{d}{dt}\left(\bm{x}-\bm{r}\right)dV,
+\]
+
+\end_inset
+
+
+\begin_inset Formula $\bm{f}$
+\end_inset
+
+ are the surface forces applied by the fluid on the body and 
+\begin_inset Formula $\bm{g}$
+\end_inset
+
+ is the acceleration.
+ Since the system is closed, the force applied to the body by the fluid
+ match the force applied to the fluid by the body, hence
+\begin_inset Formula 
+\[
+\bm{f}=p\bm{n}+\bm{n}\cdot\underline{\bm{\sigma}},
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $p$
+\end_inset
+
+ is the fluid pressure, 
+\begin_inset Formula $\bm{n}$
+\end_inset
+
+ is a unit vector normal to the body surface and 
+\begin_inset Formula $\underline{\bm{\sigma}}$
+\end_inset
+
+ is the fluid stress tensor.
+ The relevant equations for the fluid are the Navier-Stokes equations,
+\begin_inset Formula 
+\[
+\tag{momentum}\rho_{f}\frac{\partial\bm{u}}{\partial t}+\rho_{f}\bm{u}\cdot\nabla\bm{u}=-\nabla p+\nabla\cdot\underline{\bm{\sigma}}-\rho\bm{g},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\tag{continuity}\frac{\partial\rho}{\partial t}+\nabla\cdot\rho\bm{u}=0.
+\]
+
+\end_inset
+
+along with a jump condition across the interface
+\begin_inset Formula 
+\[
+\tag{no slip}\bm{v}=\bm{u}\mbox{ on }\delta S.
+\]
+
+\end_inset
+
+The exact solution has a boundary layer in the viscinity of the body.
+ 
+\end_layout
+
+\begin_layout Section
+The Basset-Boussinesq-Oseen equation
+\end_layout
+
+\begin_layout Standard
+In the limit that the body is small compared to the length scales of the
+ fluid, it is desirable to parameterise the viscous forces in terms of far
+ field fluid velocity.
+ In the low Reynolds number limit we obtain (for spherical particles) the
+ Basset-Boussinesq-Oseen equation,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{alignat*}{1}
+\frac{\pi}{6}\rho_{p}d_{p}^{3}\frac{d\bm{v}}{dt} & =3\pi\mu d_{p}\left(\bm{U}-\bm{v}\right)-\frac{\pi}{6}d_{p}^{3}\left.\nabla p\right|_{\bm{x}=\bm{r}}+\frac{\pi}{12}\rho_{f}d_{p}^{3}\frac{d}{dt}\left(\bm{U}-\bm{v}\right)\\
+ & \qquad+\frac{3}{2}d_{p}^{2}\sqrt{\pi\rho_{f}\mu}\int_{_{t_{o}}}^{t}\frac{1}{\sqrt{t-\tau}}\frac{d}{d\tau}\left(\bm{U}-\bm{v}\right)-\frac{\pi}{6}\rho_{p}d_{p}^{3}\bm{g}
+\end{alignat*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These are the drag law (Stokes drag, in the low Reynolds number limit),
+ Froude-Krylov force, added (or virtual) mass, Basset force and the force
+ due to gravity respectively.
+ Here 
+\begin_inset Formula $d_{p}$
+\end_inset
+
+ is the diameter of the particle, and 
+\begin_inset Formula $\bm{U}=\bm{u}\left(\bm{r}\left(t\right),t\right)$
+\end_inset
+
+, where 
+\begin_inset Formula $p$
+\end_inset
+
+ and 
+\begin_inset Formula $\bm{r}$
+\end_inset
+
+ are the 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+emph{undisturbed}
+\end_layout
+
+\end_inset
+
+ fluid pressure and velocity.
+\end_layout
+
+\begin_layout Section
+Alternative drag laws
+\end_layout
+
+\begin_layout Standard
+Generic drag laws for small particles take the form.
+\begin_inset Formula 
+\[
+\bm{F}_{\mbox{drag}}=C\left(d_{p},\bm{u}-\bm{v}\right)\left[\bm{u}-\bm{v}\right].
+\]
+
+\end_inset
+
+For example, the classic turbulent drag law for spheres,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\bm{F}_{\mbox{turbulent drag}}=\frac{0.44\pi\rho d_{p}^{2}}{8}\|\bm{u}-\bm{v}\|\left[\bm{u}-\bm{v}\right],
+\]
+
+\end_inset
+
+or the transitional drag law,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\bm{F}_{\mbox{transitional drag}}=\begin{cases}
+3\pi\mu d_{p}\left(\bm{U}-\bm{v}\right) & \mbox{Re}<10^{-4},\\
+\frac{c_{d}\pi\rho d_{p}^{2}}{8}\|\bm{u}-\bm{v}\|\left[\bm{u}-\bm{v}\right] & \mbox{Re}<1000,\\
+\frac{0.44\pi\rho d_{p}^{2}}{8}\|\bm{u}-\bm{v}\|\left[\bm{u}-\bm{v}\right] & \mbox{otherwise},
+\end{cases}
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $\mbox{Re}$
+\end_inset
+
+ is a particle Reynolds number,
+\begin_inset Formula 
+\[
+\mbox{Re:=\frac{\rho_{f}\|\bm{u}-\bm{v}\|d_{p}}{\mu}},
+\]
+
+\end_inset
+
+and the empirically determined transitional drag coeffient is
+\begin_inset Formula 
+\[
+c_{d}=\frac{24}{\mbox{Re}}\left(1+0.15\mbox{Re}^{0.687}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Pure Lagrangian particles
+\end_layout
+
+\begin_layout Standard
+In the 
+\begin_inset Quotes eld
+\end_inset
+
+pure
+\begin_inset Quotes erd
+\end_inset
+
+ Lagrangian limit the ratio of particle diameter and the fluid length scale
+ vanishes, 
+\begin_inset Formula $\frac{d_{p}}{\ell}\rightarrow0$
+\end_inset
+
+, in this limit 
+\begin_inset Formula $C\rightarrow\infty$
+\end_inset
+
+, hence force balance requires 
+\begin_inset Formula $\bm{v}\rightarrow\bm{U}$
+\end_inset
+
+.
+ This simplies the equations of motion to
+\begin_inset Formula 
+\[
+\frac{d\bm{r}}{dt}=\bm{u}\left(\bm{r},t\right).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+The hydrostatic limit
+\end_layout
+
+\begin_layout Standard
+For slow flows in the Boussinesq limit, 
+\begin_inset Formula $\left|\rho_{f}-\rho_{0}\right|\ll1$
+\end_inset
+
+, and small aspect ratio, the pressure is dominated by the hydrostatic component
+, 
+\begin_inset Formula 
+\[
+p\approx p_{H}:=\rho_{0}gz,
+\]
+
+\end_inset
+
+Substituting into the particle Froude-Krylov term we see that the principal
+ effect is to modify the force due to gravity into a reduced buoyancy term,
+\begin_inset Formula 
+\[
+\bm{F}_{\mbox{gravity}}\approx-\frac{\pi d_{p}^{3}}{6}\left(\rho_{f}-\rho_{0}\right)\bm{g}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Virtual Mass
+\end_layout
+
+\begin_layout Section
+Basset Force
+\end_layout
+
+\begin_layout Section
+Particles in a rotational frame
+\end_layout
+
+\begin_layout Standard
+Replacing the original inertial frame, 
+\begin_inset Formula $\bm{x},t$
+\end_inset
+
+, with a new frame, 
+\begin_inset Formula $\bm{x}',t$
+\end_inset
+
+, rotating at a spatially constant angular velocity 
+\begin_inset Formula $\bm{\Omega}\left(t\right)$
+\end_inset
+
+ around around an axis passing through a point 
+\begin_inset Formula $\bm{x}_{0}$
+\end_inset
+
+ gives new temporal derivatives for the particles 
+\begin_inset Formula 
+\[
+\left.\frac{d\bm{v}}{dt}\right|_{\bm{x},t}=\left.\frac{d\bm{v}'}{dt}\right|_{\bm{x}',t}+2\bm{\Omega}\times\bm{v}'+\bm{\Omega}\times\left(\bm{\Omega}\times\left[\bm{r}'-\bm{x}_{0}\right]\right)+\frac{d\bm{\Omega}}{dt}\times\left[\bm{r}'-\bm{x}_{0}\right],
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\frac{d\bm{r}'}{dt}=\bm{v}',
+\]
+
+\end_inset
+
+and for the fluid of
+\begin_inset Formula 
+\[
+\left.\frac{\partial\bm{u}}{\partial t}\right|_{\bm{x},t}=\left.\frac{d\bm{u}'}{dt}\right|_{\bm{x}',t}+2\bm{\Omega}\times\bm{u}'+\bm{\Omega}\times\left(\bm{\Omega}\times\left[\bm{x}'-\bm{x}_{0}\right]\right)+\frac{d\bm{\Omega}}{dt}\times\left[\bm{x}'-\bm{x}_{0}\right].
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Particle-Wall Collisions and Wear Modelling
+\end_layout
+
+\begin_layout Section
+A Collision Event
+\end_layout
+
+\begin_layout Chapter
+Numerical implementation
+\end_layout
+
+\begin_layout Section
+Timestepping
+\end_layout
+
+\begin_layout Standard
+Following the approximations in the previous section, the transitional particle
+ model with can be written as
+\begin_inset Formula 
+\[
+\frac{d\bm{r}}{dt}=\bm{v},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\frac{\left(2\rho_{p}+\rho_{f}\right)d_{p}}{12}\left(\frac{d\bm{v}}{dt}+2\bm{\Omega}\times2\rho_{p}\bm{v}\right)=\frac{\rho_{f}d_{p}}{12}-\frac{d_{p}}{6}\left[\left(\rho_{p}-\rho_{f}\right)\bm{\Omega}\times\left(\bm{\Omega}\times\left[\bm{r}-\bm{x}_{0}\right]\right)-\left(\rho_{p}-\rho_{f}\right)\frac{d\bm{\Omega}}{dt}\times\left[\bm{r}-\bm{x}_{0}\right]\right],
+\]
+
+\end_inset
+
+The terms on the right hand side involve evaluations of 
+\begin_inset Formula $\bm{u}$
+\end_inset
+
+ at the location 
+\begin_inset Formula $\bm{r}$
+\end_inset
+
+.
+ If an implicit timestepping scheme is used, this will require solving an
+ implicitly defined geometric problem to calculate 
+\begin_inset Formula $\bm{r}^{n+1}$
+\end_inset
+
+.
+ This is generally a computationally expensive undertaking, hence an explicit
+ timestepping scheme is used for this term.
+ Unlike in Eulerian fluid modelling side, for inertial particles this does
+ not impose a stability constraint on the problem, but merely one of accurracy.
+\end_layout
+
+\begin_layout Subsection
+Adams-Bashforth schemes
+\end_layout
+
+\begin_layout Standard
+The family of Adams-Bashforth timestepping schemes for first order ordinary
+ differential equations(ODEs), are a collection of explicit linear multistep
+ methods, with the 
+\begin_inset Formula $k$
+\end_inset
+
+th scheme, AB
+\begin_inset Formula $k$
+\end_inset
+
+, accurate to 
+\begin_inset Formula $k$
+\end_inset
+
+th order in time.
+ Consider an ODE for an independent variable, 
+\begin_inset Formula $t$
+\end_inset
+
+, and a dependent variable, 
+\begin_inset Formula $y\left(t\right)$
+\end_inset
+
+,
+\begin_inset Formula 
+\[
+\frac{dy}{dt}=f\left(y,t\right),
+\]
+
+\end_inset
+
+with discretized time levels 
+\begin_inset Formula $t_{n}$
+\end_inset
+
+, and discretized solutions 
+\begin_inset Formula $y_{n}\approx y\left(t_{n}\right)$
+\end_inset
+
+The Adams-Bashforth methods represent the 
+\begin_inset Formula $k-1$
+\end_inset
+
+ order accurate extrapolation of 
+\begin_inset Formula $y_{n+1}$
+\end_inset
+
+ from the data for 
+\begin_inset Formula $y_{n}$
+\end_inset
+
+ at the previous time level and the values of 
+\begin_inset Formula $f$
+\end_inset
+
+ derived from the data at the previous 
+\begin_inset Formula $k$
+\end_inset
+
+ time levels.
+ These methods are particularly suited to particles which collide, since
+ a collision event means that multistage methods would be polluted with
+ inaccurate data.
+\end_layout
+
+\begin_layout Subsubsection
+The first order AB1 scheme
+\end_layout
+
+\begin_layout Standard
+The first order method, AB1, is simply the forward Euler method, so AB1
+ sets
+\begin_inset Formula 
+\[
+y_{n}=y_{n}+\Delta t_{n+\frac{1}{2}}f\left(y_{n},t_{n}\right).
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $\Delta t_{n+\frac{1}{2}}=t_{n+1}-t_{n}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+The second order AB2 scheme
+\end_layout
+
+\begin_layout Standard
+For unequally spaced time levels the second order scheme, AB2, sets
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\Delta t_{n+\frac{1}{2}}\left(\frac{2\Delta t_{n-\frac{1}{2}}+\Delta t_{n+\frac{1}{2}}}{2\Delta t_{n-\frac{1}{2}}}f\left(y_{n},t_{n}\right)-\frac{\Delta t_{n+\frac{1}{2}}}{2\Delta t_{n-\frac{1}{2}}}f\left(y_{n-1},t_{n-1}\right)\right),
+\]
+
+\end_inset
+
+where 
+\begin_inset Formula $\Delta t_{n+\frac{1}{2}}=t_{n+1}-t_{n}$
+\end_inset
+
+, 
+\begin_inset Formula $\Delta t_{n-\frac{1}{2}}=t_{n}-t_{n-1}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+The third order AB3 scheme
+\end_layout
+
+\begin_layout Standard
+The third order scheme, AB3 sets
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{n}=y_{n}+\Delta t_{n+\frac{1}{2}}\left(af\left(y_{n},t_{n}\right)-bf\left(y_{n-1},t_{n-1}\right)+cf\left(y_{n-1},t_{n-2}\right)\right),
+\]
+
+\end_inset
+
+where
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+a=1+\frac{\Delta t_{n+\frac{1}{2}}}{6\Delta t_{n-\frac{3}{2}}}\left[\frac{\left(5\Delta t_{n+\frac{1}{2}}+3\Delta t_{n-\frac{1}{2}}\right)}{\Delta t_{n-\frac{1}{2}}}-\frac{\left(2\Delta t_{n+\frac{1}{2}}+3\Delta t_{n-\frac{1}{2}}\right)}{\left(\Delta t_{n-\frac{1}{2}}+\Delta t_{n-\frac{3}{2}}\right)}\right],
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+b=\frac{\Delta t_{n+\frac{1}{2}}\left(5\Delta t_{n+\frac{1}{2}}+3\Delta t_{n-\frac{1}{2}}\right)}{6\Delta t_{n-\frac{1}{2}}\Delta t_{n-\frac{3}{2}}},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+c=\frac{\Delta t_{n+\frac{1}{2}}\left(2\Delta t_{n+\frac{1}{2}}+3\Delta t_{n-\frac{1}{2}}\right)}{6\left(\Delta t_{n-\frac{1}{2}}+\Delta t_{n-\frac{3}{2}}\right)\left(\Delta t_{n-\frac{3}{2}}\right)}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+The generic order 
+\begin_inset Formula $k$
+\end_inset
+
+ scheme
+\end_layout
+
+\begin_layout Standard
+The generic scheme takes the form
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\Delta t_{n+\frac{1}{2}}\sum_{i=0}^{k-1}a_{i}f\left(y_{n-i},t_{n-i}\right),
+\]
+
+\end_inset
+
+where the coefficients, 
+\begin_inset Formula $a_{i}$
+\end_inset
+
+, can be found by matching terms to the order 
+\begin_inset Formula $k$
+\end_inset
+
+ in the Taylor expansions of 
+\begin_inset Formula $y_{n+1}$
+\end_inset
+
+, 
+\begin_inset Formula $y_{n}$
+\end_inset
+
+ and of the 
+\begin_inset Formula $f_{n-i}:=f\left(y_{n-i},t_{n-i}\right)$
+\end_inset
+
+, i.e
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\Delta t_{n+\frac{1}{2}}f_{n}+\sum_{s=1}^{\infty}\frac{\left(\Delta t_{n+\frac{1}{2}}\right)^{s+1}}{\left(s+1\right)!}\frac{d^{s}f}{dt^{s}},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+f_{n-i}=f_{n}+\sum_{s=1}^{\infty}\frac{\left(t_{n-i}-t_{n}\right)^{s}}{s!}\frac{d^{s}f}{dt^{s}}.
+\]
+
+\end_inset
+
+This gives relations
+\begin_inset Formula 
+\[
+a_{0}=1-\sum_{i=1}^{k-1}a_{i},
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\sum_{j=1}^{k-1}A_{ij}a_{j}=\frac{\left(\Delta t_{n+\frac{1}{2}}\right)^{i+1}}{\left(i+1\right)!}
+\]
+
+\end_inset
+
+where
+\begin_inset Formula 
+\[
+A_{ij}=\frac{\left(t_{n-j}-t_{n}\right)^{i}}{i!}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Explicit Runge-Kutta Schemes
+\end_layout
+
+\begin_layout Standard
+The family of Runge-Kutta timestepping schemes are a collection of multi-stage
+ iterative methods for the solution of first order ODEs.
+ Generically for an ODE for a variable, 
+\begin_inset Formula $y\left(t\right)$
+\end_inset
+
+,
+\begin_inset Formula 
+\[
+\frac{dy}{dt}=f\left(y,t\right),
+\]
+
+\end_inset
+
+they take the form of a set of coefficients 
+\begin_inset Formula $\bm{A}$
+\end_inset
+
+, 
+\begin_inset Formula $\bm{b}$
+\end_inset
+
+, 
+\begin_inset Formula $\bm{c}$
+\end_inset
+
+, with relations
+\begin_inset Formula 
+\[
+k_{i}=f\left(y_{n}+\sum_{j=1}^{s}A_{ij}k_{j},t_{n}+b_{i}\Delta t\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\sum_{i=1}^{s}c_{i}k_{i},
+\]
+
+\end_inset
+
+The family of explicit methods have 
+\begin_inset Formula $\bm{A}$
+\end_inset
+
+ strictly lower triangular, so that the 
+\begin_inset Formula $k_{i}$
+\end_inset
+
+ can be built sequentially.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+A first order scheme
+\end_layout
+
+\begin_layout Standard
+This is just the forward Euler scheme
+\begin_inset Formula 
+\[
+k_{1}=f\left(y_{n},t_{n}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\Delta t_{n+\frac{1}{2}}k_{1},
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+The second order RK2 scheme
+\end_layout
+
+\begin_layout Standard
+Also known as the midpoint method,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+k_{1}=f\left(y_{n},t_{n}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+k_{2}=f\left(y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}k_{1},t_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\Delta t_{n+\frac{1}{2}}k_{2},
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+The third order RK3 scheme,
+\end_layout
+
+\begin_layout Standard
+This scheme is sometimes used in TVD methods,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+k_{1}=f\left(y_{n},t_{n}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+k_{2}=f\left(y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}k_{1},t_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+k_{3}=f\left(y_{n}+\Delta t_{n}\left(2k_{2}-k_{1}\right),t_{n}+\Delta t_{n+\frac{1}{2}}\right),
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{6}\left(k_{1}+4k_{2}+k_{3}\right).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+The fourth order RK4 scheme
+\end_layout
+
+\begin_layout Standard
+This is probably the most famous method, aka 
+\begin_inset Quotes eld
+\end_inset
+
+the Runge-Kutta method
+\begin_inset Quotes erd
+\end_inset
+
+, which appears in the original paper,
+\begin_inset Formula 
+\[
+k_{1}=f\left(y_{n},t_{n}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+k_{2}=f\left(y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}k_{1},t_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+k_{3}=f\left(y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}k_{2},t_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{2}\right),
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+k_{4}=f\left(y_{n}+\Delta t_{n+\frac{1}{2}}k_{3},t_{n}+\Delta t_{n+\frac{1}{2}}\right),
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+y_{n+1}=y_{n}+\frac{\Delta t_{n+\frac{1}{2}}}{6}\left(k_{1}+2k_{2}+2k_{3}+k_{4}\right).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Timestep splitting
+\end_layout
+
+\begin_layout Standard
+For reasons of stability
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+btprint "btPrintAll"
+bibfiles "../../../AMCG/writeups/ErosionModels/paper_references"
+options "bibtotoc,plainnat"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

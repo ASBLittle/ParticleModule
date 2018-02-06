@@ -99,7 +99,7 @@ class TemporalCache(object):
 
         if base_name.rsplit(".", 1)[-1] == "pvd":
             for time, filename in read_pvd(base_name):
-                self.data.append([time, filename, None, None])
+                self.data.append([timescale_factor*time, filename, None, None])
         else:
             if (Parallel.is_parallel() and online) or parallel_files:
                 files = glob.glob(base_name+'_[0-9]*.pvtu')

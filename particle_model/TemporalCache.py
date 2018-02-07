@@ -232,18 +232,16 @@ class TemporalCache(object):
 
         data, alpha, names = self(time)
 
+        vel_data0 = self.cache.get(data[0][2],names[0][0])
+        vel_data1 = self.cache.get(data[1][2],names[1][0])
+
         loc0 = data[0][3]
         loc0.BuildLocatorIfNeeded()
         loc1 = data[1][3]
         loc1.BuildLocatorIfNeeded()
 
-#        vel_field0 = self.get(data[0][2], names[0][0])
-#        cell_index, pcoords = vtk_extras.FindCell(loc0, pos)
-#        vel_field1 = self.get(data[1][2], names[1][0])
-#        cell_index, pcoords = vtk_extras.FindCell(loc0, pos)
-
-        vel0 = vtk_extras.EvaluateField(data[0][2], loc0, pos, names[0][0])
-        vel1 = vtk_extras.EvaluateField(data[1][2], loc1, pos, names[1][0])
+        vel0 = vtk_extras.EvaluateField(vel_data0, loc0, pos, names[0][0])
+        vel1 = vtk_extras.EvaluateField(vel_data1, loc1, pos, names[1][0])
 
         return alpha*vel1+(1.0-alpha)*vel0
 

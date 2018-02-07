@@ -2,6 +2,7 @@
 #include "vtkUnstructuredGrid.h"
 #include "vtkDoubleArray.h"
 #include "vtkPointData.h"
+#include "vtkGenericCell.h"
 #include "vtkCellData.h"
 #include "vtkCellLocator.h"
 #include "vtkIdList.h"
@@ -13,6 +14,8 @@
 #include "Picker.h"
 
 extern "C" {
+  
+  static vtkGenericCell* cell;
 
   static PyObject *extras_find_cell(PyObject *self, PyObject *args) {
 
@@ -20,7 +23,7 @@ extern "C" {
     vtkCellLocator *locator;
     double x[3];
 
-    if (!argument_parser.GetVTKObject(locator, "vtkCellLocator")) {
+    if (!argument_parser.GetVTKObject(locator, "vtkAbstractCellLocator")) {
       PyErr_SetString(PyExc_TypeError, "Need VTK unstructured grid as first argument");
       return NULL;
     }
@@ -30,7 +33,7 @@ extern "C" {
     npy_intp dims[1]={3};
     PyObject* pcoords = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
     vtkIdType cellId;
-    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1(pcoords,0), 1.0e-6);
+    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1(pcoords,0), 1.0e-6, cell);
 
 
     // Now back to Python
@@ -113,36 +116,44 @@ extern "C" {
   static PyObject *extras_evaluate_field(PyObject *self, PyObject *args) {
 
     vtkPythonArgs argument_parser(args, "extras_evaluate_field");
-    vtkCellLocator *locator;
-    vtkUnstructuredGrid *ugrid;
+    vtkAbstractCellLocator *locator;
+    vtkObject *tmp;
+    vtkDataArray* data = NULL;
     double x[3];
     char* name;
 
-    if (!argument_parser.GetVTKObject(ugrid, "vtkUnstructuredGrid")) {
-      PyErr_SetString(PyExc_TypeError, "Need VTK unstructured grid as first argument");
+    if (!argument_parser.GetVTKObject(tmp, "vtkObject")) {
+      PyErr_SetString(PyExc_TypeError, "Need VTK unstructured grid or Data Array as first argument");
       return NULL;
     }
 
-    if (!argument_parser.GetVTKObject(locator, "vtkCellLocator")) {
+    if (!argument_parser.GetVTKObject(locator, "vtkAbstractCellLocator")) {
       PyErr_SetString(PyExc_TypeError, "Need VTK cell locator as second argument");
       return NULL;
     }
 
     argument_parser.GetArray(x,3);
     argument_parser.GetValue(name);
-    
-    npy_intp dims[1] = {0};
-    
-    if (ugrid->GetPointData()->HasArray(name)) {
-      dims[0] = ugrid->GetPointData()->GetArray(name)->GetNumberOfComponents();
-    } else if (ugrid->GetCellData()->HasArray(name)) {
-      dims[0] = ugrid->GetCellData()->GetArray(name)->GetNumberOfComponents();
-    }
 
+    if (tmp->IsA("vtkUnstructuredGrid")) {
+      data = ((vtkUnstructuredGrid*)tmp)->GetPointData()->GetArray(name);
+      if (!data) data = ((vtkUnstructuredGrid*)tmp)->GetCellData()->GetArray(name);
+    } else if (tmp->IsA("vtkDataArray")) {
+      data = (vtkDataArray*) tmp;
+    } else {
+      PyErr_SetString(PyExc_TypeError, "Need VTK unstructured grid or Data Array as first argument");
+      return NULL;
+    }
+    if (!data) {
+      PyErr_SetString(PyExc_TypeError, "Can't find data!");
+      return NULL;
+    }
+    
+    npy_intp dims[1] = { data->GetNumberOfComponents() };
     PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
 
     // apply our function
-    evaluate_field(ugrid, locator, x, name, (double*) PyArray_GETPTR1(output,0), 1.0e-6);
+    evaluate_field(data, locator, x, (double*) PyArray_GETPTR1(output,0), 1.0e-6, cell);
 
     // Now back to Python
     return output;
@@ -160,11 +171,32 @@ extern "C" {
 
   static char extrasDocString[] = "Module collecting python wrappers to VTK stuff.";
 
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "vtk_extras",     /* m_name */
+        extrasDocString,  /* m_doc */
+        -1,                  /* m_size */
+        extrasMethods,    /* m_methods */
+        NULL,                /* m_reload */
+        NULL,                /* m_traverse */
+        NULL,                /* m_clear */
+        NULL,                /* m_free */
+    };
+#endif
+
   PyMODINIT_FUNC initvtk_extras() {
     
+#if PY_MAJOR_VERSION >= 3
+    PyObject* m = PyModule_Create(&moduledef);
+    if (m == NULL) return NULL;
+#else
     PyObject* m = Py_InitModule3("vtk_extras", extrasMethods, extrasDocString);
     if (m == NULL) return;
+#endif
     import_array();
+
+    cell = vtkGenericCell::New();
 
     PyObject* vtk = PyImport_ImportModule("vtk");
 

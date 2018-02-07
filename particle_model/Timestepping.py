@@ -5,6 +5,8 @@ Methods have the generic signature
     update_NAME(particle_model.Particle particle)
 """
 
+from particle_model.Debug import profile, logger
+
 def update_euler(self):
     """Update the state of the particle to the next time level
     
@@ -33,7 +35,7 @@ def update_euler(self):
     return kap, col
 
         
-
+@profile
 def update_ab2(self):
     """Update the state of the particle to the next time level
         

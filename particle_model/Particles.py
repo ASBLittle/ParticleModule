@@ -72,6 +72,7 @@ class Particle(ParticleBase.ParticleBase):
         par.set_old(self._old)
         return par
 
+    @profile
     def update(self, delta_t=None, method=None):
         """ Update the state of the particle to the next time level."""
         if delta_t is not None:
@@ -208,8 +209,11 @@ class Particle(ParticleBase.ParticleBase):
             vdata = self.system.temporal_cache.get(infile, names[0])
             out = IO.get_vector(infile, vdata, names[0], cell_index, pcoords)
 
-            sdata = self.system.temporal_cache.get(infile, names[1])
-            data_p = IO.get_scalar(infile, sdata, names[1], cell_index)
+            if names[1]:
+                sdata = self.system.temporal_cache.get(infile, names[1])
+                data_p = IO.get_scalar(infile, sdata, names[1], cell_index)
+            else:
+                data_p = None
 
             grad_p = numpy.zeros(3)
             if data_p is not None:

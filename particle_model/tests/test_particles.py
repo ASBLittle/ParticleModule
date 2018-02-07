@@ -46,7 +46,7 @@ class temp_cache(object):
 BOUNDARY = IO.BoundaryData('particle_model/tests/data/rightward_boundary.vtu')
 BOUNDARY3D = IO.BoundaryData('particle_model/tests/data/cube_boundary.vtu')
 SYSTEM = System.System(BOUNDARY, coeff=1.0, temporal_cache=temp_cache(),
-                       rho=1.0e3)
+                       rho=1.0e3, )
 SYSTEM3D = System.System(BOUNDARY3D, coeff=1.0,
                          temporal_cache=temp_cache('cube_0.vtu'))
 
@@ -55,7 +55,7 @@ MESH.read('particle_model/tests/data/Structured.msh')
 MESH3D = IO.GmshMesh()
 MESH3D.read('particle_model/tests/data/Structured_cube.msh')
 
-PAR0 = ParticleBase.PhysicalParticle(diameter=numpy.infty,rho=1.0)
+PAR0 = ParticleBase.PhysicalParticle(diameter=1.0e32,rho=1.0)
 PAR1 = ParticleBase.PhysicalParticle(diameter=100.0e-4,rho=1.0e3)
 
 def test_tests():

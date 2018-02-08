@@ -73,15 +73,15 @@ class Particle(ParticleBase.ParticleBase):
         return par
 
     @profile
-    def update(self, delta_t=None, method=None):
+    def update(self, delta_t=None, method="AdamsBashforth2"):
         """ Update the state of the particle to the next time level."""
         if delta_t is not None:
             self.delta_t = delta_t
         try:
             Timestepping.methods[method](self)
         except KeyError:
-            logger.warning("Timestepping method %s unknown, using RungeKutta4."%method)
-            Timestepping.methods["RungeKutta4"](self)
+            logger.warning("Timestepping method %s unknown, using AdamsBashforth2."%method)
+            Timestepping.methods["AdamsBashforth2"](self)
 
     def drag_coefficient(self, position, particle_velocity, time):
         """ Get particle drag coefficent for specified position and velocity. """
@@ -183,45 +183,47 @@ class Particle(ParticleBase.ParticleBase):
     def picker(self, pos, time, gvel_out=None):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
+
+
         @profile
-        def fpick(infile, locator, names):
+        def fpick(infile, picker, names):
             """ Extract fluid velocity and pressure from single .vtu file"""
 
-            locator.BuildLocatorIfNeeded()
-
-            cell_index, pcoords = self.find_cell(locator, pos)
-            if cell_index is None:
+#            cell_index, pcoords = self.find_cell(locator, pos)
+            if picker.cell_index is None:
                 return None, None
-            cell = IO.get_linear_block(infile).GetCell(cell_index)
-            linear_cell = IO.get_linear_cell(cell)
+#            cell = IO.get_linear_block(infile).GetCell(picker.cell_index)
+#            linear_cell = IO.get_linear_cell(cell)
 
-            dim = linear_cell.GetNumberOfPoints()-1
-            dummy_func = linear_cell.GetPoints().GetPoint
-            if linear_cell.GetCellDimension() > 1:
-                upos = numpy.zeros(linear_cell.GetNumberOfPoints())
-                args = [dummy_func(i+1)[:dim] for i in range(dim)]
-                args.append(dummy_func(0)[:dim])
-                args.append(upos)
-                linear_cell.BarycentricCoords(pos[:dim], *args)
+#            dim = linear_cell.GetNumberOfPoints()-1
+#            dummy_func = linear_cell.GetPoints().GetPoint
+#            if linear_cell.GetCellDimension() > 1:
+#               upos = numpy.zeros(linear_cell.GetNumberOfPoints())
+#                args = [dummy_func(i+1)[:dim] for i in range(dim)]
+#                args.append(dummy_func(0)[:dim])
+#                args.append(upos)
+#                linear_cell.BarycentricCoords(pos[:dim], *args)
 
 #           collision == Collision.testInCell(linear_cell, pos)
 
             vdata = self.system.temporal_cache.get(infile, names[0])
-            out = IO.get_vector(infile, vdata, names[0], cell_index, pcoords)
+            out = picker(pos, vdata)
+#            out = IO.get_vector(infile, vdata, names[0], cell_index, pcoords)
 
-            if names[1]:
+            if names[1] and picker.cell_index:
                 sdata = self.system.temporal_cache.get(infile, names[1])
-                data_p = IO.get_scalar(infile, sdata, names[1], cell_index)
+                data_p = IO.get_scalar(infile, sdata, names[1], picker.cell_index)
             else:
                 data_p = None
 
             grad_p = numpy.zeros(3)
             if data_p is not None:
+                dim = picker.cell.GetCellDimension()
                 rhs = data_p[1:dim+1]-data_p[0]
 
                 mat = numpy.zeros((dim, dim))
                 
-                pts = numpy.array([cell.GetPoints().GetPoint(i) for i in range(dim+1)])
+                pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
                 for i in range(dim):
                     mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
 
@@ -231,20 +233,25 @@ class Particle(ParticleBase.ParticleBase):
 
             if len(names) == 3:
                 vdata = self.system.temporal_cache.get(infile, names[2])
-                gout = IO.get_vector(infile, vdata, names[2], cell_index, pcoords)
+                gout = picker(pos, vdata)
+#                gout = IO.get_vector(infile, vdata, names[2], picker.cell_index, pcoords)
                 return out, grad_p, gout
             #otherwise
             return out, grad_p
 
         data, alpha, names = self.system.temporal_cache(time)
 
+        picker0 = vtk_extras.Picker(data[0][3])
+        picker0.pos = pos;
+        picker1 = vtk_extras.Picker(data[1][3])
+        picker1.pos = pos;
 
         if len(names[0]) == 3:
-            vel0, grad_p0, gvel = fpick(data[0][2], data[0][3], names[0])
-            vel1, grad_p1, gvel = fpick(data[1][2], data[1][3], names[1])
+            vel0, grad_p0, gvel = fpick(data[0][2], picker0, names[0])
+            vel1, grad_p1, gvel = fpick(data[1][2], picker1, names[1])
         else:
-            vel0, grad_p0 = fpick(data[0][2], data[0][3], names[0])
-            vel1, grad_p1 = fpick(data[1][2], data[1][3], names[1])
+            vel0, grad_p0 = fpick(data[0][2], picker0, names[0])
+            vel1, grad_p1 = fpick(data[1][2], picker1, names[1])
 
         if vel0 is None or vel1 is None:
             return None, None

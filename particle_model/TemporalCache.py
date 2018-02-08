@@ -57,7 +57,10 @@ class DataCache(object):
         data = _.get(name)
         if not data:
             if infile.IsA('vtkUnstructuredGrid'):
-                data = infile.GetPointData().GetArray(name)
+                if infile.GetPointData().HasArray(name):
+                    data = infile.GetPointData().GetArray(name)
+                else:
+                    data = None
             else:
                 data = None
                 for _ in range(infile.GetNumberOfBlocks()):

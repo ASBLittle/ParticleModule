@@ -24,7 +24,7 @@ class temp_cache(object):
         self.cache = dc()
 
     def get(self, infile, name):
-        return None
+        return infile.GetPointData().GetArray(name)
         
 
     def __call__(self, time):
@@ -89,13 +89,12 @@ def test_basic_particle_bucket_initialization():
     assert part
 
 
-def test_particle_bucket_step_do_nothing(tmpdir):
+def test_particle_bucket_step_do_nothing():
     """ Test initializing a full particle bucket."""
     from numpy import zeros
 
     bndc = IO.BoundaryData('particle_model/tests/data/boundary_circle.vtu')
     system = System.System(bndc, base_name='particle_model/tests/data/circle')
-
 
     num = 1
 
@@ -103,10 +102,9 @@ def test_particle_bucket_step_do_nothing(tmpdir):
     vel = zeros((num, 3))
 
     bucket = Particles.ParticleBucket(pres, vel, 0.0, delta_t=0.5,
-                                      filename=tmpdir.join('data.dat').strpath,
                                       system=system)
 
-    bucket.run(5.0)
+    bucket.run(5.0, write=False)
 
     assert bucket.time == 5.0
     assert all(bucket.particles[0].pos == 0.0)
@@ -199,7 +197,7 @@ def test_step_constant_velocity():
 
     part = Particles.Particle((pos, vel), delta_t=0.1, parameters=PAR0,
                               system=SYSTEM)
-    part.update()
+    part.update(method="RungeKutta4")
     assert all(part.pos == numpy.array((0.6, 0.5, 0.0)))
     assert part.time == 0.1
     part.update()
@@ -218,7 +216,7 @@ def test_step_spin_up_turbulent_drag():
     part = Particles.Particle((pos, vel), delta_t=0.001,
                               system=SYSTEM,
                               parameters=phys_par)
-    part.update()
+    part.update(method="RungeKutta4")
     assert all(abs(part.pos - numpy.array((0.100345, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
 
@@ -234,7 +232,7 @@ def test_step_spin_up_transitional_drag():
     part = Particles.Particle((pos, vel), delta_t=0.001,
                               system=SYSTEM,
                               parameters=phys_par)
-    part.update()
+    part.update(method="RungeKutta4")
     assert all(abs(part.pos - numpy.array((0.10373956, 0.5, 0))) < 1.e-8)
     assert part.time == 0.001
 
@@ -259,7 +257,7 @@ def test_stokes_terminal_velocity():
                                       parameters=par,
                                       system=system)
 
-    bucket.run(100*delta_t, write=False)
+    bucket.run(100*delta_t, write=False, method="RungeKutta4")
     assert abs(bucket.time - 100*delta_t) < 1.0e-8
     assert all(abs(bucket.particles[0].vel
                    - numpy.array((0,
@@ -274,7 +272,7 @@ def test_step_head_on_collision():
 
     part = Particles.Particle((pos, vel), delta_t=0.001, parameters=PAR0,
                               system=SYSTEM)
-    part.update()
+    part.update(method="RungeKutta4")
     assert all(abs(part.pos - numpy.array((0.9995, 0.5, 0.0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 0., 0.)))
     assert part.time == 0.001
@@ -341,7 +339,7 @@ def test_gyre_collision():
 
     for i in range(100):
         del i
-        part.update()
+        part.update(method="RungeKutta4")
 
     assert part.pos[0] < 1.0
     assert part.pos[1] < 1.0

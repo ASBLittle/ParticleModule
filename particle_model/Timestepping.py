@@ -24,6 +24,7 @@ def update_euler(self):
 
     self.pos += step
     self.vel += vel
+    self.time += self.delta_t
 
     if col:
         self.collisions += col

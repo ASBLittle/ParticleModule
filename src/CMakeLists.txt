@@ -57,7 +57,7 @@ target_link_libraries(vtkParticlesPythonD
     
 add_library(vtkParticlesPython MODULE ${vtkParticlesPython_SRCS} vtkParticlesPythonInit.cxx)
 
-add_library(vtk_extras_mod MODULE vtk_extras.cxx)
+add_library(vtk_extras_mod MODULE PickerObject.cxx vtk_extras.cxx)
         
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 

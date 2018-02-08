@@ -1,3 +1,7 @@
+#define PY_ARRAY_UNIQUE_SYMBOL PickerObject_ARRAY_API
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include "numpy/arrayobject.h"
+
 #include "vtkPythonArgs.h"
 #include "vtkUnstructuredGrid.h"
 #include "vtkDoubleArray.h"
@@ -7,11 +11,11 @@
 #include "vtkCellLocator.h"
 #include "vtkIdList.h"
 #include "stdio.h"
-#include "numpy/arrayobject.h"
 
 #include "vtkExtrasErrors.h"
 #include "BoundingSurface.h"
 #include "Picker.h"
+#include "PickerObject.h"
 
 extern "C" {
   
@@ -33,7 +37,7 @@ extern "C" {
     npy_intp dims[1]={3};
     PyObject* pcoords = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
     vtkIdType cellId;
-    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1(pcoords,0), 1.0e-6, cell);
+    find_cell(locator, x, cellId, (double*) PyArray_GETPTR1((PyArrayObject*)pcoords,0), 1.0e-6, cell);
 
 
     // Now back to Python
@@ -94,8 +98,8 @@ extern "C" {
 
     PyObject* output = PyArray_ZEROS(1,dims,NPY_DOUBLE,0);
 
-    double *doutput = (double*) PyArray_GETPTR1(output,0);
-    double *dweights = (double*) PyArray_GETPTR1(weights,0);
+    double *doutput = (double*) PyArray_GETPTR1((PyArrayObject*)output,0);
+    double *dweights = (double*) PyArray_GETPTR1((PyArrayObject*)weights,0);
 
     for (int c=0; c<ids->GetNumberOfIds(); ++c) {
       for (int i=0; i<dims[0]; ++i) {
@@ -153,13 +157,13 @@ extern "C" {
     PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
 
     // apply our function
-    evaluate_field(data, locator, x, (double*) PyArray_GETPTR1(output,0), 1.0e-6, cell);
+    evaluate_field(data, locator, x, (double*) PyArray_GETPTR1((PyArrayObject*)output,0), 1.0e-6, cell);
 
     // Now back to Python
     return output;
   }
 
-  char bounding_surface_docstring[] = "ReadGmsh(vtkUnstructuredGrid) -> vtkUnstructuredGrid\n\n Extract the boundary from a VTK unstructured grid object.";  
+  char bounding_surface_docstring[] = "ReadGmsh(vtkUnstructuredGrid) -> vtkUnstructuredGrid\n\n Extract the boundary from a VTK unstructured grid object.";    
 
   static PyMethodDef extrasMethods[] = {
     { (char *)"BoundingSurface", (PyCFunction) extras_bounding_surface, METH_VARARGS, bounding_surface_docstring},
@@ -185,15 +189,11 @@ extern "C" {
     };
 #endif
 
-  PyMODINIT_FUNC initvtk_extras() {
-    
 #if PY_MAJOR_VERSION >= 3
+  PyMODINIT_FUNC PyInit_initvtk_extras() {
+
     PyObject* m = PyModule_Create(&moduledef);
     if (m == NULL) return NULL;
-#else
-    PyObject* m = Py_InitModule3("vtk_extras", extrasMethods, extrasDocString);
-    if (m == NULL) return;
-#endif
     import_array();
 
     cell = vtkGenericCell::New();
@@ -202,8 +202,28 @@ extern "C" {
 
     Py_INCREF(vtk);
     PyModule_AddObject(m,"vtk",vtk);
-    
-    
+
+    return m;
   }
 
+#else
+  PyMODINIT_FUNC initvtk_extras() {
+
+
+    PyObject* m = Py_InitModule3("vtk_extras", extrasMethods, extrasDocString);
+    if (m == NULL) return;
+    import_array();
+
+    if (PyType_Ready(vtk_extrasPicker_Type()) < 0)  return;
+
+    cell = vtkGenericCell::New();
+
+    PyObject* vtk = PyImport_ImportModule("vtk");
+
+    Py_INCREF(vtk);
+    PyModule_AddObject(m,"vtk",vtk);
+    Py_INCREF(vtk_extrasPicker_Type());
+    PyModule_AddObject(m,"Picker", (PyObject*)vtk_extrasPicker_Type());
+  }
+#endif
 }

@@ -28,6 +28,22 @@ particle_model.IO module
     :undoc-members:
     :show-inheritance:
 
+particle_model.GmshIO module
+----------------------------
+
+.. automodule:: particle_model.GmshIO
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+particle_model.ParticleBase module
+----------------------------------
+
+.. automodule:: particle_model.ParticleBase
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 particle_model.Particles module
 -------------------------------
 

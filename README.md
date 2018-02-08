@@ -49,7 +49,7 @@ Testing
 After building, the tests can be run using
 
 ```bash
-py.test
+PYTHONPATH=$PWD py.test
 ```
 
 in the base directory. This assumes pytest is installed.
@@ -57,10 +57,10 @@ in the base directory. This assumes pytest is installed.
 Installation
 ------------
 
-After building the code, run
+After building the code, you can run
 
 ```bash
 sudo make install
 ```
 
-This installs the package under your default path for python packages.
+This installs the package under your default path for python packages. Note that the particle module is under active development, so permenant installtion may not be appropriate.

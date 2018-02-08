@@ -189,7 +189,6 @@ status open
 
 \begin_layout Plain Layout
 
-\size huge
 
 \backslash
 
@@ -648,12 +647,25 @@ and for the fluid of
 
 \end_layout
 
+\begin_layout Section
+Particle-Particle interactions
+\end_layout
+
+\begin_layout Section
+Non-spherical corrections
+\end_layout
+
 \begin_layout Chapter
 Particle-Wall Collisions and Wear Modelling
 \end_layout
 
 \begin_layout Section
 A Collision Event
+\end_layout
+
+\begin_layout Standard
+From the viewpoint of wear, a collision event occurs when a finite size
+ particle impacts 
 \end_layout
 
 \begin_layout Chapter
@@ -1177,7 +1189,60 @@ Timestep splitting
 \end_layout
 
 \begin_layout Standard
-For reasons of stability
+For reasons of stability it can be useful to deal with the drag term somewhat
+ implicitly, i.e.
+ to take
+\begin_inset Formula 
+\[
+\frac{D\bm{v}}{dt}\approx F\left(\bm{v}^{n}\right)+C\left(\bm{u}-\bm{v}^{n}\right)\left(\bm{u}^{n+1}-\bm{v}^{n+1}\right).
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/method_trajectory_comparison.pdf
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Comparison of timestepping methods for a pure Lagrangian particle in a rotationa
+l vector field, 
+\begin_inset Formula $\bm{u}=\left(-2\pi y,2\pi x\right)$
+\end_inset
+
+.
+ Trajectories are shown for the Forward Euler (red), RK2(green), RK4(yellow),
+ AB2(blue) and AB3(magenta) methods, along with the exact trajectory in
+ black.
+ Results are shown for one rotation (i.e unit period of integration) for
+ timesteps 0.01 (filled circles), 0.02 (+ signs) and 0.05(stars).
+ 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard

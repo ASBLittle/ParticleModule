@@ -5,6 +5,8 @@ import itertools
 import copy
 
 import vtk
+from particle_model.Debug import profile, logger
+from particle_model import Math
 from particle_model import IO
 from particle_model import Collision
 from particle_model import System
@@ -12,32 +14,17 @@ from particle_model import ParticleBase
 from particle_model import Parallel
 from particle_model import Timestepping
 from particle_model import vtk_extras
-from particle_model.Debug import profile, logger
 
 import numpy
-import scipy.linalg as la
+
+ARGV = [0.0, 0.0, 0.0]
+ARGI = vtk.mutable(0)
+LEVEL = 0
 
 try:
     import IPython
 except ImportError:
     pass
-
-ARGV = [0.0, 0.0, 0.0]
-ARGI = vtk.mutable(0)
-ARGR = vtk.mutable(0.0)
-CELL = vtk.vtkGenericCell()
-PCOORDS = [0.0, 0.0, 0.0]
-WEIGHT = [0.0, 0.0, 0.0, 0.0]
-
-def invert(mat):
-    """ Hard coded 2D matrix inverse."""
-    if mat.shape == (2, 2):
-        return (numpy.array(((mat[1, 1], -mat[0, 1]),
-                             (-mat[1, 0], mat[0, 0])))
-                /(mat[0, 0]*mat[1, 1]-mat[0, 1]*mat[1, 0]))
-
-    # otherwise use numpy
-    return la.inv(mat)
 
 class Particle(ParticleBase.ParticleBase):
     """Class representing a single Lagrangian particle with mass"""
@@ -146,16 +133,7 @@ class Particle(ParticleBase.ParticleBase):
 
     def coriolis_force(self, particle_velocity):
         """ Return Coriolis force on particle."""
-
-        def cross(vec1, vec2):
-            """Return cross product of 3-tuples x and y."""
-            out = numpy.zeros(3)
-            out[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
-            out[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
-            out[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
-            return out
-
-        return -2.0 * cross(self.system.omega, particle_velocity)
+        return -2.0 * Math.cross(self.system.omega, particle_velocity)
 
     def centrifugal_force(self, position):
         """ Return centrifugal force on particle"""
@@ -227,7 +205,7 @@ class Particle(ParticleBase.ParticleBase):
                 for i in range(dim):
                     mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
 
-                mat = invert(mat)
+                mat = Math.invert(mat)
 
                 grad_p[:dim] = numpy.dot(mat, rhs)
 
@@ -609,31 +587,18 @@ class ParticleBucket(object):
         """Collect all collisions felt by particles in the bucket"""
         return [i for i in itertools.chain(*[p.collisions for p in self.particles+self.dead_particles])]
 
-    def write(self):
-        """Write timelevel data to file."""
-
-        self.outfile.write('%f'%self.time)
-
-        for pos in self.pos():
-            for _ in pos:
-                self.outfile.write(' %f'%_)
-
-        for vel in self.vel():
-            for _ in vel:
-                self.outfile.write(' %f'%_)
-
-        self.outfile.write('\n')
-
     def set_solid_pressure_gradient(self, solid_pressure_gradient):
         self.solid_pressure_gradient = solid_pressure_gradient
         for particle, gsp in zip(self.particles, self.solid_pressure_gradient):
             particle.solid_pressure_gradient = gsp
 
-    def run(self, time, delta_t=None, write=True, *args, **kwargs):
+    def run(self, time, delta_t=None, write=False, *args, **kwargs):
         """Drive particles forward until a given time."""
         while self.time-time < -1.0e-15:
             self.update(delta_t, *args, **kwargs)
             if write:
-                self.write()
+                global LEVEL
+                IO.write_level_to_polydata(bucket=self, level=LEVEL, basename="dump.vtp")
+                LEVEL += 1
         if write:
             self.outfile.flush()

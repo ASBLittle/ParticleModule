@@ -306,103 +306,6 @@ def extract_boundary(ugrid):
 
     return out_grid
 
-def get_ascii_data(filename='data.dat'):
-
-    """Read the ascii output file and output as numpy data arrays
-
-    Args:
-        filename (str) The file to interogate
-
-    Results:
-        t (ndarray): Time
-        x (ndarray): x coordinate of particle position
-        y (ndarray): y coordinate of particle position
-        z (ndarray): z coordinate of particle position
-        u (ndarray): u coordinate of particle velocity
-        v (ndarray): v coordinate of particle velocity
-        w (ndarray): w coordinate of particle velocity"""
-
-    infile = open(filename, 'r')
-
-    time = []
-    pos_x = []
-    pos_y = []
-    pos_z = []
-    vel_u = []
-    vel_v = []
-    vel_w = []
-
-    for line in infile.readlines():
-        data = [float(M) for M in line.split()]
-
-        time.append(data[0])
-        num = len(data[1:])/6
-        pos_x.append(data[1::3][:num])
-        vel_u.append(data[1::3][num:])
-        pos_y.append(data[2::3][:num])
-        vel_v.append(data[2::3][num:])
-        pos_z.append(data[3::3][:num])
-        vel_w.append(data[3::3][num:])
-
-    pos_x = numpy.array(pos_x)
-    pos_y = numpy.array(pos_y)
-    pos_z = numpy.array(pos_z)
-    vel_u = numpy.array(vel_u)
-    vel_v = numpy.array(vel_v)
-    vel_w = numpy.array(vel_w)
-
-    infile.close()
-
-    return time, pos_x, pos_y, pos_z, vel_u, vel_v, vel_w
-
-
-def ascii_to_polydata_time_series(filename, basename):
-
-    """Convert ascii file to a series of vtkPolyData (.vtp) files.
-
-    Each file contains one time level of the data, and are numbered sequentially.
-    Within each file, each dataset is written to seperate pixel.
-
-    Args:
-        filename (str): Filename/path of the ascii file containing the data.
-        basename (str): String used in the construction of the file series.
-        The formula is of the form basename_0.vtp, basename_1.vtp,..."""
-
-    ascii_data = get_ascii_data(filename)
-    time = ascii_data[0]
-
-    for i, full_data in enumerate(zip(ascii_data[1], ascii_data[2], ascii_data[3],
-                                      ascii_data[4], ascii_data[5], ascii_data[6])):
-        poly_data = vtk.vtkPolyData()
-        pnts = vtk.vtkPoints()
-        pnts.Allocate(0)
-        poly_data.SetPoints(pnts)
-        poly_data.Allocate(ascii_data[1].shape[0])
-
-        outtime = vtk.vtkDoubleArray()
-        outtime.Allocate(ascii_data[1].shape[0])
-        outtime.SetName('Time')
-
-        velocity = vtk.vtkDoubleArray()
-        velocity.SetNumberOfComponents(3)
-        velocity.Allocate(ascii_data[1].shape[0])
-        velocity.SetName('Particle Velocity')
-
-        for data in numpy.array(full_data).T:
-            pixel = vtk.vtkPixel()
-            pixel.GetPointIds().InsertId(0,
-                                         poly_data.GetPoints().InsertNextPoint(data[0],
-                                                                               data[1],
-                                                                               data[2]))
-            outtime.InsertNextValue(time[i])
-            velocity.InsertNextTuple3(data[3], data[4], data[5])
-            poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
-
-        poly_data.GetPointData().AddArray(outtime)
-        poly_data.GetPointData().AddArray(velocity)
-
-        write_to_file(poly_data, "%s_%d.vtp"%(basename, i))
-
 def write_bucket_to_polydata(bucket):
 
     """ Output the points of a bucket to a vtkPoints object. """
@@ -619,44 +522,6 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
 
     write_to_file(ugrid, "%s_out_%d.vtu"%(basename, level))
 
-def ascii_to_polydata(filename, outfile):
-    """Convert ascii file to a single vtkXMLPolyData (.vtp) files.
-
-    Each particle is written to seperate cell.
-
-    Args:
-        filename (str): Filename/path of the ascii file containing the data.
-        outfile (str):  Filename of the output PolyDataFile. The extension .vtp
-        is NOT added automatically."""
-
-    poly_data = vtk.vtkPolyData()
-    pnts = vtk.vtkPoints()
-    pnts.Allocate(0)
-    poly_data.SetPoints(pnts)
-    full_data = get_ascii_data(filename)
-    time = full_data[0]
-    pos_x = full_data[1]
-    pos_y = full_data[2]
-    pos_z = full_data[3]
-    poly_data.Allocate(pos_x.shape[1])
-
-    outtime = vtk.vtkDoubleArray()
-    outtime.SetName('Time')
-
-    for positions in zip(pos_x.T, pos_y.T, pos_z.T):
-        line = vtk.vtkLine()
-        for k, data in enumerate(zip(time, positions[0], positions[1], positions[2])):
-            outtime.InsertNextValue(data[0])
-            line.GetPointIds().InsertId(k,
-                                        poly_data.GetPoints().InsertNextPoint(data[1],
-                                                                              data[2],
-                                                                              data[3]))
-            poly_data.InsertNextCell(line.GetCellType(), line.GetPointIds())
-
-    poly_data.GetFieldData().AddArray(outtime)
-
-    write_to_file(poly_data, outfile)
-
 def update_collision_polydata(bucket, base_name, **kwargs):
     """ Update collisions from data in the particle bucket."""
 
@@ -674,7 +539,6 @@ def collision_list_to_polydata(col_list, outfile,
     Each particle is written to seperate cell.
 
     Args:
-        filename (str): Filename/path of the ascii file containing the data.
         outfile (str):  Filename of the output PolyDataFile. The extension .vtp
         is NOT added automatically."""
 
@@ -1041,9 +905,9 @@ def get_scalar(infile, data, name, index):
     return out 
 
 def get_mesh_from_reader(reader):
-    MESH = GmshMesh()
-    MESH.read(reader.get_mesh_filename())
-    return MESH
+    mesh = GmshMesh()
+    mesh.read(reader.get_mesh_filename())
+    return mesh
 
 def get_boundary_from_fluidity_mesh(positions):
     """Temporary method for testing"""
@@ -1217,15 +1081,3 @@ def get_real_x(cell, locx):
         return numpy.array(cell.GetPoint(0))*(1.0-locx[0])+numpy.array(cell.GetPoint(1))*locx[0]
     else:
         return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]
-
-def output_test(reader, time, counter=[0]):
-    otime, steps = reader.get_dump_period()
-    if steps:
-        flag = counter[0]%otime
-        counter[0] += 1
-    else:
-        flag = counter[0]//otime != time//otime
-        counter[0] = time
-    return flag
-    
-    

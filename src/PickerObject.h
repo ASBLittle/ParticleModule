@@ -17,8 +17,10 @@ extern "C" {
     PyObject_HEAD
     vtkCellLocator* locator;
     vtkDataSet* ugrid;
+    char data_name[255];
+    vtkDoubleArray* data;
     vtkGenericCell* cell;
-    int cell_index;
+    vtkIdType cell_index;
     double tol2, pos[3], pcoords[3], weights[10];
   } vtk_extrasPicker;
 

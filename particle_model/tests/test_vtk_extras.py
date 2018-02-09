@@ -28,6 +28,9 @@ def test_Picker():
     """Test the vtk_extras.Picker class"""
     locator = vtk.vtkCellLocator()
     locator.SetDataSet(ugrid)
-    picker = vtk_extras.Picker(locator)
+    picker = vtk_extras.Picker()
+    picker.name = "Velocity"
+    picker.grid = ugrid
+    picker.locator = locator
 
-    out = picker((0.5,0.5,0.0), ugrid.GetPointData().GetArray("Velocity"))
+#    out = picker((0.5,0.5,0.0))

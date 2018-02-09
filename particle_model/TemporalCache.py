@@ -5,6 +5,7 @@ import vtk
 import numpy
 from particle_model import Parallel
 from particle_model import Debug
+from Debug import profile
 from particle_model import vtk_extras
 try:
     from lxml import etree as ET
@@ -16,6 +17,10 @@ except ImportError:
     def element_tree(**kwargs):
         """ Wrapper for xml ElementTree."""
         return ET.ElementTree(**kwargs)
+
+PICKERS = [ vtk_extras.Picker(),
+            vtk_extras.Picker(),
+            vtk_extras.Picker()]
 
 def read_pvd(filename):
     """Read timestep and filename data from a .pvd file."""
@@ -43,6 +48,7 @@ class DataCache(object):
         self._keys = [None for _ in range(max_size)]
         self._values = [{} for _ in range(max_size)]
 
+    @profile
     def get(self, infile, name):
         """Get cache value."""
         try:

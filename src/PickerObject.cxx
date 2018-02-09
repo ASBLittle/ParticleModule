@@ -12,6 +12,7 @@
 #include "vtkPythonUtil.h"
 #include "vtkPythonArgs.h"
 #include "vtkDoubleArray.h"
+#include "vtkPointData.h"
 #include "PickerObject.h"
 
 
@@ -31,13 +32,15 @@ extern "C" {
 
   static int set_locator(PyObject* pyself, PyObject* o, void *closure) {
     vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
-    if (self->locator) {
-      self->locator->Delete();
-      self->locator=NULL;
+    vtkCellLocator* locator =  (vtkCellLocator*) vtkPythonUtil::GetPointerFromObject(o,"vtkCellLocator");
+    if (self->locator!=locator) {
+      if(self->locator) self->locator->Delete();
+      self->locator = locator;
+      if (locator) {
+	self->locator->Register(NULL);
+	self->locator->BuildLocatorIfNeeded();
+      }
     }
-    self->locator = (vtkCellLocator*) vtkPythonUtil::GetPointerFromObject(o,"vtkCellLocator");
-    self->locator->BuildLocatorIfNeeded();
-    self->locator->Register(NULL);
     return 0;
   }
 
@@ -48,13 +51,34 @@ extern "C" {
 
   static int set_grid(PyObject* pyself, PyObject* o, void *closure) {
     vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
-    if (self->ugrid) {
-      self->ugrid->Delete();
-      self->ugrid=NULL;
+    vtkDataSet* ugrid = (vtkDataSet*) vtkPythonUtil::GetPointerFromObject(o,"vtkDataSet");
+    if (self->ugrid!=ugrid) {
+      if(self->ugrid) self->ugrid->Delete();
+      self->ugrid = ugrid;
+      if (ugrid) {
+	self->ugrid->Register(NULL);
+        if(self->data_name) {
+	  self->data = (vtkDoubleArray*) self->ugrid->GetPointData()->GetArray(self->data_name);
+	}
+      }
     }
-    self->ugrid = (vtkDataSet*) vtkPythonUtil::GetPointerFromObject(o,"vtkDataSet");
     return 0;
+  } 
+
+  static PyObject* get_name(PyObject* pyself, void *closure) {
+    vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
+    if (self->data_name) {
+      return PyString_FromString(self->data_name);
+    } else {
+      Py_RETURN_NONE;
+    }
   }
+
+  static int set_name(PyObject* pyself, PyObject* o, void *closure) {
+    vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
+    strncpy(self->data_name, PyString_AsString(o), 255);
+    return 0;
+  } 
 
   static PyObject* get_cell_index(PyObject* pyself, void *closure) {
     vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
@@ -89,32 +113,39 @@ extern "C" {
 
   static int vtk_extrasPicker_init(PyObject *pyself, PyObject *args, PyObject *kw)
   { 
-    vtkPythonArgs argument_parser(args, "vtk_extrasPicker_init");
-    vtkCellLocator* locator=NULL;
-    
-    if (!argument_parser.GetVTKObject(locator, "vtkCellLocator")) {
-      PyErr_SetString(PyExc_TypeError, "Need VTK cell locator as first argument");
-      return -1;
-    }
- 
     if (!pyself) return -1;
     vtk_extrasPicker* self = (vtk_extrasPicker*)pyself;
-						     
-    self->locator = locator;
-    self->locator->Register(NULL);
-    self->cell = vtkGenericCell::New();
-    self->tol2=1.0e-8;
-    for (int i=0; i<3; ++i) {
-      self->pos[i] =0.0;
+
+    vtkPythonArgs argument_parser(args, "vtk_extrasPicker_init");
+    vtkCellLocator* locator=NULL;
+
+    if(PyObject_Length(args)) {
+      if (!argument_parser.GetVTKObject(locator, "vtkCellLocator")) {
+	PyErr_SetString(PyExc_TypeError, "Need VTK cell locator as first argument");
+	return -1;
+      }						     
+      self->locator = locator;
+      self->locator->Register(NULL);
+    } else {
+      self->locator = NULL;
     }
-    if (self->locator->GetDataSet()) {
+    self->cell = vtkGenericCell::New();
+    self->tol2=0.0;
+    for (int i=0; i<3; ++i) {
+      self->pos[i] = 0.0;
+    }
+    if (locator && self->locator->GetDataSet()) {
       self->locator->BuildLocator();
       self->cell_index = self->locator->FindCell(self->pos, self->tol2, self->cell, self->pcoords, self->weights);
       self->ugrid = self->locator->GetDataSet();
       self->ugrid->Register(NULL);
+      self->data=NULL;
+      strcpy(self->data_name, "Velocity");
     } else {
       self->cell_index = -1;
       self->ugrid = NULL;
+      self->data = NULL;
+      strcpy(self->data_name, "");
     }
     return 0;
   }
@@ -122,8 +153,9 @@ extern "C" {
   static void vtk_extrasPicker_dealloc(PyObject *self)
   {
     vtk_extrasPicker *p = (vtk_extrasPicker *)self;
-    p->locator->Delete();
-    p->cell->Delete();
+    if (p->locator) p->locator->Delete();
+    if (p->cell) p->cell->Delete();
+    if (p->ugrid) p->ugrid->Delete();
     Py_TYPE(self)->tp_free(self);
   }
 
@@ -147,9 +179,13 @@ extern "C" {
     }
 
     vtkDoubleArray* data;
-    if (!argument_parser.GetVTKObject(data, "vtkDoubleArray")|| !data) {
-      PyErr_SetString(PyExc_TypeError, "Need VTK double data array as second argument");
-      return NULL;
+    if (PyObject_Length(args)>1) {
+      if (!argument_parser.GetVTKObject(data, "vtkDoubleArray")|| !data) {
+	PyErr_SetString(PyExc_TypeError, "Need VTK double data array as second argument");
+	return NULL;
+      }
+    } else {
+      data = p->data;
     }
     
     pypos = PyArray_FromObject(pyobj,NPY_DOUBLE,1,1);
@@ -179,12 +215,14 @@ extern "C" {
 
     Py_XDECREF(pypos);
 
-    npy_intp dims[1] = { data->GetNumberOfComponents() };
+    npy_intp dims[1] = { 3 };
     PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
     double* cout = (double*) PyArray_GETPTR1((PyArrayObject*)output,0);
 
-    for (int j=0; j<dims[0]; ++j) {
+    for (int j=0; j<3; ++j) {
       cout[j] = 0.0;
+    }
+    for (int j=0; j<data->GetNumberOfComponents(); ++j) {
       for (int i=0; i<p->cell->GetNumberOfPoints(); ++i) {
 	cout[j] = cout[j] + p->weights[i]*data->GetComponent(p->cell->GetPointId(i),j) ;
       }
@@ -204,6 +242,7 @@ extern "C" {
   static PyGetSetDef vtk_extrasPicker_getset[] = {
     { (char*)"locator", get_locator, set_locator, (char*)"Get/set picker locator.", NULL},
     { (char*)"grid", get_grid, set_grid, (char*)"Get/set picker grid.", NULL},
+    { (char*)"name", get_name, set_name, (char*)"Get/set data name.", NULL},
     { (char*)"cell_index", get_cell_index, NULL, (char*)"Get picker cell index.", NULL},
     { (char*)"cell", get_cell, NULL, (char*)"Get picker cell.", NULL},
     { (char*)"pos", get_pos, (setter)set_pos, (char*)"Get/set picker position.", NULL},

@@ -12,6 +12,7 @@ from particle_model import Collision
 from particle_model import System
 from particle_model import ParticleBase
 from particle_model import Parallel
+from particle_model import TemporalCache
 from particle_model import Timestepping
 from particle_model import vtk_extras
 
@@ -20,6 +21,7 @@ import numpy
 ARGV = [0.0, 0.0, 0.0]
 ARGI = vtk.mutable(0)
 LEVEL = 0
+ZERO = numpy.zeros(3)
 
 try:
     import IPython
@@ -59,7 +61,6 @@ class Particle(ParticleBase.ParticleBase):
         par.set_old(self._old)
         return par
 
-    @profile
     def update(self, delta_t=None, method="AdamsBashforth2"):
         """ Update the state of the particle to the next time level."""
         if delta_t is not None:
@@ -90,6 +91,7 @@ class Particle(ParticleBase.ParticleBase):
         location."""
         return self.picker(self.pos, self.time)
 
+    @profile
     def force(self, position, particle_velocity, time, drag=True):
         """Calculate the sum of the forces on the particle.
 
@@ -102,6 +104,9 @@ class Particle(ParticleBase.ParticleBase):
 #        if collision:
 #            raise collisionException
 
+
+        if self.pure_lagrangian:
+            return ZERO
 
         fluid_velocity, grad_p = self.picker(position, time)
 
@@ -146,10 +151,6 @@ class Particle(ParticleBase.ParticleBase):
             point = self.pos
         cell_index = vtk.mutable(0)
 
-#        locator.FindClosestPoint(point, ARGV, cell_index, ARGI, ARGR)
-#        cell_index = locator.FindCell(point, 0.0, CELL, PCOORDS, WEIGHT)
-#        locator.FindCell(point)
-
         cell_index, pcoords = vtk_extras.FindCell(locator, point)
 
         if cell_index == -1:
@@ -158,92 +159,85 @@ class Particle(ParticleBase.ParticleBase):
         return cell_index, pcoords
 
     @profile
+    def _fpick(self, pos, infile, picker, names):
+        """ Extract fluid velocity and pressure from single .vtu file"""
+        
+        if picker.cell_index is None:
+            return None, None
+
+        # picker defaults to velocity
+        out = picker(pos)
+
+        if names[1] and picker.cell_index:
+            sdata = self.system.temporal_cache.get(infile, names[1])
+            data_p = IO.get_scalar(infile, sdata, names[1], picker.cell_index)
+        else:
+            data_p = None
+
+        if data_p is not None:
+            grad_p = numpy.zeros(3)
+            dim = picker.cell.GetCellDimension()
+            rhs = data_p[1:dim+1]-data_p[0]
+            
+            mat = numpy.zeros((dim, dim))
+                
+            pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
+            for i in range(dim):
+                mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
+
+            mat = Math.invert(mat)
+            grad_p[:dim] = numpy.dot(mat, rhs)
+        else:
+            grad_p = ZERO
+
+        if len(names) == 3:
+            vdata = self.system.temporal_cache.get(infile, names[2])
+            gout = picker(pos, vdata)
+            return out, grad_p, gout
+        #otherwise
+        return out, grad_p
+
+
+    @profile
     def picker(self, pos, time, gvel_out=None):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
-
-
-        @profile
-        def fpick(infile, picker, names):
-            """ Extract fluid velocity and pressure from single .vtu file"""
-
-#            cell_index, pcoords = self.find_cell(locator, pos)
-            if picker.cell_index is None:
-                return None, None
-#            cell = IO.get_linear_block(infile).GetCell(picker.cell_index)
-#            linear_cell = IO.get_linear_cell(cell)
-
-#            dim = linear_cell.GetNumberOfPoints()-1
-#            dummy_func = linear_cell.GetPoints().GetPoint
-#            if linear_cell.GetCellDimension() > 1:
-#               upos = numpy.zeros(linear_cell.GetNumberOfPoints())
-#                args = [dummy_func(i+1)[:dim] for i in range(dim)]
-#                args.append(dummy_func(0)[:dim])
-#                args.append(upos)
-#                linear_cell.BarycentricCoords(pos[:dim], *args)
-
-#           collision == Collision.testInCell(linear_cell, pos)
-
-            vdata = self.system.temporal_cache.get(infile, names[0])
-            out = picker(pos, vdata)
-#            out = IO.get_vector(infile, vdata, names[0], cell_index, pcoords)
-
-            if names[1] and picker.cell_index:
-                sdata = self.system.temporal_cache.get(infile, names[1])
-                data_p = IO.get_scalar(infile, sdata, names[1], picker.cell_index)
-            else:
-                data_p = None
-
-            grad_p = numpy.zeros(3)
-            if data_p is not None:
-                dim = picker.cell.GetCellDimension()
-                rhs = data_p[1:dim+1]-data_p[0]
-
-                mat = numpy.zeros((dim, dim))
-                
-                pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
-                for i in range(dim):
-                    mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
-
-                mat = Math.invert(mat)
-
-                grad_p[:dim] = numpy.dot(mat, rhs)
-
-            if len(names) == 3:
-                vdata = self.system.temporal_cache.get(infile, names[2])
-                gout = picker(pos, vdata)
-#                gout = IO.get_vector(infile, vdata, names[2], picker.cell_index, pcoords)
-                return out, grad_p, gout
-            #otherwise
-            return out, grad_p
-
         data, alpha, names = self.system.temporal_cache(time)
 
-        picker0 = vtk_extras.Picker(data[0][3])
-        picker0.pos = pos;
-        picker1 = vtk_extras.Picker(data[1][3])
-        picker1.pos = pos;
+        TemporalCache.PICKERS[0].name = names[0][0]
+        TemporalCache.PICKERS[0].grid = data[0][2]
+        TemporalCache.PICKERS[0].locator = data[0][3]
+        TemporalCache.PICKERS[0].pos = pos;
+        TemporalCache.PICKERS[1].name = names[1][0]
+        TemporalCache.PICKERS[1].grid = data[1][2]
+        TemporalCache.PICKERS[1].locator = data[1][3]
+        TemporalCache.PICKERS[1].pos = pos;
 
         if len(names[0]) == 3:
-            vel0, grad_p0, gvel = fpick(data[0][2], picker0, names[0])
-            vel1, grad_p1, gvel = fpick(data[1][2], picker1, names[1])
+            vel0, grad_p0, gvel = self._fpick(pos, data[0][2],
+                                        TemporalCache.PICKERS[0], names[0])
+            vel1, grad_p1, gvel = self._fpick(pos, data[1][2],
+                                        TemporalCache.PICKERS[1], names[1])
         else:
-            vel0, grad_p0 = fpick(data[0][2], picker0, names[0])
-            vel1, grad_p1 = fpick(data[1][2], picker1, names[1])
+            vel0, grad_p0 = self._fpick(pos, data[0][2],
+                                  TemporalCache.PICKERS[0], names[0])
+            vel1, grad_p1 = self._fpick(pos, data[1][2],
+                                  TemporalCache.PICKERS[1], names[1])
 
         if vel0 is None or vel1 is None:
             return None, None
 
-        vel0 = numpy.append(vel0, numpy.zeros(3-vel0.size))
-        vel1 = numpy.append(vel1, numpy.zeros(3-vel1.size))
+#        vel0 = numpy.append(vel0, numpy.zeros(3-vel0.size))
+#        vel1 = numpy.append(vel1, numpy.zeros(3-vel1.size))
 
-        if gvel_out:
-            gvel_out = gvel_out
+#        if gvel_out:
+#            gvel_out = gvel_out
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
 
 
+    @profile
     def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
         """Collision detection routine.
 
@@ -261,6 +255,17 @@ class Particle(ParticleBase.ParticleBase):
         if level == 10:
             return k * delta_t, None, vel - self.vel, None
 
+        pos = pa+delta_t*k
+
+        if self.pure_lagrangian:
+            fvel, grad_p = self.picker(pos, self.time+delta_t)
+            if fvel is None:
+                return (pos - pa, None,
+                        0.0*self.vel , None)
+            #otherwise
+            return  (pos - pa, None, fvel  - self.vel, None)
+
+
         data, alpha, names = self.system.temporal_cache(self.time)
         idx, pcoords = self.find_cell(data[0][3], pa)
         vdata = self.system.temporal_cache.get(data[0][2], "GridVelocity")
@@ -270,7 +275,6 @@ class Particle(ParticleBase.ParticleBase):
         else:
             gridv = None
 
-        pos = pa+delta_t*k
         if gridv is not None:
             paC = pa
             pa[:len(gridv)] -= delta_t*gridv
@@ -392,13 +396,7 @@ class Particle(ParticleBase.ParticleBase):
                 coldat += col
 
             return pos - pa, coldat, velo, vels
-        if self.pure_lagrangian:
-            C, fvel = self.drag_coefficient(pos, vel, self.time)
-            if fvel is None:
-                return (pos - pa, None,
-                        self.vel , None)
-            return  (pos - pa, None, fvel  - self.vel, None)
-        elif drag:
+        if drag:
             C, fvel = self.drag_coefficient(pos, vel, self.time)
             if fvel is None:
                 return (pos - pa, None,
@@ -412,7 +410,7 @@ class Particle(ParticleBase.ParticleBase):
 class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
 
-    def __init__(self, X, V, time=0, delta_t=1.0e-3, filename=None,
+    def __init__(self, X, V, time=0, delta_t=1.0e-3,
                  parameters=ParticleBase.PhysicalParticle(),
                  system=System.System(),
                  field_data=None, online=True):
@@ -457,9 +455,6 @@ class ParticleBucket(object):
             particle.solid_pressure_gradient = gsp
 
         self.redistribute()
-
-        if filename:
-            self.outfile = open(filename, 'w')
 
     def __len__(self):
         return len(self.particles)
@@ -515,12 +510,15 @@ class ParticleBucket(object):
             self.delta_t = delta_t
         self.system.temporal_cache.range(self.time, self.time + self.delta_t)
         live = self.system.in_system(self.pos(), len(self), self.time)
+        _ = []
         for k, part in enumerate(self):
             if live[k]:
                 part.update(self.delta_t, *args, **kwargs)
             else:
                 self.dead_particles.append(part)
-                self.particles.remove(part)
+                _.append(part)
+        for part in _:
+            self.particles.remove(part)
         self.redistribute()
         self.insert_particles(*args, **kwargs)
         self.time += self.delta_t
@@ -600,5 +598,3 @@ class ParticleBucket(object):
                 global LEVEL
                 IO.write_level_to_polydata(bucket=self, level=LEVEL, basename="dump.vtp")
                 LEVEL += 1
-        if write:
-            self.outfile.flush()

@@ -205,11 +205,11 @@ class Particle(ParticleBase.ParticleBase):
         data, alpha, names = self.system.temporal_cache(time)
 
         TemporalCache.PICKERS[0].name = names[0][0]
-        TemporalCache.PICKERS[0].grid = data[0][2]
+        TemporalCache.PICKERS[0].grid = IO.get_block(data[0][2], names[0][0])
         TemporalCache.PICKERS[0].locator = data[0][3]
         TemporalCache.PICKERS[0].pos = pos;
         TemporalCache.PICKERS[1].name = names[1][0]
-        TemporalCache.PICKERS[1].grid = data[1][2]
+        TemporalCache.PICKERS[1].grid = IO.get_block(data[1][2], names[1][0])
         TemporalCache.PICKERS[1].locator = data[1][3]
         TemporalCache.PICKERS[1].pos = pos;
 

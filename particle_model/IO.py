@@ -21,6 +21,7 @@ TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
 TYPES_1D = [vtk.VTK_LINE]
 
+block_ugrid_no = {}
 scalar_ugrid_no = {}
 vector_ugrid_no = {}
 tensor_ugrid_no = {}
@@ -104,7 +105,7 @@ class PolyData(object):
             writer.SetNumberOfPieces(Parallel.get_size())
             writer.SetStartPiece(Parallel.get_rank())
             writer.SetEndPiece(Parallel.get_rank())
-            if vtk.vtkVersion.GetVTKMajorVersion()==6:
+            if vtk.vtkVersion.GetVTKMajorVersion()<=6:
                 writer.SetWriteSummaryFile(Parallel.get_rank()==0)
             else:
                 controller = vtk.vtkMPIController()
@@ -623,7 +624,7 @@ def write_to_file(vtk_data, outfile):
         writer.SetNumberOfPieces(Parallel.get_size())
         writer.SetStartPiece(Parallel.get_rank())
         writer.SetEndPiece(Parallel.get_rank())
-        if vtk.vtkVersion.GetVTKMajorVersion()==6:
+        if vtk.vtkVersion.GetVTKMajorVersion()<=6:
             writer.SetWriteSummaryFile(Parallel.get_rank()==0)
         else:
             controller = vtk.vtkMPIController()
@@ -806,6 +807,22 @@ def get_linear_block(infile):
         return infile.GetBlock(0)
     else:
         raise AttributeError
+
+def get_block(infile, name):
+    if isinstance(infile, vtk.vtkUnstructuredGrid):
+        return infile
+    else:
+        if block_ugrid_no.setdefault(name, None):
+            return infile.GetBlock(block_ugrid_no[name])
+        else:
+            for _ in range(infile.GetNumberOfBlocks()):
+                if infile.GetBlock(_).GetPointData().HasArray(name):
+                    block_ugrid_no[name] = _
+                    return infile.GetBlock(_)
+
+    #otherwise
+    return None
+            
 
 @profile
 def get_tensor(infile, name, index, pcoords):

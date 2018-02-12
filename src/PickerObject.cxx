@@ -60,7 +60,7 @@ extern "C" {
         if(self->data_name) {
 	  self->data = (vtkDoubleArray*) self->ugrid->GetPointData()->GetArray(self->data_name);
 	}
-      }
+      } else return -1;
     }
     return 0;
   } 

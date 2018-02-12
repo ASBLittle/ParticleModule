@@ -1,3 +1,5 @@
+#include "Python.h"
+
 #define PY_ARRAY_UNIQUE_SYMBOL PickerObject_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/arrayobject.h"
@@ -90,7 +92,7 @@ extern "C" {
       return NULL;
     }
 
-    argument_parser.GetPythonObject(weights);
+    weights = PyTuple_GetItem(args,2);
 
     npy_intp dims[1] = {0};
 

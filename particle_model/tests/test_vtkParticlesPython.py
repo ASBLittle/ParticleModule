@@ -10,7 +10,10 @@ def test_showCVs():
 
     cvs = vtp.vtkShowCVs()
 #    cvs.SetContinuity(1)
-    cvs.SetInputData(ugrid)
+    if vtk.VTK_MAJOR_VERSION<6:
+        cvs.SetInput(ugrid)
+    else:
+        cvs.SetInputData(ugrid)
     cvs.Update()
 
 #    out = cvs.GetOutput()

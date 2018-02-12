@@ -349,7 +349,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
         The formula is of the form basename_0.vtp, basename_1.vtp,..."""
 
     del kwargs
-    field_data = field_data or None
+    field_data = field_data or {}
 
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()

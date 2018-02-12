@@ -173,10 +173,16 @@ extern "C" {
     vtk_extrasPicker *p= (vtk_extrasPicker*) self;
     PyObject *pyobj, *pypos;
 
+#if VTK_MAJOR_VERSION<6
+    void * tmp;
+    argument_parser.GetValue(tmp);
+    pyobj = PyTuple_GetItem(args, 0) ;
+#else
     if (!argument_parser.GetPythonObject(pyobj)) {
       PyErr_SetString(PyExc_TypeError, "Issue with first argument.");
       return NULL;
     }
+#endif
 
     vtkDoubleArray* data;
     if (PyObject_Length(args)>1) {

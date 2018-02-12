@@ -1,10 +1,17 @@
 #include "Picker.h"
 #include "vtkCellLocator.h"
-#include "vtkCellTreeLocator.h"
 #include "vtkUnstructuredGrid.h"
 #include "vtkGenericCell.h"
 #include "vtkPointData.h"
 #include "vtkCellData.h"
+#include "vtkVersion.h"
+
+#if VTK_MAJOR_VERSION==5 && VTK_MINOR_VERSION<10
+#include "vtkAbstractCellLocator.h"
+#define vtkCellTreeLocator vtkAbstractCellLocator
+#else
+#include "vtkCellTreeLocator.h"
+#endif
 
 double weights[10];
 

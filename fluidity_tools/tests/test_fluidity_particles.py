@@ -17,16 +17,13 @@ def test_run_fluidity(tmpdir):
                     tmpdir.join('Unstructured.msh').strpath)
     
     try:
-        out = subprocess.check_output(["ls"],
-                                      cwd=tmpdir.strpath)
-        print out
-        out = subprocess.check_output(["fluidity test_fluidity.flml"],
+        print subprocess.check_output(["fluidity test_fluidity.flml"],
                                       stderr=subprocess.STDOUT,
                                       cwd=tmpdir.strpath, shell=True)
 
     except subprocess.CalledProcessError as e:
         print(e.output)
-        assert(e.returncodecode==0)
+        assert(e.returncode==0)
 
 @pytest.mark.skipif(not have_fluidity, reason='No fluidity binary')
 def test_run_fluidity_with_particles(tmpdir):
@@ -37,13 +34,10 @@ def test_run_fluidity_with_particles(tmpdir):
                     tmpdir.join('Unstructured.msh').strpath)
     
     try:
-        out = subprocess.check_output(["ls"],
-                                      cwd=tmpdir.strpath)
-        print out
-        out = subprocess.check_output(["fluidity test.flml"],
+        print subprocess.check_output(["fluidity test.flml"],
                                       stderr=subprocess.STDOUT,
                                       cwd=tmpdir.strpath, shell=True)
 
     except subprocess.CalledProcessError as e:
         print(e.output)
-        assert(e.returncodecode==0)
+        assert(e.returncode==0)

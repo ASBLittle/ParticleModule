@@ -16,10 +16,7 @@ def setup(mb, time, dt):
     SYSTEM=pm.System.get_system_from_options(block=(mb, time, dt))
     PAR=pm.ParticleBase.get_parameters_from_options()[0]
 
-    writer = vtk.vtkXMLUnstructuredGridWriter()
-    writer.SetFileName('boundary.vtu')
-    writer.SetInput(SYSTEM.boundary.bnd)
-    writer.Write()
+    pm.IO.write_to_file(SYSTEM.boundary.bnd, 'boundary.vtu')
 
     PB = pm.Particles.ParticleBucket(X, V, time, 1.0e-2,
                                      system=SYSTEM,

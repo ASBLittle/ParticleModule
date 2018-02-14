@@ -128,12 +128,12 @@ pm.IO.write_level_to_polydata(PB, i+1, reader.get_name(), do_average=False)
 pm.IO.collision_list_to_polydata(PB.collisions(), 'collisions.vtp')
 
 field.val[:]= pm.Coupling.get_cv_fraction(PB, mb)
-state.vector_fields['SolidVelocity'].val[:,:]=pm.Coupling.get_solid_velocity(PB, mb, field.val)
+state.vector_fields['SolidVelocityField'].val[:,:]=pm.Coupling.get_solid_velocity(PB, mb, field.val)
 
 persistent['particle_model']=PB
 persistent['particle_model_step']=i+1</string_value>
           <depends>
-            <string_value lines="1">SolidVelocity</string_value>
+            <string_value lines="1">SolidVelocityField</string_value>
           </depends>
         </algorithm>
         <mesh name="CoordinateMesh"/>
@@ -150,7 +150,7 @@ persistent['particle_model_step']=i+1</string_value>
         </steady_state>
       </diagnostic>
     </scalar_field>
-    <vector_field name="SolidVelocity" rank="1">
+    <vector_field name="SolidVelocityField" rank="1">
       <diagnostic>
         <algorithm name="vector_python_diagnostic" material_phase_support="single">
           <string_value type="code" lines="20" language="python">pass</string_value>

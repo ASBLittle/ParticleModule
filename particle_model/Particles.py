@@ -439,6 +439,8 @@ class ParticleBucket(object):
             par = Particle((dummy_pos, dummy_vel, time, delta_t),
                            system=self.system,
                            parameters=parameters.randomize())
+            if par.pure_lagrangian:
+                par.vel = par.picker(par.pos, time)[0]
             for name, value in field_data.items():
                 par.fields[name] = copy.deepcopy(value[_])
             if self.system.temporal_cache:

@@ -122,7 +122,10 @@ def update_ab3(self):
     else:
         ## reduced to using Adams Bashforth 2nd order method for the second timestep:
 
-        tmp = self.get_old(0)
+        try:
+            tmp = [self.get_old(0)]
+        except IndexError:
+            tmp = []
         kap, col = update_ab2(self)
         if tmp and not col:
             self._old = self._old + tmp

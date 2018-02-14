@@ -114,7 +114,10 @@ import vtk
 mblock = vtk_support.fluidity_to_mblock(state)
 
 qf = vtk.vtkMeshQuality()
-qf.SetInput(mblock.GetBlock(0))
+if vtk.VTK_MAJOR_VERSION==5:
+   qf.SetInput(mblock.GetBlock(0))
+else:
+   qf.SetInputData(mblock.GetBlock(0))
 qf.SetTriangleQualityMeasureToArea()
 qf.Update()
 ug = qf.GetOutput()

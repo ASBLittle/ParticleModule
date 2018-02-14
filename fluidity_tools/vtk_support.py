@@ -310,7 +310,7 @@ def extract_field_from_ugrid(ugrid,field,name=None):
     if name is None:
         name = field.name
 
-    if is_p0(field.mesh):
+    if is_p0(field.mesh, ugrid.GetCell(0).GetCellDimension()):
         data = ugrid.GetCellData().GetArray(name)
         if data:
             ndata = numpy_support.vtk_to_numpy(data)

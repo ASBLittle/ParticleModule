@@ -573,15 +573,20 @@ class ParticleBucket(object):
             if n_par == 0:
                 continue
             weights = inlet.cum_weight(self.time+0.5*self.delta_t,
-                                       self.system.boundary.bnd)
+                                       self.system.boundary.bnd,
+                                       self.system.temporal_cache)
             if weights:
                 for i in range(n_par):
                     prob = numpy.random.random()
                     time = self.time+prob*self.delta_t
                     pos = inlet.select_point(time, weights,
                                              self.system.boundary.bnd)
-                    vel = numpy.array(inlet.velocity(pos, time))
-
+                    if inlet.velocity:
+                        vel = numpy.array(inlet.velocity(pos, time))
+                    else:
+                        vel = numpy.zeros(3)
+                        fvel = self.system.temporal_cache.get_velocity(pos, time)
+                        vel[:len(fvel)] = fvel
 
                     ## update position by fractional timestep
                     pos = pos + vel*(1-prob)*self.delta_t

@@ -5,6 +5,7 @@ import vtk
 import numpy
 from particle_model import Parallel
 from particle_model import Debug
+from particle_model import IO
 from Debug import profile
 from particle_model import vtk_extras
 try:
@@ -304,3 +305,28 @@ class FluidityCache(object):
         self.block.GetBlock(0).ComputeBounds()
         self.block.GetBlock(0).GetBounds(bounds)
         return bounds
+
+    def get_velocity(self, pos, time):
+        """ Get the velocity value from the cache at a given position and time."""
+
+        data, alpha, names = self(time)
+
+        data[0][3].BuildLocatorIfNeeded()
+        data[1][3].BuildLocatorIfNeeded()
+
+        PICKERS[0].name = names[0][0]
+        PICKERS[0].grid = IO.get_block(data[0][2], names[0][0])
+        PICKERS[0].locator = data[0][3]
+        PICKERS[0].pos = pos;
+        PICKERS[1].name = names[1][0]
+        PICKERS[1].grid = IO.get_block(data[1][2], names[1][0])
+        PICKERS[1].locator = data[1][3]
+        PICKERS[1].pos = pos;
+
+        vel0 = PICKERS[0].nearest(pos)
+        vel1 = PICKERS[1].nearest(pos)
+
+        if vel0 is None or vel1 is None:
+            raise ValueError
+        #otherwise
+        return alpha*vel1+(1.0-alpha)*vel0

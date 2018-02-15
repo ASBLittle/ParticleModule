@@ -113,6 +113,12 @@ class System(object):
         """Update boundary object from VTK block."""
         self.boundary.update_boundary_file(IO.get_boundary_from_block(mblock))
 
+    def update_from_block(self, mblock, time, delta_t):
+        """Update cache and boundary from VTK block"""
+
+        self.temporal_cache.update(mblock, time, delta_t)
+        self.update_boundary_from_block(mblock)
+
 
 
 def get_system_from_options(options_file=None, boundary_grid=None,

@@ -130,7 +130,7 @@ extern "C" {
       self->locator = NULL;
     }
     self->cell = vtkGenericCell::New();
-    self->tol2=0.0;
+    self->tol2=1.0e-32;
     for (int i=0; i<3; ++i) {
       self->pos[i] = 0.0;
     }
@@ -238,12 +238,91 @@ extern "C" {
     
   }
 
+  PyObject* vtk_extrasPickerNearest(PyObject *self, PyObject *args, PyObject *kw)
+  {
+
+    vtkPythonArgs argument_parser(args, "vtk_extrasPicker_call");
+    vtk_extrasPicker *p= (vtk_extrasPicker*) self;
+    PyObject *pyobj, *pypos;
+
+#if VTK_MAJOR_VERSION<6
+    void * tmp;
+    argument_parser.GetValue(tmp);
+    pyobj = PyTuple_GetItem(args, 0) ;
+#else
+    if (!argument_parser.GetPythonObject(pyobj)) {
+      PyErr_SetString(PyExc_TypeError, "Issue with first argument.");
+      return NULL;
+    }
+#endif
+
+    vtkDoubleArray* data;
+    if (PyObject_Length(args)>1) {
+      if (!argument_parser.GetVTKObject(data, "vtkDoubleArray")|| !data) {
+	PyErr_SetString(PyExc_TypeError, "Need VTK double data array as second argument");
+	return NULL;
+      }
+    } else {
+      data = p->data;
+    }
+    
+    pypos = PyArray_FromObject(pyobj,NPY_DOUBLE,1,1);
+    double* pos=(double*) PyArray_GETPTR1((PyArrayObject*)pypos,0);
+    if (!pos) {
+      PyErr_SetString(PyExc_TypeError, "Cannot convert first argument to numpy array.");
+      return NULL;
+    }
+    
+    double closestPoint[3];
+    int subId;
+    double dist2;
+    if (!p->locator->GetDataSet()) {
+      p->cell_index = -1;
+    } else if (p->cell_index == -1 || do_update(p, pos)) {
+      p->locator->BuildLocatorIfNeeded();
+      p->locator->FindClosestPoint(pos, closestPoint, p->cell, p->cell_index, subId, dist2);
+    }
+
+    if (p->cell_index == -1 || dist2>p->tol2) {
+      Py_RETURN_NONE;
+    }
+
+    int subid=0;
+    double x[3];
+    if (p->locator->GetDataSet() != p->ugrid) {
+      p->cell->EvaluatePosition(pos, NULL, subId, p->pcoords, dist2, p->weights);
+    }
+
+    Py_XDECREF(pypos);
+
+    npy_intp dims[1] = { 3 };
+    PyObject* output = PyArray_SimpleNew(1,dims,NPY_DOUBLE);
+    double* cout = (double*) PyArray_GETPTR1((PyArrayObject*)output,0);
+
+    for (int j=0; j<3; ++j) {
+      cout[j] = 0.0;
+    }
+    for (int j=0; j<data->GetNumberOfComponents(); ++j) {
+      for (int i=0; i<p->cell->GetNumberOfPoints(); ++i) {
+	cout[j] = cout[j] + p->weights[i]*data->GetComponent(p->cell->GetPointId(i),j) ;
+      }
+    }
+
+    return (PyObject*) output;
+    
+  }
+
   static PyObject* vtk_extrasPicker_repr(PyObject* self) {
     vtk_extrasPicker *p = (vtk_extrasPicker *)self;
     char buf[500];
     sprintf(buf, "%s ", Py_TYPE(self)->tp_name) ;
     return PyUnicode_FromString(buf);
   }
+
+  static PyMethodDef vtk_extrasPicker_methods[] = {
+    { (char*)"nearest", (PyCFunction) vtk_extrasPickerNearest, METH_VARARGS|METH_KEYWORDS, (char*) "Get value at nearest point in domain."},
+    {NULL}
+  };
 
   static PyGetSetDef vtk_extrasPicker_getset[] = {
     { (char*)"locator", get_locator, set_locator, (char*)"Get/set picker locator.", NULL},
@@ -284,7 +363,7 @@ extern "C" {
     0,  /* tp_weaklistoffset */
     0,  /* tp_iter: __iter__() method */
     0,  /* tp_iternext: next() method */
-    0,                    /* tp_methods */
+    vtk_extrasPicker_methods,                    /* tp_methods */
     0,                    /* tp_members */
     vtk_extrasPicker_getset, /* tp_getset */
     0, /* tp_base */

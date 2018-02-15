@@ -20,7 +20,7 @@ class Inlet(object):
         self.pdf = pdf
         self.velocity = velocity
 
-    def weigh(self, time, boundary):
+    def weigh(self, time, boundary, cache=None):
         """ Calculate inlet weight from pdf."""
         inlet_weight = 0
         for index in boundary.GetNumberOfCells():
@@ -34,12 +34,16 @@ class Inlet(object):
                     mass = cell.ComputeArea()
 
                 for _ in range(npts):
-                    inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
-                                             time) * mass /npts
+                    if self.pdf:
+                        inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
+                                                 time) * mass /npts
+                    else:
+                        inlet_weight += numpy.sqrt(sum(cache.get_velocity(cell.GetPoints().GetPoint(_),
+                                                                          time)**2))* mass /npts
 
         return inlet_weight
 
-    def cum_weight(self, time, boundary):
+    def cum_weight(self, time, boundary, cache=None):
         """Calculate inlet cumulative weight."""
         inlet_weight = 0
         weights = []
@@ -56,8 +60,13 @@ class Inlet(object):
                 for _ in range(npts):
                     old_inlet_weight = inlet_weight
 
-                    inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
-                                             time) * mass /npts
+                    if self.pdf:
+                        inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
+                                                 time) * mass /npts
+                    else:
+                        inlet_weight += numpy.sqrt(sum(cache.get_velocity(cell.GetPoints().GetPoint(_),
+                                                                          time)**2))* mass /npts
+                        
                     weights.append((index, old_inlet_weight, inlet_weight))
 
         return weights
@@ -172,12 +181,16 @@ class OptionsReader(object):
             if libspud.have_option(options_key+'/particle_velocity/constant'):
                 rvel = libspud.get_option(options_key+'/particle_velocity/constant')
                 velocity = lambda x,t : rvel
+            elif libspud.have_option(options_key+'/particle_velocity/fluid_velocity'):
+                velocity = None
             else:
                 exec(libspud.get_option(options_key+'/particle_velocity/python')) in globals(), locals()
                 velocity = val
             if libspud.have_option(options_key+'/probability_density_function/constant'):
                 rpdf = libspud.get_option(options_key+'/probability_density_function/constant')
                 pdf = lambda x,t : rpdf
+            elif libspud.have_option(options_key+'/probability_density_function/fluid_velocity'):
+                pdf = None
             else:
                 exec(libspud.get_option(options_key+'/probability_density_function/python')) in globals(), locals()
                 pdf = val

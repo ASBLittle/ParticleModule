@@ -66,7 +66,7 @@ class Inlet(object):
                     else:
                         inlet_weight += numpy.sqrt(sum(cache.get_velocity(cell.GetPoints().GetPoint(_),
                                                                           time)**2))* mass /npts
-                        
+
                     weights.append((index, old_inlet_weight, inlet_weight))
 
         return weights
@@ -80,7 +80,7 @@ class Inlet(object):
 
         index = 0
         for index, weight_low, weight_high in weights:
-            if weight_low<prob and weight_high >= prob:
+            if weight_low < prob and weight_high >= prob:
                 break
 
         ## quick test code
@@ -93,11 +93,11 @@ class Inlet(object):
         pnt = numpy.empty(3)
         pnt[:] = pnt0[:]
 
-        for _ in range(1,cell.GetNumberOfPoints()):
+        for _ in range(1, cell.GetNumberOfPoints()):
             prob = numpy.random.random()
             pnrm = pnrm*prob
-            d = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
-            pnt += pnrm*d
+            edge = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
+            pnt += pnrm*edge
             pnrm = 1.0-pnrm
 
         return pnt
@@ -133,7 +133,7 @@ class OptionsReader(object):
         if libspud.have_option(options_base):
             magnitude = libspud.get_option(options_base+'/magnitude')
             direction[:self.dimension] = libspud.get_option(options_base
-                        +'/vector_field[0]/prescribed/value[0]/constant')
+                                                            +'/vector_field[0]/prescribed/value[0]/constant')
 
         return magnitude*direction
 
@@ -163,8 +163,8 @@ class OptionsReader(object):
         options_base = '/embedded_models/particle_model/outlet_ids/surface_ids'
         if libspud.have_option(options_base):
             return libspud.get_option(options_base)
-        else:
-            return None 
+        #otherwise
+        return None
 
     def get_inlets(self):
         """ Wrap the inlet data into a class """
@@ -180,7 +180,7 @@ class OptionsReader(object):
             insertion_rate = libspud.get_option(options_key+'/insertion_rate')
             if libspud.have_option(options_key+'/particle_velocity/constant'):
                 rvel = libspud.get_option(options_key+'/particle_velocity/constant')
-                velocity = lambda x,t : rvel
+                velocity = lambda x, t: rvel
             elif libspud.have_option(options_key+'/particle_velocity/fluid_velocity'):
                 velocity = None
             else:
@@ -188,7 +188,7 @@ class OptionsReader(object):
                 velocity = val
             if libspud.have_option(options_key+'/probability_density_function/constant'):
                 rpdf = libspud.get_option(options_key+'/probability_density_function/constant')
-                pdf = lambda x,t : rpdf
+                pdf = lambda x, t: rpdf
             elif libspud.have_option(options_key+'/probability_density_function/fluid_velocity'):
                 pdf = None
             else:
@@ -201,11 +201,11 @@ class OptionsReader(object):
 
     def get_mesh_filename(self):
         """Return the mesh file name"""
-        if (Parallel.is_parallel()):
+        if Parallel.is_parallel():
             return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'_%d.msh'%Parallel.get_rank()
-        else:
-            return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
-    
+        #otherwise
+        return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
+
     def get_current_time(self):
         """Return the current time from the options file."""
         return libspud.get_option('/timestepping/timestep')

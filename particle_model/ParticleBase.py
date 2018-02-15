@@ -34,10 +34,6 @@ class ParticleBase(object):
         """ Core method updating the particle."""
         raise NotImplementedError
 
-    def exchange(self):
-        """ A helper function for parallel coding"""
-        raise NotImplementedError
-
     def __eq__(self, obj):
         return hash(self) == hash(obj)
 
@@ -53,8 +49,8 @@ class ParticleBase(object):
         """ Get old particle data"""
         if key is None:
             return self._old[time_level]
-        else:
-            return self._old[time_level][key]
+        #otherwise
+        return self._old[time_level][key]
 
 class PhysicalParticle(object):
     """ Class describing the physical properties of a particle drawn from a known distribution."""

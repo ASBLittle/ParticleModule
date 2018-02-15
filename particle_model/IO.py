@@ -21,10 +21,10 @@ TYPES_3D = [vtk.VTK_TETRA, vtk.VTK_QUADRATIC_TETRA]
 TYPES_2D = [vtk.VTK_TRIANGLE, vtk.VTK_QUADRATIC_TRIANGLE]
 TYPES_1D = [vtk.VTK_LINE]
 
-block_ugrid_no = {}
-scalar_ugrid_no = {}
-vector_ugrid_no = {}
-tensor_ugrid_no = {}
+BLOCK_UGRID_NO = {}
+SCALAR_UGRID_NO = {}
+VECTOR_UGRID_NO = {}
+TENSOR_UGRID_NO = {}
 
 ARGV = [0.0, 0.0, 0.0]
 ARGI = vtk.mutable(0)
@@ -48,7 +48,7 @@ class PolyData(object):
         """ Initialize the PolyData instance"""
 
 
-        if filename.rsplit('.',1)[-1] in ('pvtp','vtp'):
+        if filename.rsplit('.', 1)[-1] in ('pvtp', 'vtp'):
             self.filename = filename
         else:
             if Parallel.is_parallel():
@@ -81,12 +81,12 @@ class PolyData(object):
             ids.InsertNextId(part_id)
 
             for name, num_comps in self.fields.items():
-                if name=="Time":
+                if name == "Time":
                     self.poly_data.GetPointData().GetArray('Time').InsertNextValue(bucket.time)
                 elif name in particle.fields:
                     self.poly_data.GetPointData().GetArray(name).InsertNextValue(particle.fields[name])
                 else:
-                    data=[]
+                    data = []
                     for _ in range(num_comps):
                         data.append(vtk.vtkMath.Nan())
                     self.poly_data.GetPointData().GetArray(name).InsertNextValue(*data)
@@ -106,8 +106,8 @@ class PolyData(object):
             writer.SetNumberOfPieces(Parallel.get_size())
             writer.SetStartPiece(Parallel.get_rank())
             writer.SetEndPiece(Parallel.get_rank())
-            if vtk.vtkVersion.GetVTKMajorVersion()<=6:
-                writer.SetWriteSummaryFile(Parallel.get_rank()==0)
+            if vtk.vtkVersion.GetVTKMajorVersion() <= 6:
+                writer.SetWriteSummaryFile(Parallel.get_rank() == 0)
             else:
                 controller = vtk.vtkMPIController()
                 controller.SetCommunicator(vtk.vtkMPICommunicator.GetWorldCommunicator())
@@ -215,7 +215,7 @@ class BoundaryData(object):
         self.bndl.BuildLocator()
 
     def test_intersection(self, pos0, pos1):
-        """Test whether the line pos0 + t*(pos1-pos0) for t in [0,1] 
+        """Test whether the line pos0 + t*(pos1-pos0) for t in [0,1]
         intersects with the boundary."""
 
         t_val = vtk.mutable(-1.0)
@@ -223,8 +223,8 @@ class BoundaryData(object):
         cell_index = vtk.mutable(0)
 
         if self.bndl.IntersectWithLine(pos0, pos1,
-                                  1.0e-16, t_val,
-                                  pos_i, ARGV, ARGI, cell_index):
+                                       1.0e-16, t_val,
+                                       pos_i, ARGV, ARGI, cell_index):
 
             return (True, numpy.array(pos_i), t_val, cell_index)
         #otherwise
@@ -429,7 +429,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
         _.SetName(name)
         _.SetNumberOfComponents(num_comps)
         _.Allocate(len(bucket))
-        for k, particle in enumerate(bucket):
+        for particle in bucket:
             _.InsertNextValue(particle.fields[name])
         poly_data.GetPointData().AddArray(_)
 
@@ -477,36 +477,36 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     solid_pressure = numpy.zeros(ugrid.GetNumberOfPoints())
     velocity = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
-    LENGTH = 0.1
-    MULTIPLIER = 1.e3
+    length = 0.1
+    multiplier = 1.e3
 
     for dummy_particle in bucket:
         point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
+        locator.FindPointsWithinRadius(length, dummy_particle.pos, point_list)
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
             rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
                               -dummy_particle.pos)**2)
-            rad2 /= LENGTH
+            rad2 /= length
 
             volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.parameters.diameter**3
-                                    *numpy.exp(-rad2**2)*MULTIPLIER)
+                                    *numpy.exp(-rad2**2)*multiplier)
             velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2)*MULTIPLIER)
+                                         *numpy.exp(-rad2**2)*multiplier)
 
-    volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
-    velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+    volume /= 0.5*length**2*(1.0-numpy.exp(-1.0**2))
+    velocity /= 0.5*length**2*(1.0-numpy.exp(-1.0**2))
 
     for dummy_particle in bucket:
         point_list = vtk.vtkIdList()
-        locator.FindPointsWithinRadius(LENGTH, dummy_particle.pos, point_list)
+        locator.FindPointsWithinRadius(length, dummy_particle.pos, point_list)
 
         rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
                           -dummy_particle.pos)**2)
-        rad2 /= LENGTH
+        rad2 /= length
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
@@ -514,7 +514,7 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
 
             temperature[point_index] += (c*1.0/6.0*numpy.pi
                                          *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2)*MULTIPLIER)
+                                         *numpy.exp(-rad2**2)*multiplier)
 
     for _ in range(ugrid.GetNumberOfPoints()):
 
@@ -647,32 +647,33 @@ def write_to_file(vtk_data, outfile):
         writer.SetNumberOfPieces(Parallel.get_size())
         writer.SetStartPiece(Parallel.get_rank())
         writer.SetEndPiece(Parallel.get_rank())
-        if vtk.vtkVersion.GetVTKMajorVersion()<=6:
-            writer.SetWriteSummaryFile(Parallel.get_rank()==0)
+        if vtk.vtkVersion.GetVTKMajorVersion() <= 6:
+            writer.SetWriteSummaryFile(Parallel.get_rank() == 0)
         else:
             controller = vtk.vtkMPIController()
             controller.SetCommunicator(vtk.vtkMPICommunicator.GetWorldCommunicator())
             writer.SetController(controller)
-    if vtk.vtkVersion.GetVTKMajorVersion()<6:
+    if vtk.vtkVersion.GetVTKMajorVersion() < 6:
         writer.SetInput(vtk_data)
     else:
-        writer.SetInputData(vtk_data)        
+        writer.SetInputData(vtk_data)
     writer.Write()
 
     if Parallel.is_parallel():
         make_subdirectory(outfile)
 
 def make_subdirectory(fname):
+    """Create directory to store parallel data."""
     Parallel.barrier()
-    if Parallel.get_rank()==0:
-        base_name, file_type = fname.rsplit('.',1)
+    if Parallel.get_rank() == 0:
+        base_name, file_type = fname.rsplit('.', 1)
         if not os.path.isdir(base_name):
             os.mkdir(base_name)
         for _ in glob.glob(base_name+'_*.%s'%file_type[1:]):
             os.rename(_, base_name+'/'+_)
             with open(fname) as summary_file:
                 new_text = summary_file.read().replace(_, base_name+'/'+_)
-            with open(fname,'w') as summary_file:
+            with open(fname, 'w') as summary_file:
                 summary_file.write(new_text)
 
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
@@ -732,7 +733,7 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
 
 def get_boundary_from_block(mblock):
     """ Get properly formed boundary data from a fluidity vtk block."""
-    
+
     ugrid = None
 
     for _ in range(mblock.GetNumberOfBlocks()):
@@ -749,11 +750,11 @@ def get_boundary_from_block(mblock):
 
     vgrid.SetPoints(pts)
 
-    surface_ids=vtk.vtkIntArray()
+    surface_ids = vtk.vtkIntArray()
     surface_ids.SetName('SurfaceIds')
     surface_ids.SetNumberOfComponents(1)
     surface_ids.SetNumberOfTuples(ugrid.GetNumberOfCells())
-    
+
     sids = ugrid.GetCellData().GetArray('SurfaceIds')
 
     for _ in range(ugrid.GetNumberOfCells()):
@@ -779,7 +780,7 @@ def make_boundary_from_msh(mesh, outfile=None):
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pnts)
 
-    surface_ids=vtk.vtkIntArray()
+    surface_ids = vtk.vtkIntArray()
     surface_ids.SetName('SurfaceIds')
 
     for element in mesh.elements.values():
@@ -824,6 +825,7 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
 
 
 def get_linear_block(infile):
+    """Get the block containing P1 data."""
     if infile.IsA('vtkUnstructuredGrid'):
         return infile
     elif infile.IsA('vtkMultiBlockDataSet'):
@@ -832,57 +834,60 @@ def get_linear_block(infile):
         raise AttributeError
 
 def get_block(infile, name):
+    """Get the block containing the field 'name'"""
     if isinstance(infile, vtk.vtkUnstructuredGrid):
         return infile
     else:
-        if block_ugrid_no.setdefault(name, None):
-            return infile.GetBlock(block_ugrid_no[name])
+        if BLOCK_UGRID_NO.setdefault(name, None):
+            return infile.GetBlock(BLOCK_UGRID_NO[name])
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
-                    block_ugrid_no[name] = _
+                    BLOCK_UGRID_NO[name] = _
                     return infile.GetBlock(_)
 
     #otherwise
     return None
-            
+
 
 @profile
 def get_tensor(infile, name, index, pcoords):
+    """Find value of tensor 'name' in (possibly multiblock) file infile."""
 
-    global tensor_ugrid_no
+    global TENSOR_UGRID_NO
 
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
         data = infile.GetPointData().GetVectors(name)
         ugrid = infile
     else:
-        if tensor_ugrid_no.setdefault(name, None):
-            ids = infile.GetBlock(tensor_ugrid_no[name]).GetCell(index).GetPointIds()
-            data = infile.GetBlock(tensor_ugrid_no[name]).GetPointData().GetScalars(name)
-            ugrid = infile.GetBlock(tensor_ugrid_no[name])
+        if TENSOR_UGRID_NO.setdefault(name, None):
+            ids = infile.GetBlock(TENSOR_UGRID_NO[name]).GetCell(index).GetPointIds()
+            data = infile.GetBlock(TENSOR_UGRID_NO[name]).GetPointData().GetScalars(name)
+            ugrid = infile.GetBlock(TENSOR_UGRID_NO[name])
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
                     data = infile.GetBlock(_).GetPointData().GetVectors(name)
                     ugrid = infile.GetBlock(_)
-                    tensor_ugrid_no[name] = _
+                    TENSOR_UGRID_NO[name] = _
                     break
 
 #    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
     ugrid.GetCell(index).InterpolateFunctions(pcoords, WEIGHTS[:ids.GetNumberOfIds()])
 
     dim = numpy.sqrt(data.GetNumberOfComponents())
-    out = numpy.zeros((dim,dim), float)
+    out = numpy.zeros((dim, dim), float)
     for _ in range(ids.GetNumberOfIds()):
-        out[:] += WEIGHTS[_]*numpy.array(data.GetTuple(ids.GetId(_))).reshape((dim,dim))
-    return out 
+        out[:] += WEIGHTS[_]*numpy.array(data.GetTuple(ids.GetId(_))).reshape((dim, dim))
+    return out
 
 @profile
 def get_vector(infile, data, name, index, pcoords):
+    """Find value of vector 'name' in (possibly multiblock) file infile."""
 
-    global vector_ugrid_no
+    global VECTOR_UGRID_NO
 
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
@@ -890,11 +895,11 @@ def get_vector(infile, data, name, index, pcoords):
             data = infile.GetPointData().GetVectors(name)
         ugrid = infile
     else:
-        if vector_ugrid_no.setdefault(name,None):
-            ids = infile.GetBlock(vector_ugrid_no[name]).GetCell(index).GetPointIds()
+        if VECTOR_UGRID_NO.setdefault(name, None):
+            ids = infile.GetBlock(VECTOR_UGRID_NO[name]).GetCell(index).GetPointIds()
             if not data:
-                data = infile.GetBlock(vector_ugrid_no[name]).GetPointData().GetScalars(name)
-            ugrid = infile.GetBlock(vector_ugrid_no[name])
+                data = infile.GetBlock(VECTOR_UGRID_NO[name]).GetPointData().GetScalars(name)
+            ugrid = infile.GetBlock(VECTOR_UGRID_NO[name])
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
@@ -902,49 +907,51 @@ def get_vector(infile, data, name, index, pcoords):
                     if not data:
                         data = infile.GetBlock(_).GetPointData().GetVectors(name)
                     ugrid = infile.GetBlock(_)
-                    vector_ugrid_no[name] = _
+                    VECTOR_UGRID_NO[name] = _
                     break
-            if vector_ugrid_no[name] is None: return None
-    if not data: return numpy.zeros(3) 
+            if VECTOR_UGRID_NO[name] is None:
+                return None
+    if not data:
+        return numpy.zeros(3)
 
-#    ugrid.GetCell(index).EvaluateLocation(SUB_ID, pcoords, ARGV, WEIGHTS)
     ugrid.GetCell(index).InterpolateFunctions(pcoords, WEIGHTS[:ids.GetNumberOfIds()])
 
-    out = vtk_extras.vInterpolate(data, ids, WEIGHTS) 
-    return out 
-            
+    out = vtk_extras.vInterpolate(data, ids, WEIGHTS)
+    return out
+
 @profile
 def get_scalar(infile, data, name, index):
-        
-    global scalar_ugrid_no
+    """Find value of scalar 'name' in (possibly multiblock) file infile."""
+
+    global SCALAR_UGRID_NO
 
     if infile.IsA('vtkUnstructuredGrid'):
         ids = infile.GetCell(index).GetPointIds()
         if not data:
             data = infile.GetPointData().GetScalars(name)
-        scalar_ugrid = infile
     else:
-        if scalar_ugrid_no.setdefault(name,None):
-            ids = infile.GetBlock(scalar_ugrid_no[name]).GetCell(index).GetPointIds()
+        if SCALAR_UGRID_NO.setdefault(name, None):
+            ids = infile.GetBlock(SCALAR_UGRID_NO[name]).GetCell(index).GetPointIds()
             if not data:
-                data = infile.GetBlock(scalar_ugrid_no[name]).GetPointData().GetScalars(name)
+                data = infile.GetBlock(SCALAR_UGRID_NO[name]).GetPointData().GetScalars(name)
         else:
             for _ in range(infile.GetNumberOfBlocks()):
                 if infile.GetBlock(_).GetPointData().HasArray(name):
                     ids = infile.GetBlock(_).GetCell(index).GetPointIds()
                     if not data:
                         data = infile.GetBlock(_).GetPointData().GetScalars(name)
-                    scalar_ugrid_no[name] = _
+                    SCALAR_UGRID_NO[name] = _
                     break
     if data:
-        out = numpy.empty(ids.GetNumberOfIds(),float)
+        out = numpy.empty(ids.GetNumberOfIds(), float)
         for _ in range(ids.GetNumberOfIds()):
-            out[_]=data.GetValue(ids.GetId(_))
+            out[_] = data.GetValue(ids.GetId(_))
     else:
         out = None
-    return out 
+    return out
 
 def get_mesh_from_reader(reader):
+    """ Read mesh referenced in OptionsReader object."""
     mesh = GmshMesh()
     mesh.read(reader.get_mesh_filename())
     return mesh
@@ -952,60 +959,61 @@ def get_mesh_from_reader(reader):
 def get_boundary_from_fluidity_mesh(positions):
     """Temporary method for testing"""
 
-    faces={}
+    faces = {}
 
-    surface_nodes=set()
-    
-    cells=[]
-    
+    surface_nodes = set()
+
+    cells = []
+
     for i in range(positions.element_count):
-        nodes=positions.ele_nodes(i)
+        nodes = positions.ele_nodes(i)
         for node in nodes:
-            tmp=copy.copy(nodes)
+            tmp = copy.copy(nodes)
             tmp.remove(node)
-            tmp=tuple(sorted(tmp))
-            faces[tmp]=not faces.get(tmp, False)
+            tmp = tuple(sorted(tmp))
+            faces[tmp] = not faces.get(tmp, False)
 
     for key, val in faces.items():
         if val:
             for node in key:
                 surface_nodes.add(node)
             cells.append(key)
-        
+
     ugrid = vtk.vtkUnstructuredGrid()
     points = vtk.vtkPoints()
     points.Allocate(len(surface_nodes))
-    
-    nodemap={}
+
+    nodemap = {}
     for key, node in enumerate(surface_nodes):
-        X = numpy.empty(3,float)
-        X[:positions.dimension] = positions.node_val(node)
-        points.InsertNextPoint(X)
-        nodemap[node]=key
+        pnt = numpy.empty(3, float)
+        pnt[:positions.dimension] = positions.node_val(node)
+        points.InsertNextPoint(pnt)
+        nodemap[node] = key
     ugrid.SetPoints(points)
 
     for cell in cells:
         if len(cell) == 3:
-            cell_type=vtk.VTK_TRIANGLE
+            cell_type = vtk.VTK_TRIANGLE
         else:
-            cell_type=vtk.VTK_LINE
+            cell_type = vtk.VTK_LINE
 
-        pntids=vtk.vtkIdList()
+        pntids = vtk.vtkIdList()
         for node in cell:
             pntids.InsertNextId(nodemap[node])
-        ugrid.InsertNextCell(cell_type,pntids)
+        ugrid.InsertNextCell(cell_type, pntids)
 
     return ugrid
 
 def move_boundary_through_normal(ugrid, distance, Ids=[]):
+    """Pull the boundary in by 'distance', to test for intersection."""
 
     r = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
     area = numpy.zeros(ugrid.GetNumberOfPoints())
     n = numpy.zeros((ugrid.GetNumberOfCells(), 3))
-    local_area =  numpy.zeros(ugrid.GetNumberOfCells())
+    local_area = numpy.zeros(ugrid.GetNumberOfCells())
 
 
-    
+
     if ugrid.GetCell(0).GetClassName() == 'vtkLine':
     
 
@@ -1019,37 +1027,34 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
             local_area = numpy.sqrt(p.dot(p))
             p = p/local_area
 
-            pid0 = cell.GetPointId(0)
-            pid1 = cell.GetPointId(1)
-
-            n[i,0] = p[1]
-            n[i,1] = -p[0]
+            n[i, 0] = p[1]
+            n[i, 1] = -p[0]
             
-            if abs(n[i,0])>0.0:
-                if x[0]>0.11:
-                    n[i,0]=1.0
+            if abs(n[i, 0]) > 0.0:
+                if x[0] > 0.11:
+                    n[i, 0] = 1.0
                 else:
-                    n[i,0]=-1.0
+                    n[i, 0] = -1.0
             else:
-                if x[1]>0.0:
-                    n[i,1]=1.0
+                if x[1] > 0.0:
+                    n[i, 1] = 1.0
                 else:
-                    n[i,1]=-1.0
+                    n[i, 1] = -1.0
                 
 
     else:
 
         gf = vtk.vtkGeometryFilter()
-        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        if vtk.vtkVersion.GetVTKMajorVersion() < 6:
             gf.SetInput(ugrid)
         else:
-            gf.SetInput(ugrid)
+            gf.SetInputData(ugrid)
         gf.Update()
-        
+
         pd = gf.GetOutput()
 
         pn = vtk.vtkPolyDataNormals()
-        if vtk.vtkVersion.GetVTKMajorVersion()<6:
+        if vtk.vtkVersion.GetVTKMajorVersion() < 6:
             pn.SetInput(pd)
         else:
             pn.SetInputData(pd)
@@ -1057,11 +1062,11 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
         pn.AutoOrientNormalsOn()
         pn.Update()
         norms = pn.GetOutput().GetCellData().GetNormals()
-        
-        N=10
+
+        N = 10
 
         for k in range(N):
-           
+
             r0 = numpy.zeros((ugrid.GetNumberOfPoints(), 3))
 
             physical_ids = ugrid.GetCellData().GetScalars("PhysicalIds")
@@ -1072,24 +1077,24 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
                     continue
 
                 cell = ugrid.GetCell(i)
-                n[i,:] = norms.GetTuple(i)
+                n[i, :] = norms.GetTuple(i)
 
                 p0 = (numpy.array(cell.GetPoints().GetPoint(0))-
-                      k/float(N-1)*distance*r[cell.GetPointId(0),:])
+                      k/float(N-1)*distance*r[cell.GetPointId(0), :])
                 p1 = (numpy.array(cell.GetPoints().GetPoint(1))-
-                      k/float(N-1)*distance*r[cell.GetPointId(1),:])
+                      k/float(N-1)*distance*r[cell.GetPointId(1), :])
                 p2 = (numpy.array(cell.GetPoints().GetPoint(2))-
-                      k/float(N-1)*distance*r[cell.GetPointId(2),:])
-                    
-                local_area[i] = cell.TriangleArea(p0,p1,p2)
+                      k/float(N-1)*distance*r[cell.GetPointId(2), :])
+
+                local_area[i] = cell.TriangleArea(p0, p1, p2)
 
                 for j in range(cell.GetNumberOfPoints()):
-               
-                    pid = cell.GetPointId(j) 
-                    r0[pid,:] += local_area[i] * n[i,:]
+
+                    pid = cell.GetPointId(j)
+                    r0[pid, :] += local_area[i] * n[i, :]
                     area[pid] += local_area[i]
 
-            r[:,:] = 0.0
+            r[:, :] = 0.0
 
             for i in range(ugrid.GetNumberOfCells()):
 
@@ -1100,15 +1105,15 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
 
                 for j in range(cell.GetNumberOfPoints()):
 
-                    pid = cell.GetPointId(j) 
-                    
-                    r[pid,:] += local_area[i] * n[i,:] / n[i,:].dot(r0[pid,:])
+                    pid = cell.GetPointId(j)
+
+                    r[pid, :] += local_area[i] * n[i,:] / n[i,:].dot(r0[pid,:])
 
         for i in range(ugrid.GetNumberOfPoints()):
 
-            x=numpy.empty(3)
-            ugrid.GetPoints().GetPoint(i,x)
-            ugrid.GetPoints().SetPoint(i,x-distance*r[i,:])
+            x = numpy.empty(3)
+            ugrid.GetPoints().GetPoint(i, x)
+            ugrid.GetPoints().SetPoint(i, x-distance*r[i, :])
 
     return ugrid
 
@@ -1116,10 +1121,11 @@ def make_trajectories(outfile, base_name, extension='vtp'):
     """ Process a time series of polydata files into a single trajectory file."""
     files = glob.glob(base_name+'_[0-9]*.'+extension)
 
-    def num(x):
-        return int(x.rsplit('_',1)[1].split('.',1)[0])
+    def num(val):
+        """Get file number."""
+        return int(val.rsplit('_', 1)[1].split('.', 1)[0])
 
-    files.sort(key = num)
+    files.sort(key=num)
     reader = vtk.vtkXMLGenericDataObjectReader()
 
     trajectories = vtk.vtkPolyData()
@@ -1131,41 +1137,44 @@ def make_trajectories(outfile, base_name, extension='vtp'):
         reader.SetFileName(_)
         reader.Update()
         data = reader.GetOutput()
-    
-        for _ in range(data.GetNumberOfPoints()):
-            cell_ids.setdefault(data.GetPointData().GetArray("ParticleID").GetValue(_), vtk.vtkIdList()).InsertNextId(pnts.InsertNextPoint(data.GetPoint(_)))
-            for __ in range(data.GetPointData().GetNumberOfArrays()):
-                input = data.GetPointData().GetArray(__)
-                name = input.GetName()
+
+        for __ in range(data.GetNumberOfPoints()):
+            cell_ids.setdefault(data.GetPointData().GetArray("ParticleID").GetValue(__),
+                                vtk.vtkIdList()).InsertNextId(pnts.InsertNextPoint(data.GetPoint(__)))
+            for ___ in range(data.GetPointData().GetNumberOfArrays()):
+                vinput = data.GetPointData().GetArray(___)
+                name = vinput.GetName()
                 if name not in fields:
                     arr = vtk.vtkDoubleArray()
                     arr.SetName(name)
-                    arr.SetNumberOfComponents(input.GetNumberOfComponents())
+                    arr.SetNumberOfComponents(vinput.GetNumberOfComponents())
                     trajectories.GetPointData().AddArray(arr)
                     fields[name] = arr
-                fields[name].InsertNextTuple(input.GetTuple(_))
+                fields[name].InsertNextTuple(vinput.GetTuple(__))
 
     trajectories.SetPoints(pnts)
     trajectories.Allocate(len(cell_ids))
-    for cell_id in cell_ids.values():
-        trajectories.InsertNextCell(vtk.VTK_LINE, cell_id)
+    for _ in cell_ids.values():
+        trajectories.InsertNextCell(vtk.VTK_LINE, _)
 
     write_to_file(trajectories, outfile)
 
 def make_pvd(pvd_name, base_name, extension='vtp'):
+    """ Write a barebones Paraview .pvd file from data."""
     from lxml import etree as ET
     vtkfile = ET.Element('VTKFile',
-                           attrib = {'type':'Collection',
-                                     'version':'0.1',
-                                     'byte_order':'LittleEndian'})
+                         attrib={'type':'Collection',
+                                 'version':'0.1',
+                                 'byte_order':'LittleEndian'})
     collection = ET.Element('Collection')
-    
+
     files = glob.glob(base_name+'_[0-9]*.'+extension)
 
-    def num(x):
-        return int(x.rsplit('_',1)[1].split('.',1)[0])
+    def num(pos):
+        """Get file number."""
+        return int(pos.rsplit('_', 1)[1].split('.', 1)[0])
 
-    files.sort(key = num)
+    files.sort(key=num)
     reader = vtk.vtkXMLGenericDataObjectReader()
 
     for _ in files:
@@ -1175,23 +1184,23 @@ def make_pvd(pvd_name, base_name, extension='vtp'):
 
         time = data.GetFieldData().GetArray("Time").GetValue(0)
 
-        collection.append(ET.Element('DataSet', 
-                                  attrib={'timestep':str(time),
-                                          'file':str(_)})
-                          )
-                                          
+        collection.append(ET.Element('DataSet',
+                                     attrib={'timestep':str(time),
+                                             'file':str(_)})
+                         )
+               
 
         vtkfile.append(collection)
 
         with open(pvd_name, 'wb') as _:
             ET.ElementTree(vtkfile).write(_, pretty_print=True)
-    
-    
+
+
 def get_real_x(cell, locx):
-    ### Return physical coordinate of cell corresponding to locx in vcell
-    ### Note the ordering used here is because vtk is weird.
+    """Return physical coordinate of cell corresponding to locx in vcell.
+    Note the ordering used here is because vtk is weird."""
 
     if cell.GetCellType() == vtk.VTK_LINE:
         return numpy.array(cell.GetPoint(0))*(1.0-locx[0])+numpy.array(cell.GetPoint(1))*locx[0]
-    else:
-        return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]
+    #otherwise
+    return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]

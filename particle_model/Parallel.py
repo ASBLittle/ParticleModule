@@ -7,10 +7,6 @@ try:
     from mpi4py import MPI
 except ImportError:
     MPI = None
-import vtk
-
-
-
 
 def is_parallel():
     """ Check if this is a parallel run."""

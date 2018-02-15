@@ -19,10 +19,9 @@ except KeyError:
 def make_line_profiler(*args, **kwargs):
     """Register and return a line profiler."""
     import line_profiler
-    import atexit
-    profile = line_profiler.LineProfiler()
+    lprof = line_profiler.LineProfiler()
     atexit.register(profile.print_stats, *args, **kwargs)
-    return profile
+    return lprof
 
 
 logging.basicConfig(format='%(module)s:%(funcName)s:%(lineno)d - %(message)s')

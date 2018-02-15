@@ -4,7 +4,6 @@ from particle_model import TemporalCache
 from particle_model import Options
 from particle_model import IO
 from particle_model import Parallel
-from particle_model import vtk_extras
 
 
 from numpy import zeros, empty

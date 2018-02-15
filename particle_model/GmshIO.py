@@ -55,11 +55,11 @@ class GmshMesh(object):
                         if ftype == 0 and len(columns) == 4:
                             self.nodes[int(columns[0])] = [float(c) for c in columns[1:]]
                         elif ftype == 1:
-                            nnods=int(columns[0])
-                            for _N in range(nnods):
+                            nnods = int(columns[0])
+                            for __ in range(nnods):
                                 data = mshfile.read(4+3*dsize)
-                                i, x, y, z = struct.unpack('=i3d', data)
-                                self.nodes[i] = [x, y, z]
+                                values = struct.unpack('=i3d', data)
+                                self.nodes[values[0]] = list(values[1:])
                             mshfile.read(1)
                     except ValueError:
                         readmode = 0
@@ -89,7 +89,7 @@ class GmshMesh(object):
                         while k < neles:
                             ele_type, ntype, ntags = struct.unpack('=3i', mshfile.read(3*4))
                             k += ntype
-                            for _j in range(ntype):
+                            for __ in range(ntype):
                                 mysize = 1+ntags+tdict[ele_type]
                                 data = struct.unpack('=%di'%mysize,
                                                      mshfile.read(4*mysize))

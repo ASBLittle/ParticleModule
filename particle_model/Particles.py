@@ -168,24 +168,16 @@ class Particle(ParticleBase.ParticleBase):
         out = picker(pos)
 
         if names[1] and picker.cell_index:
-            sdata = self.system.temporal_cache.get(infile, names[1])
-            data_p = IO.get_scalar(infile, sdata, names[1], picker.cell_index)
+            data_p = IO.get_scalar(infile,
+                                   self.system.temporal_cache.get(infile, names[1]),
+                                   names[1], picker.cell_index)
         else:
             data_p = None
 
         if data_p is not None:
-            grad_p = numpy.zeros(3)
             dim = picker.cell.GetCellDimension()
-            rhs = data_p[1:dim+1]-data_p[0]
-
-            mat = numpy.zeros((dim, dim))
-
             pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
-            for i in range(dim):
-                mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
-
-            mat = Math.invert(mat)
-            grad_p[:dim] = numpy.dot(mat, rhs)
+            grad_p = Math.grad(data_p, pts, dim)
         else:
             grad_p = ZERO
 
@@ -226,11 +218,8 @@ class Particle(ParticleBase.ParticleBase):
         if vel0 is None or vel1 is None:
             return None, None
 
-#        vel0 = numpy.append(vel0, numpy.zeros(3-vel0.size))
-#        vel1 = numpy.append(vel1, numpy.zeros(3-vel1.size))
-
-#        if gvel_out:
-#            gvel_out = gvel_out
+        if gvel_out:
+            gvel_out = gvel
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
@@ -241,7 +230,7 @@ class Particle(ParticleBase.ParticleBase):
         ### this finds the point of boundary intersection
         ### pos_i = pos_0 + s*(pos_1-pos_0)
 
-        intersect , pos_i, t_val, cell_index= self.system.boundary.test_intersection(pos_0, pos_1)
+        intersect, pos_i, t_val, cell_index = self.system.boundary.test_intersection(pos_0, pos_1)
 
         if intersect and cell_index >= 0:
             if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
@@ -251,7 +240,7 @@ class Particle(ParticleBase.ParticleBase):
 
                     pos_f = pos_o+(1.0-t_val)*delta_t*vel_o
 
-                    vel_i, grad_p = self.picker(pos_f, self.time+delta_t)
+                    vel_i, _ = self.picker(pos_f, self.time+delta_t)
 
                     par_col = copy.copy(self)
                     if self.system.boundary.dist:
@@ -265,7 +254,6 @@ class Particle(ParticleBase.ParticleBase):
                     return (pos_f-pos_0,
                             [Collision.CollisionInfo(par_col, cell_index, 0.0, ZERO)],
                             vel_i-vel_0, ZERO)
-                        
 
         #otherwise
         return (pos_1 - pos_0, None,
@@ -315,7 +303,7 @@ class Particle(ParticleBase.ParticleBase):
         else:
             paC = pa
 
-        intersect , pos_i, t_val, cell_index = self.system.boundary.test_intersection(paC, pos)
+        intersect, pos_i, t_val, cell_index = self.system.boundary.test_intersection(paC, pos)
 
         if intersect and cell_index >= 0:
             if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
@@ -442,7 +430,7 @@ class ParticleBucket(object):
 
         logger.info("Initializing ParticleBucket")
 
-        field_data = field_data or {} 
+        field_data = field_data or {}
 
         self.system = system
 
@@ -594,7 +582,7 @@ class ParticleBucket(object):
                     data, alpha, names = self.system.temporal_cache(time)
                     cell_id, pcoords = vtk_extras.FindCell(data[0][3], pos)
 
-                    if (cell_id == -1):
+                    if cell_id == -1:
                         continue
 
                     par = Particle((pos, vel, time,

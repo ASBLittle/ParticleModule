@@ -4,6 +4,7 @@ from particle_model.Debug import profile, logger
 import scipy.linalg as la
 import numpy
 
+@profile
 def invert(mat):
     """ Hard coded 2D matrix inverse."""
     if mat.shape == (2, 2):
@@ -21,3 +22,20 @@ def cross(vec1, vec2):
     out[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
     out[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
     return out
+
+def grad(data, pts, dim):
+    """Get gradient of cell data."""
+
+    grad_d = numpy.zeros(3)
+
+    rhs = data[1:dim+1]-data[0]
+    mat = numpy.zeros((dim, dim))
+
+    for i in range(dim):
+        mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
+
+    mat = invert(mat)
+
+    grad_d[:dim] = numpy.dot(mat, rhs)
+
+    return grad_d

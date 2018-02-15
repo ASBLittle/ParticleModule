@@ -9,12 +9,14 @@ import particle_model.DragModels
 
 from numpy import zeros
 
-def setup_from_fluidity(mb, time, dt, delta_t=None,
-                        positions=zeros((0, 3)),
-                        velocities=zeros((0, 3))):
+def setup_from_fluidity(mblock, time, system_dt, delta_t=None,
+                        positions=None, velocities=None):
     """Drive particles from inside Fluidity."""
 
-    system = particle_model.System.get_system_from_options(block=(mb, time, dt))
+    positions = positions or zeros((0, 3))
+    velocities = velocities or zeros((len(positions), 3))
+
+    system = particle_model.System.get_system_from_options(block=(mblock, time, system_dt))
     parameters = particle_model.ParticleBase.get_parameters_from_options()[0]
 
     bucket = particle_model.Particles.ParticleBucket(positions, velocities,

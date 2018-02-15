@@ -27,6 +27,7 @@ vector_ugrid_no = {}
 tensor_ugrid_no = {}
 
 ARGV = [0.0, 0.0, 0.0]
+ARGI = vtk.mutable(0)
 WEIGHTS = numpy.zeros(10)
 SUB_ID = vtk.mutable(0)
 
@@ -122,18 +123,24 @@ class PolyData(object):
 
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
-    def __init__(self, filename=None, bnd=None, outlet_ids=[], inlets=[], dist=None):
+    def __init__(self, filename=None, bnd=None, outlet_ids=None,
+                 inlets=None, mapped_ids=None, dist=None):
         """Class containing the information about the boundary of the domain.
 
         Args:
             filename (str): Name of the file containing the
             vtkUnstructuredGrid denoting the boundary of the domain."""
 
+        outlet_ids = outlet_ids or []
+        inlets = inlets or []
+        mapped_ids = mapped_ids or []
+
         self.reader = vtk.vtkXMLUnstructuredGridReader()
         self.bndl = vtk.vtkCellLocator()
         self.geom_filter = vtk.vtkGeometryFilter()
         self.outlet_ids = outlet_ids
         self.inlets = inlets
+        self.mapped_ids = mapped_ids
         self.dist = dist
 
         open_ids = [] + self.outlet_ids
@@ -206,6 +213,22 @@ class BoundaryData(object):
     def rebuild_locator(self):
         """ Rebuild the locator information"""
         self.bndl.BuildLocator()
+
+    def test_intersection(self, pos0, pos1):
+        """Test whether the line pos0 + t*(pos1-pos0) for t in [0,1] 
+        intersects with the boundary."""
+
+        t_val = vtk.mutable(-1.0)
+        pos_i = [0.0, 0.0, 0.0]
+        cell_index = vtk.mutable(0)
+
+        if self.bndl.IntersectWithLine(pos0, pos1,
+                                  1.0e-16, t_val,
+                                  pos_i, ARGV, ARGI, cell_index):
+
+            return (True, numpy.array(pos_i), t_val, cell_index)
+        #otherwise
+        return False, None, None, -1
 
 
 
@@ -1089,6 +1112,80 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
 
     return ugrid
 
+def make_trajectories(outfile, base_name, extension='vtp'):
+    """ Process a time series of polydata files into a single trajectory file."""
+    files = glob.glob(base_name+'_[0-9]*.'+extension)
+
+    def num(x):
+        return int(x.rsplit('_',1)[1].split('.',1)[0])
+
+    files.sort(key = num)
+    reader = vtk.vtkXMLGenericDataObjectReader()
+
+    trajectories = vtk.vtkPolyData()
+    cell_ids = {}
+    pnts = vtk.vtkPoints()
+    fields = {}
+
+    for _ in files:
+        reader.SetFileName(_)
+        reader.Update()
+        data = reader.GetOutput()
+    
+        for _ in range(data.GetNumberOfPoints()):
+            cell_ids.setdefault(data.GetPointData().GetArray("ParticleID").GetValue(_), vtk.vtkIdList()).InsertNextId(pnts.InsertNextPoint(data.GetPoint(_)))
+            for __ in range(data.GetPointData().GetNumberOfArrays()):
+                input = data.GetPointData().GetArray(__)
+                name = input.GetName()
+                if name not in fields:
+                    arr = vtk.vtkDoubleArray()
+                    arr.SetName(name)
+                    arr.SetNumberOfComponents(input.GetNumberOfComponents())
+                    trajectories.GetPointData().AddArray(arr)
+                    fields[name] = arr
+                fields[name].InsertNextTuple(input.GetTuple(_))
+
+    trajectories.SetPoints(pnts)
+    trajectories.Allocate(len(cell_ids))
+    for cell_id in cell_ids.values():
+        trajectories.InsertNextCell(vtk.VTK_LINE, cell_id)
+
+    write_to_file(trajectories, outfile)
+
+def make_pvd(pvd_name, base_name, extension='vtp'):
+    from lxml import etree as ET
+    vtkfile = ET.Element('VTKFile',
+                           attrib = {'type':'Collection',
+                                     'version':'0.1',
+                                     'byte_order':'LittleEndian'})
+    collection = ET.Element('Collection')
+    
+    files = glob.glob(base_name+'_[0-9]*.'+extension)
+
+    def num(x):
+        return int(x.rsplit('_',1)[1].split('.',1)[0])
+
+    files.sort(key = num)
+    reader = vtk.vtkXMLGenericDataObjectReader()
+
+    for _ in files:
+        reader.SetFileName(_)
+        reader.Update()
+        data = reader.GetOutput()
+
+        time = data.GetFieldData().GetArray("Time").GetValue(0)
+
+        collection.append(ET.Element('DataSet', 
+                                  attrib={'timestep':str(time),
+                                          'file':str(_)})
+                          )
+                                          
+
+        vtkfile.append(collection)
+
+        with open(pvd_name, 'wb') as _:
+            ET.ElementTree(vtkfile).write(_, pretty_print=True)
+    
     
 def get_real_x(cell, locx):
     ### Return physical coordinate of cell corresponding to locx in vcell

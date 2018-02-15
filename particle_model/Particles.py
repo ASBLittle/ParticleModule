@@ -19,7 +19,6 @@ from particle_model import vtk_extras
 import numpy
 
 ARGV = [0.0, 0.0, 0.0]
-ARGI = vtk.mutable(0)
 LEVEL = 0
 ZERO = numpy.zeros(3)
 
@@ -52,7 +51,7 @@ class Particle(ParticleBase.ParticleBase):
                                                           self._hash,
                                                           self.parameters,
                                                           self.system)
-        
+
     def copy(self):
         """ Create a (mixed) copy of the particle."""
         par = Particle((self.pos, self.vel, self.time, self.delta_t),
@@ -161,7 +160,7 @@ class Particle(ParticleBase.ParticleBase):
     @profile
     def _fpick(self, pos, infile, picker, names):
         """ Extract fluid velocity and pressure from single .vtu file"""
-        
+
         if picker.cell_index is None:
             return None, None
 
@@ -178,9 +177,9 @@ class Particle(ParticleBase.ParticleBase):
             grad_p = numpy.zeros(3)
             dim = picker.cell.GetCellDimension()
             rhs = data_p[1:dim+1]-data_p[0]
-            
+
             mat = numpy.zeros((dim, dim))
-                
+
             pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
             for i in range(dim):
                 mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
@@ -207,22 +206,22 @@ class Particle(ParticleBase.ParticleBase):
         TemporalCache.PICKERS[0].name = names[0][0]
         TemporalCache.PICKERS[0].grid = IO.get_block(data[0][2], names[0][0])
         TemporalCache.PICKERS[0].locator = data[0][3]
-        TemporalCache.PICKERS[0].pos = pos;
+        TemporalCache.PICKERS[0].pos = pos
         TemporalCache.PICKERS[1].name = names[1][0]
         TemporalCache.PICKERS[1].grid = IO.get_block(data[1][2], names[1][0])
         TemporalCache.PICKERS[1].locator = data[1][3]
-        TemporalCache.PICKERS[1].pos = pos;
+        TemporalCache.PICKERS[1].pos = pos
 
         if len(names[0]) == 3:
             vel0, grad_p0, gvel = self._fpick(pos, data[0][2],
-                                        TemporalCache.PICKERS[0], names[0])
+                                              TemporalCache.PICKERS[0], names[0])
             vel1, grad_p1, gvel = self._fpick(pos, data[1][2],
-                                        TemporalCache.PICKERS[1], names[1])
+                                              TemporalCache.PICKERS[1], names[1])
         else:
             vel0, grad_p0 = self._fpick(pos, data[0][2],
-                                  TemporalCache.PICKERS[0], names[0])
+                                        TemporalCache.PICKERS[0], names[0])
             vel1, grad_p1 = self._fpick(pos, data[1][2],
-                                  TemporalCache.PICKERS[1], names[1])
+                                        TemporalCache.PICKERS[1], names[1])
 
         if vel0 is None or vel1 is None:
             return None, None
@@ -235,6 +234,42 @@ class Particle(ParticleBase.ParticleBase):
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
+
+    def _check_remapping(self, pos_1, pos_0, vel_0, delta_t):
+        """Test for periodic/remapped boundaries"""
+
+        ### this finds the point of boundary intersection
+        ### pos_i = pos_0 + s*(pos_1-pos_0)
+
+        intersect , pos_i, t_val, cell_index= self.system.boundary.test_intersection(pos_0, pos_1)
+
+        if intersect and cell_index >= 0:
+            if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
+                surface_id = self.system.boundary.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index)
+                if surface_id in self.system.boundary.mapped_ids:
+                    pos_o, vel_o = self.system.boundary.mapped_ids[surface_id](pos_i, vel_0)
+
+                    pos_f = pos_o+(1.0-t_val)*delta_t*vel_o
+
+                    vel_i, grad_p = self.picker(pos_f, self.time+delta_t)
+
+                    par_col = copy.copy(self)
+                    if self.system.boundary.dist:
+                        cell = self.system.boundary.bnd.GetCell(cell_index)
+                        par_col.pos = IO.get_real_x(cell, ARGV)
+                    else:
+                        par_col.pos = pos_i
+                    par_col.vel = vel_0
+                    par_col.time = self.time + t_val * delta_t
+
+                    return (pos_f-pos_0,
+                            [Collision.CollisionInfo(par_col, cell_index, 0.0, ZERO)],
+                            vel_i-vel_0, ZERO)
+                        
+
+        #otherwise
+        return (pos_1 - pos_0, None,
+                ZERO, None)
 
 
     @profile
@@ -260,8 +295,7 @@ class Particle(ParticleBase.ParticleBase):
         if self.pure_lagrangian:
             fvel, grad_p = self.picker(pos, self.time+delta_t)
             if fvel is None:
-                return (pos - pa, None,
-                        0.0*self.vel , None)
+                return self._check_remapping(pos, pa, self.vel, delta_t)
             #otherwise
             return  (pos - pa, None, fvel  - self.vel, None)
 
@@ -281,15 +315,7 @@ class Particle(ParticleBase.ParticleBase):
         else:
             paC = pa
 
-        s = vtk.mutable(-1.0)
-        x = [0.0, 0.0, 0.0]
-        cell_index = vtk.mutable(0)
-
-        bndl = self.system.boundary.bndl
-
-        intersect = bndl.IntersectWithLine(paC, pos,
-                                           1.0e-16, s,
-                                           x, ARGV, ARGI, cell_index)
+        intersect , pos_i, t_val, cell_index = self.system.boundary.test_intersection(paC, pos)
 
         if intersect and cell_index >= 0:
             if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
@@ -300,9 +326,8 @@ class Particle(ParticleBase.ParticleBase):
 #            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa) or sum((pa-x)**2)<1.0-10
 
 #            print 'collision', intersect, cell_index, s, x, pos, paC
-            x = numpy.array(x)
 
-            idx, pcoords = self.find_cell(data[0][3], x)
+            idx, pcoords = self.find_cell(data[0][3], pos_i)
             gridv = IO.get_vector(data[0][2], None, "GridVelocity", idx, pcoords)
             gridv.resize([3])
 
@@ -339,58 +364,52 @@ class Particle(ParticleBase.ParticleBase):
 
             coeff = self.system.coefficient_of_restitution(self, cell)
 
-            pos = x + delta_t * (k - (1.0 + coeff) * normal * (numpy.dot(normal, k)))
+            pos = pos_i + delta_t * (k - (1.0 + coeff) * normal * (numpy.dot(normal, k)))
 
-            theta = abs(numpy.arcsin(numpy.dot(normal, (x-pa))
-                                     / numpy.sqrt(numpy.dot(x - pa, x - pa))))
+            theta = abs(numpy.arcsin(numpy.dot(normal, (pos_i-pa))
+                                     / numpy.sqrt(numpy.dot(pos_i - pa, pos_i - pa))))
 
             coldat = []
 
             if any(vel):
-                if self.pure_lagrangian:
-                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
-                    vels = fvel
-                elif drag:
-                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
+                if drag:
+                    C, fvel = self.drag_coefficient(pos_i, self.vel, self.time+delta_t)
                     if fvel is not None:
-                        vels = ((vel + s*delta_t*(force+C*(fvel)))
-                                /(1.0+s*delta_t*C))
+                        vels = ((vel + t_val*delta_t*(force+C*(fvel)))
+                                /(1.0+t_val*delta_t*C))
                     else:
-                        vels = (vel+s*delta_t*force)/(1.0+s*delta_t*C)
+                        vels = (vel+t_val*delta_t*force)/(1.0+t_val*delta_t*C)
                 else:
-                    vels = vel+s*delta_t*force
+                    vels = vel+t_val*delta_t*force
             else:
-                if self.pure_lagrangian:
-                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
-                    vels = fvel
-                elif drag:
-                    C, fvel = self.drag_coefficient(x, self.vel, self.time+delta_t)
+                if drag:
+                    C, fvel = self.drag_coefficient(pos_i, self.vel, self.time+delta_t)
                     if fvel is not None:
-                        vels = (self.vel + s*delta_t*(force+C*(fvel))
-                                /(1.0+s*delta_t*C))
+                        vels = (self.vel + t_val*delta_t*(force+C*(fvel))
+                                /(1.0+t_val*delta_t*C))
                     else:
-                        vels = 0.0*(self.vel + s*delta_t*(force))
+                        vels = 0.0*(self.vel + t_val*delta_t*(force))
                 else:
-                    vels = self.vel+s*delta_t*force
+                    vels = self.vel+t_val*delta_t*force
 
             par_col = copy.copy(self)
             if self.system.boundary.dist:
                 par_col.pos = IO.get_real_x(cell, ARGV)
             else:
-                par_col.pos = x
+                par_col.pos = pos_i
             par_col.vel = vels
             par_col.vel[:len(gridv)] -= gridv
-            par_col.time = self.time + s * delta_t
+            par_col.time = self.time + t_val * delta_t
 
             coldat.append(Collision.CollisionInfo(par_col, cell_index,
                                                   theta, normal))
             vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels-gridv)
 
-            px, col, velo, dummy_vel = self.collide(vels, (1 - s) * delta_t,
+            px, col, velo, dummy_vel = self.collide(vels, (1 - t_val) * delta_t,
                                                     vel=vels, force=force,
-                                                    pa=x + 1.0e-9 * vels,
+                                                    pa=pos_i + 1.0e-9 * vels,
                                                     level=level + 1, drag=drag)
-            pos = px + x + 1.0e-9 * vels
+            pos = px + pos_i + 1.0e-9 * vels
 
             if col:
                 coldat += col

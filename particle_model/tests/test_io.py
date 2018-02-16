@@ -1,11 +1,13 @@
 """Unit tests for the file IO"""
+
+import os
+import numpy
+import filecmp
+
 from particle_model import IO
 from particle_model import Particles
 
 import vtk
-import os
-import numpy
-import filecmp
 
 DATA_DIR = 'particle_model/tests/data'
 
@@ -27,8 +29,9 @@ def test_polydata(tmpdir):
 
     pres = zeros((num, 3))
     vel = zeros((num, 3))
+    fields = {"Test":zeros((num,1))}
 
-    part = Particles.ParticleBucket(pres, vel)
+    part = Particles.ParticleBucket(pres, vel, field_data=fields)
 
     filepath = tmpdir.join('test.vtp').strpath
 
@@ -81,3 +84,11 @@ def test_make_unstructured_grid(tmpdir):
     assert ugrid.GetNumberOfPoints() == num
     assert ugrid.GetNumberOfCells() == len(mesh.elements)
     assert filecmp.cmpfiles(DATA_DIR, tmpdir.strpath, 'Structured.vtu')
+
+def test_make_pvd(tmpdir):
+
+    IO.make_pvd(tmpdir.join('test.pvd').strpath, "particle_model/tests/data/gyre", 'vtu')
+
+    filepath = tmpdir.join('test.pvd').strpath
+
+    assert os.path.isfile(filepath)

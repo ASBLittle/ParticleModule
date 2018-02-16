@@ -38,7 +38,7 @@ extern "C" {
       self->locator = locator;
       if (locator) {
 	self->locator->Register(NULL);
-	self->locator->BuildLocatorIfNeeded();
+	self->locator->BuildLocator();
       }
     }
     return 0;

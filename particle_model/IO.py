@@ -1182,7 +1182,10 @@ def make_pvd(pvd_name, base_name, extension='vtp'):
         reader.Update()
         data = reader.GetOutput()
 
-        time = data.GetFieldData().GetArray("Time").GetValue(0)
+        if data.GetFieldData().HasArray("Time"):
+            time = data.GetFieldData().GetArray("Time").GetValue(0)
+        elif data.GetPointData().HasArray("Time"):
+            time = data.GetPointData().GetArray("Time").GetValue(0)
 
         collection.append(ET.Element('DataSet',
                                      attrib={'timestep':str(time),

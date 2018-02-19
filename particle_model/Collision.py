@@ -3,8 +3,11 @@ collision information."""
 
 import copy
 import numpy
+import vtk
 
-class CollisionException(Exception):
+from particle_model.Debug import logger
+
+class BadCollisionException(Exception):
     """ Exception to deal with bad collisions"""
     pass
 
@@ -80,3 +83,42 @@ def mclaury_mass_coeff(collision, material=None):
     return (coeff*hardness*sharpness_factor*penetration_factor
             *(vel**n_exp*fun(collision.angle)
               +max(0.0, beta*(vel*numpy.sin(collision.angle)-vel0)**2)))
+
+
+def collision_angle(particle, pos_0, pos_i, cell_index):
+    """ Calulate the surface normal and angle of incidence of a collision event."""
+
+    cell = particle.system.boundary.bnd.GetCell(cell_index)
+
+    normal = numpy.zeros(3)
+
+    vec1 = (numpy.array(cell.GetPoints().GetPoint(1))
+            -numpy.array(cell.GetPoints().GetPoint(0)))
+
+    if cell.GetCellType() == vtk.VTK_TRIANGLE:
+        vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
+                -numpy.array(cell.GetPoints().GetPoint(0)))
+    else:
+        vec2 = numpy.array(((pos_i-pos_0)[1]*vec1[2]-(pos_i-pos_0)[2]*vec1[1],
+                            (pos_i-pos_0)[2]*vec1[0]-(pos_i-pos_0)[0]*vec1[2],
+                            (pos_i-pos_0)[0]*vec1[1]-(pos_i-pos_0)[1]*vec1[0]))
+
+    normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
+    normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
+    normal[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
+
+
+    if sum(normal**2) > 1.0e-32:
+        normal = normal / numpy.sqrt(sum(normal**2))
+    else:
+        logger.error(normal)
+        logger.error("%s, %s", vec1, vec2)
+        raise BadCollisionException
+
+    normal = normal * numpy.sign(numpy.dot(normal, (pos_i-pos_0)))
+
+    theta = abs(numpy.arcsin(numpy.dot(normal, (pos_i-pos_0))
+                             / numpy.sqrt(numpy.dot(pos_i - pos_0,
+                                                    pos_i - pos_0))))
+
+    return normal, theta

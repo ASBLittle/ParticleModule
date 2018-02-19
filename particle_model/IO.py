@@ -226,10 +226,23 @@ class BoundaryData(object):
                                        1.0e-16, t_val,
                                        pos_i, ARGV, ARGI, cell_index):
 
-            return (True, numpy.array(pos_i), t_val, cell_index)
+            return (True, numpy.array(pos_i), t_val, cell_index, ARGV)
         #otherwise
-        return False, None, None, -1
+        return False, None, None, -1, None
 
+    def has_surface_ids(self):
+        """Boolean test whether boundary stores surface ids."""
+        return self.bnd.GetCellData().HasArray('SurfaceIds')
+
+    def get_surface_id(self, cell_index):
+        """Get surface id of cell cell_index.
+
+        Returns None if no surface id information available."""
+
+        if not self.has_surface_ids():
+            return None
+        #otherwise
+        return self.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index)
 
 
 def clean_unstructured_grid(ugrid):

@@ -18,7 +18,6 @@ from particle_model import vtk_extras
 
 import numpy
 
-ARGV = [0.0, 0.0, 0.0]
 LEVEL = 0
 ZERO = numpy.zeros(3)
 
@@ -230,7 +229,7 @@ class Particle(ParticleBase.ParticleBase):
         ### this finds the point of boundary intersection
         ### pos_i = pos_0 + s*(pos_1-pos_0)
 
-        intersect, pos_i, t_val, cell_index = self.system.boundary.test_intersection(pos_0, pos_1)
+        intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
         if intersect and cell_index >= 0:
             if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
@@ -245,7 +244,7 @@ class Particle(ParticleBase.ParticleBase):
                     par_col = copy.copy(self)
                     if self.system.boundary.dist:
                         cell = self.system.boundary.bnd.GetCell(cell_index)
-                        par_col.pos = IO.get_real_x(cell, ARGV)
+                        par_col.pos = IO.get_real_x(cell, pcoords)
                     else:
                         par_col.pos = pos_i
                     par_col.vel = vel_0
@@ -303,17 +302,14 @@ class Particle(ParticleBase.ParticleBase):
         else:
             paC = pa
 
-        intersect, pos_i, t_val, cell_index = self.system.boundary.test_intersection(paC, pos)
+        intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(paC, pos)
 
         if intersect and cell_index >= 0:
-            if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
-                if self.system.boundary.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index) in self.system.boundary.outlet_ids:
-                    return pos - pa, None, vel-self.vel, None
+            surface_id = self.system.boundary.get_surface_id(cell_index)
+            if surface_id is not None and surface_id in self.system.boundary.outlet_ids:
+                return pos - pa, None, vel-self.vel, None
 
             data, _, names = self.system.temporal_cache(self.time)
-#            assert IO.test_in_cell(IO.get_linear_block(data[0][2]).GetCell(self.find_cell(data[0][3], pa)), pa) or sum((pa-x)**2)<1.0-10
-
-#            print 'collision', intersect, cell_index, s, x, pos, paC
 
             idx, pcoords = self.find_cell(data[0][3], pos_i)
             gridv = IO.get_vector(data[0][2], None, "GridVelocity", idx, pcoords)
@@ -321,41 +317,11 @@ class Particle(ParticleBase.ParticleBase):
 
             cell = self.system.boundary.bnd.GetCell(cell_index)
 
-
-
-            normal = numpy.zeros(3)
-
-            vec1 = (numpy.array(cell.GetPoints().GetPoint(1))
-                    -numpy.array(cell.GetPoints().GetPoint(0)))
-
-            if cell.GetCellType() == vtk.VTK_TRIANGLE:
-                vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
-                        -numpy.array(cell.GetPoints().GetPoint(0)))
-            else:
-                vec2 = numpy.array(((pos-pa)[1]*vec1[2]-(pos-pa)[2]*vec1[1],
-                                    (pos-pa)[2]*vec1[0]-(pos-pa)[0]*vec1[2],
-                                    (pos-pa)[0]*vec1[1]-(pos-pa)[1]*vec1[0]))
-
-            normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
-            normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
-            normal[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
-
-
-            if sum(normal**2) > 1.0e-32:
-                normal = normal / numpy.sqrt(sum(normal**2))
-            else:
-                logger.error(normal)
-                logger.error("%s, %s"%(vec1, vec2))
-                raise Collision.CollisionException
-
-            normal = normal * numpy.sign(numpy.dot(normal, (pos-pa)))
+            normal, theta = Collision.collision_angle(self, pos, pa, cell_index)
 
             coeff = self.system.coefficient_of_restitution(self, cell)
 
             pos = pos_i + delta_t * (k - (1.0 + coeff) * normal * (numpy.dot(normal, k)))
-
-            theta = abs(numpy.arcsin(numpy.dot(normal, (pos_i-pa))
-                                     / numpy.sqrt(numpy.dot(pos_i - pa, pos_i - pa))))
 
             coldat = []
 
@@ -382,7 +348,7 @@ class Particle(ParticleBase.ParticleBase):
 
             par_col = copy.copy(self)
             if self.system.boundary.dist:
-                par_col.pos = IO.get_real_x(cell, ARGV)
+                par_col.pos = IO.get_real_x(cell, pcoords)
             else:
                 par_col.pos = pos_i
             par_col.vel = vels

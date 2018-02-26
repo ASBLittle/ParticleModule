@@ -192,11 +192,13 @@ extern "C" {
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-  PyMODINIT_FUNC PyInit_initvtk_extras() {
+  PyMODINIT_FUNC PyInit_vtk_extras() {
 
     PyObject* m = PyModule_Create(&moduledef);
     if (m == NULL) return NULL;
     import_array();
+
+    if (PyType_Ready(vtk_extrasPicker_Type()) < 0)  return NULL;
 
     cell = vtkGenericCell::New();
 
@@ -204,6 +206,8 @@ extern "C" {
 
     Py_INCREF(vtk);
     PyModule_AddObject(m,"vtk",vtk);
+    Py_INCREF(vtk_extrasPicker_Type());
+    PyModule_AddObject(m,"Picker", (PyObject*)vtk_extrasPicker_Type());
 
     return m;
   }

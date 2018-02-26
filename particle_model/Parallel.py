@@ -1,5 +1,6 @@
 """ Module containing helper routines for use with MPI parallelisation."""
 
+import sys
 import itertools
 import numpy
 
@@ -135,8 +136,6 @@ def distribute_particles(particle_list, system, time=0.0):
 
     return output
 
-
-
 class ParticleId(object):
     """Id class for individual particles."""
 
@@ -164,6 +163,9 @@ class ParticleId(object):
     @staticmethod
     def newid():
         """Get unused id number for a Particle."""
+        if sys.version_info.major >= 3:
+            return next(ParticleId._counter)
+        #otherwise
         return ParticleId._counter.next()
 
     @staticmethod

@@ -6,7 +6,7 @@ import numpy
 from particle_model import Parallel
 from particle_model import Debug
 from particle_model import IO
-from Debug import profile
+from particle_model.Debug import profile
 from particle_model import vtk_extras
 try:
     from lxml import etree as ET
@@ -124,7 +124,7 @@ class TemporalCache(object):
                 time = self.get_time_from_vtk(pfilename)
                 self.data.append([timescale_factor*time, pfilename, None, None])
 
-        self.data.sort(cmp=lambda x, y: cmp(x[0], y[0]))
+        self.data.sort(key=lambda x: x[0])
         self.range(t_min, t_max)
 
         self.cache = DataCache()

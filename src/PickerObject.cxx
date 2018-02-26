@@ -335,8 +335,7 @@ extern "C" {
   };
 
   static PyTypeObject vtk_extrasPickerType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
+    PyVarObject_HEAD_INIT(NULL, 0)
     "vtk_extras.Picker",            /*tp_name*/
     sizeof(vtk_extrasPicker),       /*tp_basicsize*/
     0,                         /*tp_itemsize*/
@@ -375,7 +374,7 @@ extern "C" {
     0, /* tp_alloc */
     vtk_extrasPicker_new, /* tp_new */
     0, /* tp_free Low-level free-memory routine */
-    0, /* tp_is_gc For PyObject_IS_GC */
+    0 /* tp_is_gc For PyObject_IS_GC */
   };
 
   PyObject* vtk_extrasPicker_NEW(){

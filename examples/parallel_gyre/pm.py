@@ -1,6 +1,6 @@
 """Example of particles in a 2d double gyre hitting wall."""
-import particle_model as pm
 import numpy
+import particle_model as pm
 
 N = 2000
 

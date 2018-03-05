@@ -19,9 +19,9 @@ except ImportError:
         """ Wrapper for xml ElementTree."""
         return ET.ElementTree(**kwargs)
 
-PICKERS = [ vtk_extras.Picker(),
-            vtk_extras.Picker(),
-            vtk_extras.Picker()]
+PICKERS = [vtk_extras.Picker(),
+           vtk_extras.Picker(),
+           vtk_extras.Picker()]
 
 def read_pvd(filename):
     """Read timestep and filename data from a .pvd file."""
@@ -151,7 +151,7 @@ class TemporalCache(object):
     def range(self, t_min, t_max):
         """ Specify a range of data to keep open."""
         if not self.data:
-            return
+            raise ValueError
         if self.data[self.lower][0] > t_min:
             self.reset()
         while (self.lower < len(self.data)-2
@@ -172,7 +172,7 @@ class TemporalCache(object):
         """ Open a file for reading."""
         rdr = vtk.vtkXMLGenericDataObjectReader()
 
-        Debug.logger.info('loading %s'%self.data[k][1])
+        Debug.logger.info('loading %s', self.data[k][1])
         rdr.SetFileName(self.data[k][1])
         rdr.Update()
 
@@ -242,8 +242,8 @@ class TemporalCache(object):
 
         data, alpha, names = self(time)
 
-        vel_data0 = self.cache.get(data[0][2],names[0][0])
-        vel_data1 = self.cache.get(data[1][2],names[1][0])
+        vel_data0 = self.cache.get(data[0][2], names[0][0])
+        vel_data1 = self.cache.get(data[1][2], names[1][0])
 
         loc0 = data[0][3]
         loc0.BuildLocatorIfNeeded()
@@ -317,11 +317,11 @@ class FluidityCache(object):
         PICKERS[0].name = names[0][0]
         PICKERS[0].grid = IO.get_block(data[0][2], names[0][0])
         PICKERS[0].locator = data[0][3]
-        PICKERS[0].pos = pos;
+        PICKERS[0].pos = pos
         PICKERS[1].name = names[1][0]
         PICKERS[1].grid = IO.get_block(data[1][2], names[1][0])
         PICKERS[1].locator = data[1][3]
-        PICKERS[1].pos = pos;
+        PICKERS[1].pos = pos
 
         vel0 = PICKERS[0].nearest(pos)
         vel1 = PICKERS[1].nearest(pos)

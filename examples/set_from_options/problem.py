@@ -1,6 +1,6 @@
 """Example of particles from an options file."""
-import particle_model as pm
 import numpy
+import particle_model as pm
 
 N = 5
 

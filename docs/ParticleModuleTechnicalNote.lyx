@@ -656,19 +656,6 @@ Non-spherical corrections
 \end_layout
 
 \begin_layout Chapter
-Particle-Wall Collisions and Wear Modelling
-\end_layout
-
-\begin_layout Section
-A Collision Event
-\end_layout
-
-\begin_layout Standard
-From the viewpoint of wear, a collision event occurs when a finite size
- particle impacts 
-\end_layout
-
-\begin_layout Chapter
 Numerical implementation
 \end_layout
 
@@ -1243,6 +1230,45 @@ l vector field,
 \end_inset
 
 
+\end_layout
+
+\begin_layout Chapter
+Particle-Wall Collisions and Wear Modelling
+\end_layout
+
+\begin_layout Section
+A Collision Event
+\end_layout
+
+\begin_layout Standard
+From the viewpoint of wear, a collision event occurs when a finite size
+ particle impacts upon a solid material surface bounding the fluid domain.
+ The statistics of this collision are then used in parameterized functions
+ to estimate the mass loss as a result of the collision.
+ 
+\end_layout
+
+\begin_layout Subsection
+Approximating a collision
+\end_layout
+
+\begin_layout Standard
+Since the particle position equation is solved explicitly, we may always
+ predict a future location for a particle,
+\begin_inset Formula 
+\[
+\bm{r}^{*}=\bm{r}^{n+1}+\Delta\bm{r},
+\]
+
+\end_inset
+
+where the 
+\begin_inset Formula $\Delta r$
+\end_inset
+
+ is calculated according to the formulae in Chapter 2.
+ An approximate test for collisions may be found by testing whether the
+ line segment 
 \end_layout
 
 \begin_layout Standard

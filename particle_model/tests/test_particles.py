@@ -1,4 +1,5 @@
 """ Test the main particle routines."""
+from particle_model import Timestepping
 from particle_model import Particles
 from particle_model import ParticleBase
 from particle_model import IO
@@ -192,16 +193,19 @@ def test_picker_linear_3d(tmpdir):
 def test_step_constant_velocity():
     """Test single step at constant velocity."""
 
-    pos = numpy.array((0.5, 0.5, 0.0))
-    vel = numpy.array((1.0, 0.0, 0.0))
+    for method in Timestepping.methods:
 
-    part = Particles.Particle((pos, vel), delta_t=0.1, parameters=PAR0,
-                              system=SYSTEM)
-    part.update(method="RungeKutta4")
-    assert all(part.pos == numpy.array((0.6, 0.5, 0.0)))
-    assert part.time == 0.1
-    part.update()
-    assert all(part.pos == numpy.array((0.7, 0.5, 0.0)))
+        pos = numpy.array((0.5, 0.5, 0.0))
+        vel = numpy.array((1.0, 0.0, 0.0))
+
+        part = Particles.Particle((pos, vel), delta_t=0.1, parameters=PAR0,
+                                  system=SYSTEM)
+        print(method)
+        part.update(method=method)
+        assert all(part.pos == numpy.array((0.6, 0.5, 0.0)))
+        assert part.time == 0.1
+        part.update()
+        assert all(part.pos == numpy.array((0.7, 0.5, 0.0)))
 
 
 def test_step_spin_up_turbulent_drag():
@@ -272,7 +276,7 @@ def test_step_head_on_collision():
 
     part = Particles.Particle((pos, vel), delta_t=0.001, parameters=PAR0,
                               system=SYSTEM)
-    part.update(method="RungeKutta4")
+    part.update(method="ForwardEuler")
     assert all(abs(part.pos - numpy.array((0.9995, 0.5, 0.0))) < 1.0e-8)
     assert all(part.vel == numpy.array((-1., 0., 0.)))
     assert part.time == 0.001
@@ -339,7 +343,7 @@ def test_gyre_collision():
 
     for i in range(100):
         del i
-        part.update(method="RungeKutta4")
+        part.update(method="AdamsBashforth2")
 
     assert part.pos[0] < 1.0
     assert part.pos[1] < 1.0
@@ -348,7 +352,7 @@ def test_gyre_collision():
 
     assert len(part.collisions) == 1
     assert part.collisions[0].pos[0] == 1.0
-    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 16.46770820583999) < 1.0e-8
+    assert abs(Collision.mclaury_mass_coeff(part.collisions[0]) - 16.444037345317486) < 1.0e-8
 
 
 

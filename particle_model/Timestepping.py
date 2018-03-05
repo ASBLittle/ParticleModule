@@ -7,41 +7,44 @@ Methods have the generic signature
 """
 
 from particle_model.Debug import profile, logger
+from particle_model import Collision
 
-def update_euler(self):
+def update_euler(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses the forward Euler method"""
+
+    delta_t = delta_t or self.delta_t
 
     kap = (self.vel, self.force(self.pos,
                                 self.vel,
                                 self.time, drag=False), self.time)
 
-    step, col, vel, col_vel = self.collide(self.vel,
-                                           self.delta_t,
-                                           self.vel,
-                                           force=kap[1],
-                                           drag=True)
+    pos = self.pos+delta_t*self.vel
+    vel = self.vel+delta_t*kap[1]
 
-    self.pos += step
-    self.vel += vel
-    self.time += self.delta_t
+    try:
+        self.pos, self.vel = self.check_collision_full(pos, self.pos,
+                                                       vel, self.vel,
+                                                       delta_t, drag=True)
+    except Collision.CollisionException as col:
+        vel = self.vel+col.delta_t*kap[1]
+        C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
+        col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
+        raise col
+        
+    self.time += delta_t
 
-    if col:
-        self.collisions += col
-
-        kap = (self.vel, self.force(col[-1].pos+1.0e-8*col_vel,
-                                    col_vel,
-                                    col[-1].time+1.0e-8, drag=False), col[-1].time+1.0e-8)
-
-    return kap, col
+    return kap
 
      
 @profile
-def update_ab2(self):
+def update_ab2(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses the Adams Bashforth second order method"""
+
+    delta_t = delta_t or self.delta_t
 
     if len(self._old) >= 1:
 
@@ -50,38 +53,38 @@ def update_ab2(self):
                                     self.time, drag=False), self.time)
 
         beta = 0.5*self.delta_t/(self.time-self.get_old(0, 2))
+        
+        pos = self.pos+delta_t*((1+beta)*self.vel-beta*self.get_old(0, 0))
+        vel = self.vel+delta_t*((1+beta)*kap[1]-beta*self.get_old(0, 1))
 
-        step, col, vel, col_vel = self.collide((1.0+beta)*self.vel-beta*self.get_old(0, 0),
-                                               self.delta_t,
-                                               self.vel,
-                                               force=(1.0+beta)*kap[1]-beta*self.get_old(0, 1),
-                                               drag=True)
-
-        if col:
-            self.collisions += col
-
-            kap = (self.vel, self.force(col[-1].pos+1.0e-8*col_vel,
-                                        col_vel,
-                                        col[-1].time+1.0e-8, drag=False), col[-1].time+1.0e-8)
-
-        self.pos += step
-        self.vel += vel
-
-        self.time += self.delta_t
+        try:
+            self.pos, self.vel = self.check_collision_full(pos, self.pos,
+                                                           vel, self.vel,
+                                                           delta_t, drag=True)
+        except Collision.CollisionException as col:
+            beta = 0.5*col.delta_t/(self.time-self.get_old(0, 2))
+            vel = self.vel+col.delta_t*(1+beta)*kap[1]-beta*self.get_old(0, 1)
+            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
+            col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
+            raise col
+        
+        self.time += delta_t
 
     else:
         ## reduced to using the Euler method for the first timestep:
 
-        kap, col = update_euler(self)
+        kap = update_euler(self)
 
     self.set_old(kap, 1)
 
-    return kap, col
+    return kap
 
-def update_ab3(self):
+def update_ab3(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses the Adams Bashforth third order method"""
+
+    delta_t = delta_t or self.delta_t
 
     if len(self._old) >= 2:
 
@@ -94,29 +97,24 @@ def update_ab3(self):
         gamma =  (1.0/6.0)*(self.delta_t*(2.0*self.delta_t+3.0*(self.time-self.get_old(0, 2)))
                             /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
 
-        step, col, vel, col_vel = self.collide((1.0-beta-gamma)*self.vel+beta*self.get_old(0, 0)
-                                               +gamma*self.get_old(1, 0),
-                                               self.delta_t,
-                                               self.vel,
-                                               force=(1.0-beta-gamma)*kap[1]+beta*self.get_old(0, 1)
-                                               +gamma*self.get_old(1, 1),
-                                               drag=True)
+        pos = self.pos+(1-beta-gamma)*self.vel+beta*self.get_old(0, 0)+gamma*self.get_old(1, 0)
+        vel = self.vel+(1-beta-gamma)*kap[1]+beta*self.get_old(0, 1)+gamma*self.get_old(1, 0)
 
+        try:
+            self.pos, self.vel = self.check_collision_full(pos, self.pos,
+                                                           vel, self.vel,
+                                                           delta_t, drag=True)
+        except Collision.CollisionException as col:
+            beta = -(1.0/6.0)*(col.delta_t*(5.0*col.delta_t+3.0*(self.time-self.get_old(0, 2)))
+                               /((self.time-self.get_old(0, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
+            gamma =  (1.0/6.0)*(col.delta_t*(2.0*col.delta_t+3.0*(self.time-self.get_old(0, 2)))
+                                /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
+            vel = self.vel+(1-beta-gamma)*kap[1]+beta*self.get_old(0, 1)+gamma*self.get_old(0, 1)
+            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
+            col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
+            raise col
 
-        if col:
-            self.collisions += col
-
-            kap = (self.vel, self.force(col[-1].pos+1.0e-8*col_vel,
-                                        col_vel,
-                                        col[-1].time+1.0e-8, drag=False), col[-1].time+1.0e-8)
-            self.set_old(kap, 1)
-
-        else:
-
-            self.set_old(kap, 2)
-
-        self.pos += step
-        self.vel += vel
+        self.set_old(kap, 2)
 
         self.time += self.delta_t
 
@@ -127,120 +125,146 @@ def update_ab3(self):
             tmp = [self.get_old(0)]
         except IndexError:
             tmp = []
-        kap, col = update_ab2(self)
-        if tmp and not col:
+        kap = update_ab2(self)
+        if tmp:
             self._old = self._old + tmp
 
-    return kap, col
+    return kap
 
-def update_rk4(self):
+def update_rk4(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses relatively simple RK4 time integration."""
 
-    kap1 = (self.vel, self.force(self.pos,
-                                 self.vel,
-                                 self.time))
+    delta_t = delta_t or self.delta_t
 
-    step, col, vel, col_vel = self.collide(kap1[0], 0.5 * self.delta_t,
-                                           self.vel,
-                                           force=kap1[1])
+    try:
+    
+        kap1 = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time))
 
-    kap2 = (self.vel + 0.5*self.delta_t * kap1[1],
-            self.force(self.pos + step,
-                       self.vel + vel,
-                       self.time + 0.5 * self.delta_t))
+        pos = self.pos+0.5*delta_t*kap1[0]
+        vel = self.vel+0.5*delta_t*kap1[1]
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  0.5*delta_t, drag=False)
+    
+        kap2 = (self.vel + 0.5*delta_t*kap1[1],
+                self.force(pos, vel, self.time + 0.5*delta_t))
 
-    step, col, vel, col_vel = self.collide(kap2[0], 0.5 * self.delta_t,
-                                           vel=self.vel, force=kap2[1])
-    kap3 = (self.vel+0.5 * self.delta_t * kap2[1],
-            self.force(self.pos + step,
-                       self.vel + vel,
-                       self.time + 0.5*self.delta_t))
-
-    step, col, vel, col_vel = self.collide(kap3[0], self.delta_t,
-                                           vel=self.vel,
-                                           force=kap3[1])
-    kap4 = (self.vel + self.delta_t * kap3[1],
-            self.force(self.pos + step,
-                       self.vel + vel,
-                       self.time + self.delta_t))
-
-    step, col, vel, col_vel = self.collide((kap1[0]+2.0*(kap2[0]+kap3[0])+kap4[0])/6.0,
-                                           self.delta_t, vel=self.vel,
-                                           force=(kap1[1]+2.0*(kap2[1]+kap3[1])+kap4[1])/6.0)
-    self.pos += step
-    self.vel += vel
-    if col:
-        self.collisions += col
+        pos = self.pos+0.5*delta_t*kap2[0]
+        vel = self.vel+0.5*delta_t*kap2[1]
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  0.5*delta_t, drag=False)
 
 
-    self.time += self.delta_t
+        kap3 = (self.vel+0.5*delta_t*kap2[1],
+                self.force(pos, vel, self.time+0.5*delta_t))
 
-def update_rk2(self):
+        pos = self.pos+0.5*delta_t*kap3[0]
+        vel = self.vel+0.5*delta_t*kap3[1]
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  0.5*delta_t, drag=False)
+
+
+        kap4 = (self.vel + delta_t * kap3[1],
+                self.force(pos, vel, self.time + delta_t))
+
+        pos = self.pos+delta_t*(kap1[0]+2.0*kap2[0]+2.0*kap3[0]+kap4[0])/6.0
+        vel = self.vel+delta_t*(kap1[1]+2.0*kap2[1]+2.0*kap3[1]+kap4[1])/6.0
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  delta_t, drag=False)
+
+        self.pos = pos
+        self.vel = vel
+
+    except Collision.CollisionException as col:
+        col.vel = self.vel+col.delta_t*kap1[0]
+        raise col
+
+    self.time += delta_t
+
+def update_rk2(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses second order Runge-Kutta time integration."""
 
-    kap1 = (self.vel, self.force(self.pos,
-                                 self.vel,
-                                 self.time))
+    delta_t = delta_t or self.delta_t
 
-    step, col, vel, col_vel = self.collide(kap1[0], 0.5*self.delta_t,
-                                           self.vel,
-                                           force=kap1[1])
+    try:
 
-    kap2 = (self.vel + 0.5*self.delta_t * kap1[1],
-            self.force(self.pos + 0.5*step,
-                       self.vel + 0.5*vel,
-                       self.time + 0.5 * self.delta_t))
+        kap1 = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time))
 
-    step, col, vel, col_vel = self.collide(kap2[0],
-                                           self.delta_t, vel=self.vel,
-                                           force=kap2[1])
+        pos = self.pos+0.5*delta_t*kap1[0]
+        vel = self.vel+0.5*delta_t*kap1[1]
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  0.5*delta_t, drag=False)
 
-    self.pos += step
-    self.vel += vel
-    if col:
-        self.collisions += col
+        kap2 = (vel, self.force(pos, vel, self.time+0.5*delta_t))
 
+        pos = self.pos+delta_t*kap2[0]
+        vel = self.vel+delta_t*kap2[1]
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  delta_t, drag=False)
+
+        self.pos = pos
+        self.vel = vel
+
+    except Collision.CollisionException as col:
+        col.vel = self.vel+col.delta_t*kap1[0]
+        raise col
 
     self.time += self.delta_t
 
-def update_rk3(self):
+def update_rk3(self, delta_t=None):
     """Update the state of the particle to the next time level
 
     The method uses third order Runge-Kutta time integration."""
 
-    kap1 = (self.vel, self.force(self.pos,
-                                 self.vel,
-                                 self.time))
+    delta_t = delta_t or self.delta_t
 
-    step, col, vel, col_vel = self.collide(kap1[0], 0.5 * self.delta_t,
-                                           self.vel,
-                                           force=kap1[1])
+    try:
 
-    kap2 = (self.vel + 0.5*self.delta_t * kap1[1],
-            self.force(self.pos + step,
-                       self.vel + vel,
-                       self.time + 0.5 * self.delta_t))
+        kap1 = (self.vel, self.force(self.pos,
+                                     self.vel,
+                                     self.time))
 
-    step, col, vel, col_vel = self.collide(2.0*kap2[0]-kap1[0], self.delta_t,
-                                           vel=self.vel, force=2.0*kap2[1]-kap1[1])
-    kap3 = (self.vel+self.delta_t * (2.0*kap2[1]-kap1[1]),
-            self.force(self.pos + step,
-                       self.vel + vel,
-                       self.time + self.delta_t))
+        pos = self.pos+0.5*delta_t*kap1[0]
+        vel = self.vel+0.5*delta_t*kap1[1]
+
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  0.5*delta_t, drag=False)
+
+        kap2 = (vel, self.force(pos, vel, self.time+0.5*delta_t))
+
+        pos = self.pos+delta_t*(2.0*kap2[0]-kap1[0])
+        vel = self.vel+delta_t*(2.0*kap2[1]-kap1[1])
+
+        self.check_collision_full(pos, self.pos,
+                                  vel, self.vel,
+                                  delta_t, drag=False)
+
+        kap3 = (vel, self.force(pos, vel, self.time+delta_t))
+
+        pos = self.pos+delta_t*(kap1[0]+4.0*kap2[0]+kap3[0])/6.0
+        vel = self.vel+delta_t*(kap1[1]+4.0*kap2[1]+kap3[1])/6.0
+
+        self.pos, self.vel = self.check_collision_full(pos, self.pos,
+                                                       vel, self.vel,
+                                                       delta_t, drag=False)
     
-    step, col, vel, col_vel = self.collide((kap1[0]+4.0*kap2[0]+kap3[0])/6.0,
-                                           self.delta_t, vel=self.vel,
-                                           force=(kap1[1]+4.0*kap2[1]+kap3[1])/6.0)
-
-    self.pos += step
-    self.vel += vel
-    if col:
-        self.collisions += col
-
+    except Collision.CollisionException as col:
+        col.vel = self.vel+col.delta_t*kap1[0]
+        raise col
 
     self.time += self.delta_t
 

@@ -30,6 +30,7 @@ ARGV = [0.0, 0.0, 0.0]
 ARGI = vtk.mutable(0)
 WEIGHTS = numpy.zeros(10)
 SUB_ID = vtk.mutable(0)
+CELL = vtk.vtkGenericCell()
 
 TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
              15 : vtk.VTK_PIXEL}
@@ -222,14 +223,15 @@ class BoundaryData(object):
         pos_i = [0.0, 0.0, 0.0]
         cell_index = vtk.mutable(0)
 
-        if self.bndl.IntersectWithLine(pos0, pos1,
-                                       1.0e-16, t_val,
-                                       pos_i, ARGV, ARGI, cell_index):
+        self.bndl.IntersectWithLine(pos0, pos1,
+                                    1.0e-8, t_val,
+                                    pos_i, ARGV, ARGI,
+                                    cell_index, CELL)
 
+        if t_val>0.0 and t_val<=1.0:
             return (True, numpy.array(pos_i), t_val, cell_index, ARGV)
         #otherwise
         return False, None, None, -1, None
-
     def has_surface_ids(self):
         """Boolean test whether boundary stores surface ids."""
         return self.bnd.GetCellData().HasArray('SurfaceIds')

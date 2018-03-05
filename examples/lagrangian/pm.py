@@ -1,17 +1,17 @@
 """Example of passive Lagrangian particles in a 2d double gyre hitting wall."""
 
 import sys
+import numpy
 
-if False: #set to true to profile
-    from fluidity_tools import Profile
-    try:
-        import builtins
-    except ImportError:
-        import __builtin__ as builtins
-    builtins.__dict__['profile'] = Profile.make_line_profiler()
+## Uncomment this to profile code
+#from fluidity_tools import Profile
+#try:
+#    import builtins
+#except ImportError:
+#    import __builtin__ as builtins
+#builtins.__dict__['profile'] = Profile.make_line_profiler()
 
 import particle_model as pm
-import numpy
 
 # problem parameters
 if len(sys.argv) < 2:

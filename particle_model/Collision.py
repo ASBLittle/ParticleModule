@@ -11,12 +11,38 @@ class BadCollisionException(Exception):
     """ Exception to deal with bad collisions"""
     pass
 
+class OutletException(Exception):
+    """ Exception to deal with collisions"""
+    def __init__(self, particle, pos_i, cell_index=None, angle=None,
+                 normal=None, delta_t=None):
+        Exception.__init__(self, particle, pos_i, cell_index, angle,
+                           normal, delta_t)
+        self.args = CollisionInfo(particle, pos_i, cell_index, angle, normal)
+        self.delta_t = delta_t
+
+class MappedBoundaryException(Exception):
+    """ Exception to deal with collisions"""
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+
+class CollisionException(Exception):
+    """ Exception to deal with collisions"""
+    def __init__(self, particle, pos_i, cell_index, delta_t):
+        angle, normal = collision_angle(particle, particle.pos, pos_i,
+                                        cell_index)
+        Exception.__init__(self, particle, pos_i, cell_index, delta_t)
+        self.args = particle, pos_i, cell_index, delta_t
+        self.pos = pos_i
+        self.info = CollisionInfo(particle, pos_i, cell_index, angle, normal)
+        self.delta_t = delta_t
+        self.vel = None
+
 class CollisionInfo(object):
     """ Utility class for collision information """
-    def __init__(self, particle, cell, angle, normal):
+    def __init__(self, particle, pos, cell, angle, normal):
         """ Initialise from particle collision information."""
         self.particle = copy.copy(particle)
-        self.pos = copy.deepcopy(particle.pos)
+        self.pos = copy.deepcopy(pos)
         self.vel = copy.deepcopy(particle.vel)
         self.time = copy.deepcopy(particle.time)
         self.cell = cell
@@ -68,13 +94,15 @@ def mclaury_mass_coeff(collision, material=None):
     sharpness_factor = material['F_s']
     penetration_factor = material['F_B']
 
+    logger.info('collision angle: %s', collision.angle)
+    logger.info('collision normal: %s', collision.normal)
+
     def fun(theta):
         """ Mclaury angle response function"""
         if numpy.tan(theta) > 1.0/3.0:
             return numpy.cos(theta)**2/3.0
         #otherwise
         return numpy.sin(2.0*theta)-3.0*numpy.sin(theta)**2
-
 
     vel = numpy.sqrt(numpy.dot(collision.vel, collision.vel))
     vel0 = 0.1
@@ -92,6 +120,8 @@ def collision_angle(particle, pos_0, pos_i, cell_index):
 
     normal = numpy.zeros(3)
 
+    veci = pos_i-pos_0
+
     vec1 = (numpy.array(cell.GetPoints().GetPoint(1))
             -numpy.array(cell.GetPoints().GetPoint(0)))
 
@@ -99,14 +129,13 @@ def collision_angle(particle, pos_0, pos_i, cell_index):
         vec2 = (numpy.array(cell.GetPoints().GetPoint(2))
                 -numpy.array(cell.GetPoints().GetPoint(0)))
     else:
-        vec2 = numpy.array(((pos_i-pos_0)[1]*vec1[2]-(pos_i-pos_0)[2]*vec1[1],
-                            (pos_i-pos_0)[2]*vec1[0]-(pos_i-pos_0)[0]*vec1[2],
-                            (pos_i-pos_0)[0]*vec1[1]-(pos_i-pos_0)[1]*vec1[0]))
+        vec2 = numpy.array((veci[1]*vec1[2]-veci[2]*vec1[1],
+                            veci[2]*vec1[0]-veci[0]*vec1[2],
+                            veci[0]*vec1[1]-veci[1]*vec1[0]))
 
     normal[0] = vec1[1]*vec2[2]-vec1[2]*vec2[1]
     normal[1] = vec1[2]*vec2[0]-vec1[0]*vec2[2]
     normal[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
-
 
     if sum(normal**2) > 1.0e-32:
         normal = normal / numpy.sqrt(sum(normal**2))
@@ -115,10 +144,18 @@ def collision_angle(particle, pos_0, pos_i, cell_index):
         logger.error("%s, %s", vec1, vec2)
         raise BadCollisionException
 
-    normal = normal * numpy.sign(numpy.dot(normal, (pos_i-pos_0)))
+    normal = normal * numpy.sign(numpy.dot(normal, -veci))
 
-    theta = abs(numpy.arcsin(numpy.dot(normal, (pos_i-pos_0))
-                             / numpy.sqrt(numpy.dot(pos_i - pos_0,
-                                                    pos_i - pos_0))))
+    theta = abs(numpy.arcsin(numpy.dot(normal, veci)
+                             / numpy.sqrt(numpy.dot(veci, veci))))
 
-    return normal, theta
+    return theta, normal
+
+def rebound_velocity(particle, vel_i, grid_vel, normal, cell_index):
+    """ Calculate velocity post collision."""
+
+    coeff = particle.system.coefficient_of_restitution(particle, cell_index)
+    vel_o = vel_i
+    vel_o += -(1.0 + coeff)* normal * numpy.dot(normal, vel_i-grid_vel)
+
+    return vel_o

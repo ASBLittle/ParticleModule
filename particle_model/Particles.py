@@ -21,11 +21,6 @@ import numpy
 LEVEL = 0
 ZERO = numpy.zeros(3)
 
-try:
-    import IPython
-except ImportError:
-    pass
-
 class Particle(ParticleBase.ParticleBase):
     """Class representing a single Lagrangian particle with mass"""
 
@@ -66,12 +61,25 @@ class Particle(ParticleBase.ParticleBase):
         try:
             Timestepping.methods[method](self)
         except KeyError:
-            logger.warning("Timestepping method %s unknown, using AdamsBashforth2."%method)
+            logger.warning("Timestepping method %s unknown, using AdamsBashforth2.",
+                           method)
             Timestepping.methods["AdamsBashforth2"](self)
+        except Collision.CollisionException as col:
+            # wall collision occurred.
+            self.vel = Collision.rebound_velocity(self, col.vel, numpy.zeros(3), col.info.normal, col.info.cell)
+            self.pos = col.pos+1.0e-10*col.info.normal
+            self.time += col.delta_t
+            col.info.time = self.time
+            self.collisions += [col.info]
+            self._old = []
+            self.update(self.delta_t-col.delta_t, method)
 
-    def drag_coefficient(self, position, particle_velocity, time):
+
+    def drag_coefficient(self, position, particle_velocity, time, nearest=False):
         """ Get particle drag coefficent for specified position and velocity. """
-        fluid_velocity, grad_p = self.picker(position, time)
+
+        fluid_velocity = self.picker(position, time, nearest=nearest)[0]
+
         if fluid_velocity is not None:
             drag = self.parameters.drag_coefficient(fluid_velocity,
                                                     particle_velocity,
@@ -157,14 +165,17 @@ class Particle(ParticleBase.ParticleBase):
         return cell_index, pcoords
 
     @profile
-    def _fpick(self, pos, infile, picker, names):
+    def _fpick(self, pos, infile, picker, names, nearest=False):
         """ Extract fluid velocity and pressure from single .vtu file"""
 
-        if picker.cell_index is None:
+        if picker.cell_index is None and not nearest:
             return None, None
 
         # picker defaults to velocity
-        out = picker(pos)
+        if nearest:
+            out = picker.nearest(pos)
+        else:
+            out = picker(pos)
 
         if names[1] and picker.cell_index:
             data_p = IO.get_scalar(infile,
@@ -189,7 +200,7 @@ class Particle(ParticleBase.ParticleBase):
 
 
     @profile
-    def picker(self, pos, time, gvel_out=None):
+    def picker(self, pos, time, gvel_out=None, nearest=False):
         """ Extract fluid velocity and pressure from .vtu files at correct time level"""
 
         data, alpha, names = self.system.temporal_cache(time)
@@ -204,21 +215,25 @@ class Particle(ParticleBase.ParticleBase):
         TemporalCache.PICKERS[1].pos = pos
 
         if len(names[0]) == 3:
-            vel0, grad_p0, gvel = self._fpick(pos, data[0][2],
-                                              TemporalCache.PICKERS[0], names[0])
-            vel1, grad_p1, gvel = self._fpick(pos, data[1][2],
-                                              TemporalCache.PICKERS[1], names[1])
+            vel0, grad_p0, gvel_0 = self._fpick(pos, data[0][2],
+                                                TemporalCache.PICKERS[0], names[0],
+                                                nearest)
+            vel1, grad_p1, gvel_1 = self._fpick(pos, data[1][2],
+                                                TemporalCache.PICKERS[1], names[1],
+                                                nearest)
         else:
             vel0, grad_p0 = self._fpick(pos, data[0][2],
-                                        TemporalCache.PICKERS[0], names[0])
+                                        TemporalCache.PICKERS[0], names[0],
+                                        nearest)
             vel1, grad_p1 = self._fpick(pos, data[1][2],
-                                        TemporalCache.PICKERS[1], names[1])
+                                        TemporalCache.PICKERS[1], names[1],
+                                        nearest)
 
         if vel0 is None or vel1 is None:
             return None, None
 
         if gvel_out:
-            gvel_out = gvel
+            gvel_out = (1.0-alpha)*gvel_0+alpha*gvel_1
 
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
@@ -232,8 +247,8 @@ class Particle(ParticleBase.ParticleBase):
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
         if intersect and cell_index >= 0:
-            if self.system.boundary.bnd.GetCellData().HasArray('SurfaceIds'):
-                surface_id = self.system.boundary.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index)
+            surface_id = self.system.boundary.get_surface_id(cell_index)
+            if surface_id is not None:
                 if surface_id in self.system.boundary.mapped_ids:
                     pos_o, vel_o = self.system.boundary.mapped_ids[surface_id](pos_i, vel_0)
 
@@ -250,135 +265,56 @@ class Particle(ParticleBase.ParticleBase):
                     par_col.vel = vel_0
                     par_col.time = self.time + t_val * delta_t
 
-                    return (pos_f-pos_0,
-                            [Collision.CollisionInfo(par_col, cell_index, 0.0, ZERO)],
-                            vel_i-vel_0, ZERO)
+                    return pos_f, vel_i
 
         #otherwise
-        return (pos_1 - pos_0, None,
-                ZERO, None)
+        return pos_1, vel_0
 
-
-    @profile
-    def collide(self, k, delta_t, vel=None, force=None, pa=None, level=0, drag=False):
-        """Collision detection routine.
+    def check_collision_full(self, pos_1, pos_0, vel_1, vel_0, delta_t, drag):
+        """ Check for particle-wall collision.
 
         Args:
-            k  (float): Displacement
-            dt (float): Timestep
-            v  (float, optional): velocity
-            f  (float, optional): forcing
-            pa (float, optional): starting position in subcycle
-            level (int) count to control maximum depth
+            pos_1, pos_1  (float): Initial and final displacement
+            vel_1, vel_0 (float): Initial and final velocity
+            delta_t (float): timestep
+            drag (boolean): do drag implicitly.
+
+        Return final position and velocity.
         """
-        if pa  is None:
-            pa = self.pos
-
-        if level == 10:
-            return k * delta_t, None, vel - self.vel, None
-
-        pos = pa+delta_t*k
 
         if self.pure_lagrangian:
-            fvel, grad_p = self.picker(pos, self.time+delta_t)
+            fvel = self.picker(pos_1, self.time+delta_t)[0]
             if fvel is None:
-                return self._check_remapping(pos, pa, self.vel, delta_t)
-            #otherwise
-            return  (pos - pa, None, fvel  - self.vel, None)
+                return self._check_remapping(pos_1, pos_1, vel_0, delta_t)
+            else:
+                return pos_1, fvel
 
-
-        data, alpha, names = self.system.temporal_cache(self.time)
-        idx, pcoords = self.find_cell(data[0][3], pa)
-        vdata = self.system.temporal_cache.get(data[0][2], "GridVelocity")
-        if vdata:
-            gridv = IO.get_vector(data[0][2], vdata, "GridVelocity", idx, pcoords)
-            gridv.resize([3])
-        else:
-            gridv = None
-
-        if gridv is not None:
-            paC = pa
-            pa[:len(gridv)] -= delta_t*gridv
-        else:
-            paC = pa
-
-        intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(paC, pos)
+        intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
         if intersect and cell_index >= 0:
             surface_id = self.system.boundary.get_surface_id(cell_index)
-            if surface_id is not None and surface_id in self.system.boundary.outlet_ids:
-                return pos - pa, None, vel-self.vel, None
-
-            data, _, names = self.system.temporal_cache(self.time)
-
-            idx, pcoords = self.find_cell(data[0][3], pos_i)
-            gridv = IO.get_vector(data[0][2], None, "GridVelocity", idx, pcoords)
-            gridv.resize([3])
-
-            cell = self.system.boundary.bnd.GetCell(cell_index)
-
-            normal, theta = Collision.collision_angle(self, pos, pa, cell_index)
-
-            coeff = self.system.coefficient_of_restitution(self, cell)
-
-            pos = pos_i + delta_t * (k - (1.0 + coeff) * normal * (numpy.dot(normal, k)))
-
-            coldat = []
-
-            if any(vel):
-                if drag:
-                    C, fvel = self.drag_coefficient(pos_i, self.vel, self.time+delta_t)
-                    if fvel is not None:
-                        vels = ((vel + t_val*delta_t*(force+C*(fvel)))
-                                /(1.0+t_val*delta_t*C))
-                    else:
-                        vels = (vel+t_val*delta_t*force)/(1.0+t_val*delta_t*C)
-                else:
-                    vels = vel+t_val*delta_t*force
-            else:
-                if drag:
-                    C, fvel = self.drag_coefficient(pos_i, self.vel, self.time+delta_t)
-                    if fvel is not None:
-                        vels = (self.vel + t_val*delta_t*(force+C*(fvel))
-                                /(1.0+t_val*delta_t*C))
-                    else:
-                        vels = 0.0*(self.vel + t_val*delta_t*(force))
-                else:
-                    vels = self.vel+t_val*delta_t*force
-
-            par_col = copy.copy(self)
-            if self.system.boundary.dist:
-                par_col.pos = IO.get_real_x(cell, pcoords)
-            else:
-                par_col.pos = pos_i
-            par_col.vel = vels
-            par_col.vel[:len(gridv)] -= gridv
-            par_col.time = self.time + t_val * delta_t
-
-            coldat.append(Collision.CollisionInfo(par_col, cell_index,
-                                                  theta, normal))
-            vels += -(1.0 + coeff)* normal * numpy.dot(normal, vels-gridv)
-
-            px, col, velo, dummy_vel = self.collide(vels, (1 - t_val) * delta_t,
-                                                    vel=vels, force=force,
-                                                    pa=pos_i + 1.0e-9 * vels,
-                                                    level=level + 1, drag=drag)
-            pos = px + pos_i + 1.0e-9 * vels
-
-            if col:
-                coldat += col
-
-            return pos - pa, coldat, velo, vels
-        if drag:
-            C, fvel = self.drag_coefficient(pos, vel, self.time)
-            if fvel is None:
-                return (pos - pa, None,
-                        0.0*(vel + delta_t * (force)) - self.vel, None)
+            if surface_id is not None:
+                if surface_id in self.system.boundary.outlet_ids:
+                    raise Collision.OutletException(pos_1, vel_1)
+                elif surface_id in self.system.boundary.mapped_ids:
+                    raise Collision.MappedBoundaryException(self.system.boundary.mapped_ids[surface_id])
             #otherwise
-            return (pos - pa, None,
-                    (vel + delta_t * (force+C*fvel))/(1.0+delta_t*C)  - self.vel, None)
-        else:
-            return pos - pa, None, vel + delta_t * force - self.vel, None
+            raise Collision.CollisionException(self, pos_i, cell_index,
+                                               t_val*delta_t)
+
+        # no collisions
+        if drag:
+            return pos_1, self._drag_update(pos_1, vel_0, vel_1,
+                                            self.time+delta_t, delta_t)
+        return pos_1, vel_1
+
+    def _drag_update(self, pos, vel_0, vel_1, time, delta_t):
+        """ Solve for drag term implictly."""
+
+        c_d, fvel = self.drag_coefficient(pos, vel_1, time)
+        if fvel is None:
+            return vel_1/(1.0+delta_t*c_d)
+        return (vel_1+delta_t*c_d*fvel)/(1.0+delta_t*c_d)
 
 class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""

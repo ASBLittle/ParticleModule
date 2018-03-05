@@ -103,10 +103,12 @@ extern "C" {
   static int set_pos(PyObject* pyself, PyObject* o, void *closure) {
     vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
     PyObject* pypos = PyArray_FromObject(o,NPY_DOUBLE,1,1);
+    if (!pypos) return -1;
     double* pos=(double*) PyArray_GETPTR1((PyArrayObject*)pypos,0);
     for (int i=0; i<3; ++i) {
       self->pos[i] = pos[i];
     }
+    Py_XDECREF(pypos);
     self->cell_index = self->locator->FindCell(self->pos, self->tol2, self->cell, self->pcoords, self->weights);
     return 0;
   }
@@ -283,7 +285,8 @@ extern "C" {
       p->locator->FindClosestPoint(pos, closestPoint, p->cell, p->cell_index, subId, dist2);
     }
 
-    if (p->cell_index == -1 || dist2>p->tol2) {
+    if (p->cell_index == -1) {
+      std::cout<< "Point not found!" <<std::endl;
       Py_RETURN_NONE;
     }
 

@@ -131,7 +131,7 @@ def test_picker_linear(tmpdir):
     err = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
     fname = tmpdir.join('linear.vtu').strpath
 
-    print fname
+    print(fname)
 
     def vel(pos):
         """Fluid velocity"""
@@ -164,7 +164,7 @@ def test_picker_linear_3d(tmpdir):
     err = numpy.array((1.0e-8, 1.0e-8, 1.0e-8))
     fname = tmpdir.join('linear3D.vtu').strpath
 
-    print fname
+    print(fname)
 
     def vel(pos):
         """ Fluid velocity"""

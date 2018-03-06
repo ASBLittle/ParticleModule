@@ -1,8 +1,8 @@
 """ Module controlling access to the vtu/pvtu files driving the particle model"""
 
 import glob
-import vtk
 import numpy
+import vtk
 from particle_model import Parallel
 from particle_model import Debug
 from particle_model import IO

@@ -1,14 +1,14 @@
 """Module describing the basic fluids system in which the particles are embedded."""
 
+from numpy import zeros, empty
+from numpy.linalg import norm
+import vtk
+
 from particle_model import TemporalCache
 from particle_model import Options
 from particle_model import IO
 from particle_model import Parallel
 
-
-from numpy import zeros, empty
-from numpy.linalg import norm
-import vtk
 
 class System(object):
     """ Class decribes the fixed properties of the underlying system and its

@@ -1,15 +1,16 @@
 """ Module dealing with initialising the code from an xml format options file using spud"""
 
+import numpy
+
 from particle_model import Parallel
 from particle_model import Debug
+import vtk
 #from particle_model import IO
 
 try:
     import libspud
 except ImportError:
     Debug.logger.warning("Want the libspud python package. Try: \n sudo apt-get install python-spud")
-import numpy
-import vtk
 
 class Inlet(object):
     """ class for an inlet surface"""

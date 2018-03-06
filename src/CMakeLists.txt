@@ -3,20 +3,21 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 project(vtkParticles)
 
 set(FILE_SRCS vtkGmshReader.cxx vtkGranularTemperature.cxx vtkGenericProbe.cxx vtkShowCVs.cxx vtkMergePointFilter.cxx)
- 
     
 cmake_minimum_required(VERSION 2.8.8)
 
 set(PACKAGE_VERSION 00.00.01)
 
-set(VTK_LIBRARY_SUFFIX "" CACHE STRING "VTK library suffix")
+set(VTK_LIBRARY_SUFFIX CACHE STRING "VTK library suffix")
 FIND_PACKAGE(VTK REQUIRED)
-FIND_PACKAGE(PythonLibs 2.7 REQUIRED)
+SET(Python_ADDITIONAL_VERSIONS "2.7 3.6 3.5 3.4")
+set(PYTHON_VERSION 2.7 CACHE STRING "Python version to use")
+find_package(PythonInterp ${PYTHON_VERSION} REQUIRED)
+FIND_PACKAGE(PythonLibs ${PYTHON_VERSION} REQUIRED)
 INCLUDE(${VTK_USE_FILE})
 INCLUDE(${VTK_CMAKE_DIR}/vtkWrapPython.cmake)
-find_program(PYTHON python)
-find_package(PythonInterp 2.7 REQUIRED)
-execute_process(COMMAND python2 -c "import imp\ntry:\n print(imp.find_module('numpy')[1]+'/core/include/')\nexcept:\n pass"
+find_package(PythonInterp ${PYTHON_VERSION} REQUIRED)
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import imp\ntry:\n print(imp.find_module('numpy')[1]+'/core/include/')\nexcept:\n pass"
   OUTPUT_VARIABLE NUMPY_INCLUDE_DIR)
 if (NUMPY_INCLUDE_DIR STREQUAL "")
   set(NUMPY_INCLUDE_DIR NUMPY_INCLUDE_DIR-NOTFOUND)
@@ -33,10 +34,11 @@ if (VTK_MAJOR_VERSION LESS 6)
   set(PYTHOND_SUFFIX PythonD)
 else(VTK_MAJOR_VERSION LESS 6)
   set(VTK_MODULES_USED vtkFiltersCore vtkCommonExecutionModel vtkCommonCore)
-  set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX}"-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
+  set(PYTHOND_SUFFIX Python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}D${VTK_LIBRARY_SUFFIX}-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION})
 endif()
 
 link_directories(${VTK_DIR})
+link_directories(${VTK_DIR}/lib)
 link_directories(/opt/local/lib)
 include_directories("${PYTHON_INCLUDE_DIRS}")
 
@@ -62,9 +64,9 @@ add_library(vtk_extras_mod MODULE PickerObject.cxx vtk_extras.cxx)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 if(DEFINED VTK_CUSTOM_LIBRARY_SUFFIX)
-  set(VTK_LIB_SUFFIX "${VTK_CUSTOM_LIBRARY_SUFFIX}")
+  set(VTK_LIB_SUFFIX ${VTK_CUSTOM_LIBRARY_SUFFIX})
 else()
-  set(VTK_LIB_SUFFIX "-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}")
+  set(VTK_LIB_SUFFIX -${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION})
 endif()
 
 set(VTK_PYTHOND_LIBS)
@@ -79,7 +81,7 @@ set_target_properties(vtkParticlesPython PROPERTIES PREFIX "")
 set_target_properties(vtk_extras_mod PROPERTIES PREFIX "")
 
 ADD_CUSTOM_COMMAND(TARGET vtk_extras_mod POST_BUILD
-                  COMMAND ${CMAKE_COMMAND} -E copy vtk_extras_mod.so ../particle_model/vtk_extras.so)
+                  COMMAND ${CMAKE_COMMAND} -E copy  ${CMAKE_CURRENT_BINARY_DIR}/vtk_extras_mod.so ${CMAKE_CURRENT_BINARY_DIR}/../particle_model/vtk_extras.so)
 ADD_CUSTOM_COMMAND(TARGET vtkParticlesPython POST_BUILD
-                  COMMAND ${CMAKE_COMMAND} -E copy vtkParticlesPython.so ../particle_model/vtkParticlesPython.so)
+                  COMMAND ${CMAKE_COMMAND} -E copy  ${CMAKE_CURRENT_BINARY_DIR}/vtkParticlesPython.so ${CMAKE_CURRENT_BINARY_DIR}/../particle_model/vtkParticlesPython.so)
 

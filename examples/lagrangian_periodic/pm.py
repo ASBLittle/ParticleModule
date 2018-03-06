@@ -76,7 +76,7 @@ PD.append_data(PB) # Store initial particle positions
 
 for i, cache in enumerate(TEMP_CACHE):
 
-    print 'time', cache[0]
+    print('time', cache[0])
 
     # call which updates the particles
     PB.run(time=cache[0], write=False, method="AdamsBashforth2")
@@ -102,9 +102,9 @@ for i, cache in enumerate(TEMP_CACHE):
                                               "ExampleLevel":1}) # Dump just this timelevel
     PD.append_data(PB)
 
-    print 'min, max: pos_x', PB.pos_as_array()[:, 0].min(), PB.pos_as_array()[:, 0].max()
-    print 'min, max: pos_y', PB.pos_as_array()[:, 1].min(), PB.pos_as_array()[:, 1].max()
-    print 'min, max: vel_x', PB.vel_as_array()[:, 0].min(), PB.vel_as_array()[:, 0].max()
-    print 'min, max: vel_y', PB.vel_as_array()[:, 1].min(), PB.vel_as_array()[:, 1].max()
+    print('min, max: pos_x', PB.pos_as_array()[:, 0].min(), PB.pos_as_array()[:, 0].max())
+    print('min, max: pos_y', PB.pos_as_array()[:, 1].min(), PB.pos_as_array()[:, 1].max())
+    print('min, max: vel_x', PB.vel_as_array()[:, 0].min(), PB.vel_as_array()[:, 0].max())
+    print('min, max: vel_y', PB.vel_as_array()[:, 1].min(), PB.vel_as_array()[:, 1].max())
 
 PD.write() # write trajectories

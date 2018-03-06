@@ -1,6 +1,9 @@
 """ Unit test for options."""
 
-import libspud
+try:
+    import libspud
+except:
+    libspud = None
 
 import numpy
 from particle_model import Options

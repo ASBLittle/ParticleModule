@@ -4,7 +4,9 @@
 import itertools
 import copy
 
+import numpy
 import vtk
+
 from particle_model.Debug import profile, logger
 from particle_model import Math
 from particle_model import IO
@@ -15,8 +17,6 @@ from particle_model import Parallel
 from particle_model import TemporalCache
 from particle_model import Timestepping
 from particle_model import vtk_extras
-
-import numpy
 
 LEVEL = 0
 ZERO = numpy.zeros(3)
@@ -246,6 +246,9 @@ class Particle(ParticleBase.ParticleBase):
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
+        if intersect: 
+            print("remap!")
+
         if intersect and cell_index >= 0:
             surface_id = self.system.boundary.get_surface_id(cell_index)
             if surface_id is not None:
@@ -285,9 +288,8 @@ class Particle(ParticleBase.ParticleBase):
         if self.pure_lagrangian:
             fvel = self.picker(pos_1, self.time+delta_t)[0]
             if fvel is None:
-                return self._check_remapping(pos_1, pos_1, vel_0, delta_t)
-            else:
-                return pos_1, fvel
+                return self._check_remapping(pos_1, pos_0, vel_0, delta_t)
+            return pos_1, vel_1
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 

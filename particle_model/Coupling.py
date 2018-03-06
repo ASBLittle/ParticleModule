@@ -1,10 +1,10 @@
 """ Module dealing with coupling in fluidity"""
 
+import numpy
+import vtk
+
 import particle_model.vtkParticlesPython as vtp
 from particle_model import IO
-
-import vtk
-import numpy
 
 ARGV = [0.0, 0.0, 0.0]
 ARGI = vtk.mutable(0)

@@ -1,12 +1,13 @@
 """Module containing routines to implement solid-solid interactions via granular
  temperature."""
 
+import numpy
+
 from particle_model import vtkParticlesPython
 from particle_model.Debug import logger
 
 import vtk
 from vtk.util import numpy_support
-import numpy
 
 def radial_distribution_function(alpha):
 

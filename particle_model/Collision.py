@@ -3,9 +3,9 @@ collision information."""
 
 import copy
 import numpy
-import vtk
 
 from particle_model.Debug import logger
+import vtk
 
 class BadCollisionException(Exception):
     """ Exception to deal with bad collisions"""

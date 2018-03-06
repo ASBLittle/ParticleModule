@@ -1,6 +1,5 @@
 """ Test the main particle routines."""
 import subprocess
-import StringIO
 import os
 import shutil
 import distutils.spawn
@@ -17,9 +16,9 @@ def test_run_fluidity(tmpdir):
                     tmpdir.join('Unstructured.msh').strpath)
     
     try:
-        print subprocess.check_output(["fluidity test_fluidity.flml"],
+        print(subprocess.check_output(["fluidity test_fluidity.flml"],
                                       stderr=subprocess.STDOUT,
-                                      cwd=tmpdir.strpath, shell=True)
+                                      cwd=tmpdir.strpath, shell=True))
 
     except subprocess.CalledProcessError as e:
         print(e.output)
@@ -34,9 +33,9 @@ def test_run_fluidity_with_particles(tmpdir):
                     tmpdir.join('Unstructured.msh').strpath)
     
     try:
-        print subprocess.check_output(["fluidity test.flml"],
+        print(subprocess.check_output(["fluidity test.flml"],
                                       stderr=subprocess.STDOUT,
-                                      cwd=tmpdir.strpath, shell=True)
+                                      cwd=tmpdir.strpath, shell=True))
 
     except subprocess.CalledProcessError as e:
         print(e.output)

@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+import sys
+import os.path
+
+from particle_model.IO import make_trajectories
+
+#####################################################################
+# Script starts here.
+optparser=OptionParser(usage='usage: %prog [options] <basename>',
+                       add_help_option=True,
+                       description="""This takes a series of VTK .vtp or .pvtp files """ + 
+                       """containing particle data and produces trajectories""")
+
+optparser.add_option("-o",
+                  help="set output file name (defaults to <basename>+'_trajectories.vtp')",
+                  action="store_const", const=True, dest="outfile", default=None)
+
+(options, argv) = optparser.parse_args()
+
+if len(argv)<1:
+    optparser.print_help()
+    sys.exit(1)
+
+outfile = options.outfile or argv[0]+'_trajectories.vtp'
+
+# actually write the file
+
+make_trajectories(outfile, argv[0])

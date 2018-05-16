@@ -40,7 +40,10 @@ WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
                                      else vtk.vtkXMLUnstructuredGridWriter),
           vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
                              if Parallel.is_parallel()
-                             else vtk.vtkXMLPolyDataWriter),}
+                             else vtk.vtkXMLPolyDataWriter),
+          vtk.VTK_TABLE:(None
+                         if Parallel.is_parallel()
+                         else vtk.vtkDelimitedTextWriter)}
 
 class PolyData(object):
     """ Class storing a living vtkPolyData construction"""
@@ -460,6 +463,86 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
 
     if do_average:
         return gsp
+
+def write_level_to_csv(bucket, level, basename=None, do_average=False,
+                            field_data=None, **kwargs):
+
+    """Output a time level of a particle bucket to a text (.csv) files.
+
+    Each file contains one time level of the data, and are numbered sequentially.
+    Within each file, each particle is as a separate line
+
+    Args:
+         bucket   (ParticleBucket):
+        level    (int):
+        basename (str): String used in the construction of the file series.
+        The formula is of the form basename_0.vtp, basename_1.vtp,..."""
+
+    del kwargs
+    field_data = field_data or {}
+
+    table = vtk.vtkTable()
+
+    outtime = vtk.vtkDoubleArray()
+    outtime.SetName('Time')
+    outtime.Allocate(1)
+
+    particle_id = vtk.vtkDoubleArray()
+    particle_id.SetName('ParticleID')
+    particle_id.Allocate(len(bucket))
+
+    live = vtk.vtkDoubleArray()
+    live.SetName('Live')
+    live.Allocate(len(bucket))
+
+    plive = bucket.system.in_system(bucket.pos(), len(bucket), bucket.time)
+
+    for _, par in zip(plive, bucket):
+        particle_id.InsertNextValue(hash(par))
+        if _:
+            live.InsertNextValue(1.0)
+        else:
+            live.InsertNextValue(0.0)
+
+    def make_array(name):
+        _ = vtk.vtkDoubleArray()
+        _.SetNumberOfComponents(1)
+        _.Allocate(len(bucket))
+        _.SetName(name)
+        return _
+
+    pos_x = make_array('X')
+    pos_y = make_array('Y')
+    pos_z = make_array('Z')
+
+    velocity = vtk.vtkDoubleArray()
+    velocity.SetNumberOfComponents(3)
+    velocity.Allocate(len(bucket))
+    velocity.SetName('Particle Velocity')
+
+    for positions, vel in zip(bucket.pos(), bucket.vel()):
+        pos_x.InsertNextTuple([positions[0]])
+        pos_y.InsertNextTuple([positions[1]])
+        pos_z.InsertNextTuple([positions[2]])
+        velocity.InsertNextTuple3(vel[0], vel[1], vel[2])
+
+    table.AddColumn(pos_x)
+    table.AddColumn(pos_y)
+    table.AddColumn(pos_z)
+    table.AddColumn(velocity)
+    table.AddColumn(particle_id)
+    table.AddColumn(live)
+
+    for name, num_comps in field_data.items():
+        _ = vtk.vtkDoubleArray()
+        _.SetName(name)
+        _.SetNumberOfComponents(num_comps)
+        _.Allocate(len(bucket))
+        for particle in bucket:
+            _.InsertNextValue(particle.fields[name])
+        table.AddColumn(_)
+
+    write_to_file(table, "%s_%d.%s"%(basename, level, 'csv'))
 
 def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.

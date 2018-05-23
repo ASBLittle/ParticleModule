@@ -6,6 +6,7 @@ import particle_model.IO
 import particle_model.Particles
 import particle_model.Coupling
 import particle_model.DragModels
+import particle_model.Stochastic
 
 from numpy import zeros
 

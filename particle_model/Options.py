@@ -14,12 +14,13 @@ except ImportError:
 
 class Inlet(object):
     """ class for an inlet surface"""
-    def __init__(self, surface_ids, insertion_rate, velocity, pdf):
+    def __init__(self, surface_ids, insertion_rate, velocity, pdf, **kwargs):
 
         self.surface_ids = surface_ids
         self.insertion_rate = insertion_rate
         self.pdf = pdf
         self.velocity = velocity
+        self.kwargs = kwargs
 
     def weigh(self, time, boundary, cache=None):
         """ Calculate inlet weight from pdf."""

@@ -37,6 +37,9 @@ class Particle(ParticleBase.ParticleBase):
         self.solid_pressure_gradient = numpy.zeros(3)
         self.volume = self.parameters.get_volume()
 
+        self.pos_callbacks = kwargs.get('pos_callbacks', [])
+        self.vel_callbacks = kwargs.get('vel_callbacks', [])
+
     def __repr__(self):
         return "Particle((%r, %r, %r, %r, %r) , %r, %r)"%(self.pos,
                                                           self.vel,
@@ -208,11 +211,11 @@ class Particle(ParticleBase.ParticleBase):
         TemporalCache.PICKERS[0].name = names[0][0]
         TemporalCache.PICKERS[0].grid = IO.get_block(data[0][2], names[0][0])
         TemporalCache.PICKERS[0].locator = data[0][3]
-        TemporalCache.PICKERS[0].pos = pos
+        TemporalCache.PICKERS[0].pos = numpy.asarray(pos, float)
         TemporalCache.PICKERS[1].name = names[1][0]
         TemporalCache.PICKERS[1].grid = IO.get_block(data[1][2], names[1][0])
         TemporalCache.PICKERS[1].locator = data[1][3]
-        TemporalCache.PICKERS[1].pos = pos
+        TemporalCache.PICKERS[1].pos = numpy.asarray(pos, float)
 
         if len(names[0]) == 3:
             vel0, grad_p0, gvel_0 = self._fpick(pos, data[0][2],
@@ -242,12 +245,9 @@ class Particle(ParticleBase.ParticleBase):
         """Test for periodic/remapped boundaries"""
 
         ### this finds the point of boundary intersection
-        ### pos_i = pos_0 + s*(pos_1-pos_0)
+        ### pos_i = pos_0 + t_val*(pos_1-pos_0)
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
-
-        if intersect: 
-            print("remap!")
 
         if intersect and cell_index >= 0:
             surface_id = self.system.boundary.get_surface_id(cell_index)
@@ -269,9 +269,20 @@ class Particle(ParticleBase.ParticleBase):
                     par_col.time = self.time + t_val * delta_t
 
                     return pos_f, vel_i
+                elif surface_id in self.system.boundary.outlet_ids:
+                    return pos_1, vel_1
+                else:
+                    pos_o = numpy.array(pos_0*(1.0-t_val*(0.99))+pos_1*t_val*(0.99),
+                                        dtype=float)
+                    vel_i, _ = self.picker(pos_o, self.time+delta_t)
+                    if vel_i is None:
+                        vel_i = vel_0
+                    return pos_0, vel_0
+                    
 
         #otherwise
-        return pos_1, vel_0
+        
+        return pos_0, vel_0
 
     def check_collision_full(self, pos_1, pos_0, vel_1, vel_0, delta_t, drag):
         """ Check for particle-wall collision.
@@ -289,7 +300,7 @@ class Particle(ParticleBase.ParticleBase):
             fvel = self.picker(pos_1, self.time+delta_t)[0]
             if fvel is None:
                 return self._check_remapping(pos_1, pos_0, vel_0, delta_t)
-            return pos_1, vel_1
+            return pos_1, fvel
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
@@ -324,7 +335,7 @@ class ParticleBucket(object):
     def __init__(self, X, V, time=0, delta_t=1.0e-3,
                  parameters=ParticleBase.PhysicalParticle(),
                  system=System.System(),
-                 field_data=None, online=True):
+                 field_data=None, online=True, **kwargs):
         """Initialize the bucket
 
         Args:
@@ -349,7 +360,8 @@ class ParticleBucket(object):
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             par = Particle((dummy_pos, dummy_vel, time, delta_t),
                            system=self.system,
-                           parameters=parameters.randomize())
+                           parameters=parameters.randomize(),
+                           **kwargs)
             if par.pure_lagrangian:
                 par.vel = par.picker(par.pos, time)[0]
             for name, value in field_data.items():
@@ -492,7 +504,8 @@ class ParticleBucket(object):
                     par = Particle((pos, vel, time,
                                     (1.0-prob)*self.delta_t),
                                    system=self.system,
-                                   parameters=self.parameters.randomize())
+                                   parameters=self.parameters.randomize(),
+                                   **inlet.kwargs)
 
                     par.delta_t = self.delta_t
 
@@ -510,7 +523,7 @@ class ParticleBucket(object):
 
     def run(self, time, delta_t=None, write=False, *args, **kwargs):
         """Drive particles forward until a given time."""
-        while self.time-time < -1.0e-15:
+        while time-self.time > 1.0e-6*(delta_t or self.delta_t):
             self.update(delta_t, *args, **kwargs)
             if write:
                 global LEVEL

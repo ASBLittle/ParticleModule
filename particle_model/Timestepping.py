@@ -23,6 +23,11 @@ def update_euler(self, delta_t=None):
     pos = self.pos+delta_t*self.vel
     vel = self.vel+delta_t*kap[1]
 
+    for cback in self.pos_callbacks:
+        pos += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+    for cback in self.vel_callbacks:
+            vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+
     try:
         self.pos, self.vel = self.check_collision_full(pos, self.pos,
                                                        vel, self.vel,
@@ -53,9 +58,14 @@ def update_ab2(self, delta_t=None):
                                     self.time, drag=False), self.time)
 
         beta = 0.5*self.delta_t/(self.time-self.get_old(0, 2))
-        
+
         pos = self.pos+delta_t*((1+beta)*self.vel-beta*self.get_old(0, 0))
         vel = self.vel+delta_t*((1+beta)*kap[1]-beta*self.get_old(0, 1))
+
+        for cback in self.pos_callbacks:
+            pos += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+        for cback in self.vel_callbacks:
+            vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
 
         try:
             self.pos, self.vel = self.check_collision_full(pos, self.pos,
@@ -64,10 +74,10 @@ def update_ab2(self, delta_t=None):
         except Collision.CollisionException as col:
             beta = 0.5*col.delta_t/(self.time-self.get_old(0, 2))
             vel = self.vel+col.delta_t*(1+beta)*kap[1]-beta*self.get_old(0, 1)
-            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
+            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest=True)
             col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
             raise col
-        
+
         self.time += delta_t
 
     else:
@@ -94,11 +104,17 @@ def update_ab3(self, delta_t=None):
 
         beta = -(1.0/6.0)*(self.delta_t*(5.0*self.delta_t+3.0*(self.time-self.get_old(0, 2)))
                            /((self.time-self.get_old(0, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
-        gamma =  (1.0/6.0)*(self.delta_t*(2.0*self.delta_t+3.0*(self.time-self.get_old(0, 2)))
-                            /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
+        gamma = (1.0/6.0)*(self.delta_t*(2.0*self.delta_t+3.0*(self.time-self.get_old(0, 2)))
+                           /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
 
         pos = self.pos+(1-beta-gamma)*self.vel+beta*self.get_old(0, 0)+gamma*self.get_old(1, 0)
         vel = self.vel+(1-beta-gamma)*kap[1]+beta*self.get_old(0, 1)+gamma*self.get_old(1, 0)
+
+        for cback in self.pos_callbacks:
+            pos += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+        for cback in self.vel_callbacks:
+            vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+
 
         try:
             self.pos, self.vel = self.check_collision_full(pos, self.pos,
@@ -107,10 +123,10 @@ def update_ab3(self, delta_t=None):
         except Collision.CollisionException as col:
             beta = -(1.0/6.0)*(col.delta_t*(5.0*col.delta_t+3.0*(self.time-self.get_old(0, 2)))
                                /((self.time-self.get_old(0, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
-            gamma =  (1.0/6.0)*(col.delta_t*(2.0*col.delta_t+3.0*(self.time-self.get_old(0, 2)))
-                                /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
+            gamma = (1.0/6.0)*(col.delta_t*(2.0*col.delta_t+3.0*(self.time-self.get_old(0, 2)))
+                               /((self.time-self.get_old(1, 2))*(self.get_old(0, 2)-self.get_old(1, 2))))
             vel = self.vel+(1-beta-gamma)*kap[1]+beta*self.get_old(0, 1)+gamma*self.get_old(0, 1)
-            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
+            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest=True)
             col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
             raise col
 
@@ -139,7 +155,7 @@ def update_rk4(self, delta_t=None):
     delta_t = delta_t or self.delta_t
 
     try:
-    
+
         kap1 = (self.vel, self.force(self.pos,
                                      self.vel,
                                      self.time))
@@ -149,7 +165,7 @@ def update_rk4(self, delta_t=None):
         self.check_collision_full(pos, self.pos,
                                   vel, self.vel,
                                   0.5*delta_t, drag=False)
-    
+
         kap2 = (self.vel + 0.5*delta_t*kap1[1],
                 self.force(pos, vel, self.time + 0.5*delta_t))
 
@@ -261,7 +277,7 @@ def update_rk3(self, delta_t=None):
         self.pos, self.vel = self.check_collision_full(pos, self.pos,
                                                        vel, self.vel,
                                                        delta_t, drag=False)
-    
+
     except Collision.CollisionException as col:
         col.vel = self.vel+col.delta_t*kap1[0]
         raise col

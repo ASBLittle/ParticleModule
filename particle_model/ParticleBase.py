@@ -13,7 +13,7 @@ from particle_model import Parallel
 class ParticleBase(object):
     """ An easily picklable base class for checkpointing and parallel computation. """
 
-    def __init__(self, pos, vel, time=0.0, delta_t=1.0, phash=None):
+    def __init__(self, pos, vel, time=0.0, delta_t=1.0, phash=None, **kwargs):
 
         self.pos = pos
         self.vel = vel

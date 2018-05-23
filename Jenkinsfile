@@ -1,12 +1,6 @@
 node {
-   stage('Preparation') { // for display purposes
-      // Get some code from a GitHub repository
-      git '/Users/origimbo/Software/particle_model'
-   }
    stage('Configure') {
-      // Run the maven build
       sh '''#!/bin/bash -l
-
 cmake -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_COMPILER=gcc .
 '''
    }

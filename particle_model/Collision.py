@@ -17,7 +17,7 @@ class OutletException(Exception):
                  normal=None, delta_t=None):
         Exception.__init__(self, particle, pos_i, cell_index, angle,
                            normal, delta_t)
-        self.args = CollisionInfo(particle, pos_i, cell_index, angle, normal)
+        self.args = [CollisionInfo(particle, pos_i, cell_index, angle, normal)]
         self.delta_t = delta_t
 
 class MappedBoundaryException(Exception):

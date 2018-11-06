@@ -65,12 +65,12 @@ def is_root(root=0):
 
 def point_in_bound(pnt, bound):
     """Check whether a point is inside the bounds"""
-    return all((pnt[0] < bound[0],
-                pnt[0] > bound[1],
-                pnt[1] < bound[2],
-                pnt[1] > bound[3],
-                pnt[2] < bound[4],
-                pnt[2] > bound[5]))
+    return all((pnt[0] > bound[0],
+                pnt[0] < bound[1],
+                pnt[1] > bound[2],
+                pnt[1] < bound[3],
+                pnt[2] > bound[4],
+                pnt[2] < bound[5]))
 
 def gather_bounds(bounds):
     """ Exchange bounds across multiple processors """

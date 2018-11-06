@@ -54,7 +54,7 @@ class Particle(ParticleBase.ParticleBase):
         par = Particle((self.pos, self.vel, self.time, self.delta_t),
                        parameters=self.parameters, system=None)
         par.set_hash(self._hash)
-        par.set_old(self._old)
+        par._old = copy.deepcopy(self._old)
         return par
 
     def update(self, delta_t=None, method="AdamsBashforth2"):
@@ -76,6 +76,8 @@ class Particle(ParticleBase.ParticleBase):
             self.collisions += [col.info]
             self._old = []
             self.update(self.delta_t-col.delta_t, method)
+        except Collision.OutletException as col:
+            pass
 
 
     def drag_coefficient(self, position, particle_velocity, time, nearest=False):
@@ -308,7 +310,7 @@ class Particle(ParticleBase.ParticleBase):
             surface_id = self.system.boundary.get_surface_id(cell_index)
             if surface_id is not None:
                 if surface_id in self.system.boundary.outlet_ids:
-                    raise Collision.OutletException(self,pos_1)
+                    raise Collision.OutletException(self,pos_i)
                 elif surface_id in self.system.boundary.mapped_ids:
                     raise Collision.MappedBoundaryException(self.system.boundary.mapped_ids[surface_id])
             #otherwise

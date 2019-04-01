@@ -26,7 +26,7 @@ def update_euler(self, delta_t=None):
     for cback in self.pos_callbacks:
         pos += delta_t*cback(self.pos, self.vel, self.time, delta_t)
     for cback in self.vel_callbacks:
-            vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+        vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
 
     try:
         self.pos, self.vel = self.check_collision_full(pos, self.pos,

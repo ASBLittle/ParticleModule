@@ -66,7 +66,9 @@ class System(object):
         obj = self.temporal_cache(time)[0][0][2]
         loc = vtk.vtkCellLocator()
 
-        if obj.IsA('vtkUnstructuredGrid'):
+        if (obj.IsA('vtkUnstructuredGrid') or 
+            obj.IsA('vtkStructuredGrid') or
+            obj.IsA('vtkRectilinearGrid')):
             loc.SetDataSet(obj)
         else:
             loc.SetDataSet(obj.GetBlock(0))

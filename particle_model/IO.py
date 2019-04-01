@@ -38,6 +38,12 @@ TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
 WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
                                      if Parallel.is_parallel()
                                      else vtk.vtkXMLUnstructuredGridWriter),
+          vtk.VTK_STRUCTURED_GRID:(vtk.vtkXMLPStructuredGridWriter
+                                     if Parallel.is_parallel()
+                                     else vtk.vtkXMLStructuredGridWriter),
+          vtk.VTK_RECTILINEAR_GRID:(vtk.vtkXMLPRectilinearGridWriter
+                                     if Parallel.is_parallel()
+                                     else vtk.vtkXMLRectilinearGridWriter),
           vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
                              if Parallel.is_parallel()
                              else vtk.vtkXMLPolyDataWriter),
@@ -395,7 +401,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
 
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
-    pnts.Allocate(0)
+    pnts.Allocate(len(bucket))
     poly_data.SetPoints(pnts)
     poly_data.Allocate(len(bucket))
 
@@ -450,6 +456,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
         for particle in bucket:
             _.InsertNextValue(particle.fields[name])
         poly_data.GetPointData().AddArray(_)
+        del _
 
     if do_average:
         gsp = calculate_averaged_properties_cpp(poly_data)
@@ -774,6 +781,116 @@ def make_subdirectory(fname):
             with open(fname, 'w') as summary_file:
                 summary_file.write(new_text)
 
+def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
+    """Given velocity and pressure fields, and a
+    time level, store the data in a vtkStructuredGridFormat."""
+
+    ldims = 3*[1]
+    ldx = 3*[1.0]
+    for k, _ in enumerate(dims):
+        ldims[k] = _
+    for k, _ in enumerate(dx):
+        ldx[k] = _
+
+    grid = vtk.vtkRectilinearGrid()
+    grid.SetDimensions(ldims)
+    for k, SetCoordinate in enumerate([grid.SetXCoordinates,
+                             grid.SetYCoordinates,
+                             grid.SetZCoordinates]):
+        x = vtk.vtkDoubleArray()
+        x.SetNumberOfComponents(1)
+        x.SetNumberOfTuples(ldims[k])
+        for _ in range(ldims[k]):
+            x.SetTuple1(_, _*ldx[k])
+        SetCoordinate(x)
+
+    data = []
+    data.append(vtk.vtkDoubleArray())
+    data[0].SetNumberOfComponents(3)
+    data[0].Allocate(3*grid.GetNumberOfPoints())
+    data[0].SetName('Velocity')
+
+    data.append(vtk.vtkDoubleArray())
+    data[1].Allocate(grid.GetNumberOfPoints())
+    data[1].SetName('Pressure')
+
+    data.append(vtk.vtkDoubleArray())
+    data[2].Allocate(grid.GetNumberOfPoints())
+    data[2].SetName('Time')
+
+    for k in range(grid.GetNumberOfPoints()):
+        if hasattr(velocity, '__call__'):
+            data[0].InsertNextTuple3(*velocity(grid.GetPoint(k)))
+        else:
+            data[0].InsertNextTuple3(*velocity[k, :])
+        if hasattr(pressure, '__call__'):
+            data[1].InsertNextValue(pressure(grid.GetPoint(k)))
+        else:
+            data[1].InsertNextValue(pressure[k])
+        data[2].InsertNextValue(time)
+
+
+    for _ in data:
+        grid.GetPointData().AddArray(_)
+
+    if outfile:
+        write_to_file(grid, outfile)  
+
+def make_structured_grid(dims, dx, velocity, pressure, time, outfile=None):
+    """Given velocity and pressure fields, and a
+    time level, store the data in a vtkStructuredGridFormat."""
+
+    ldims = 3*[1]
+    ldx = 3*[1.0]
+    for k, _ in enumerate(dims):
+        ldims[k] = _
+    for k, _ in enumerate(dx):
+        ldx[k] = _
+
+    pnts = vtk.vtkPoints()
+    for i in range(ldims[0]):
+        for j in range(ldims[1]):
+            for k in range(ldims[2]):
+                x = [i*ldx[0], j*ldx[1], k*ldx[2]]
+                pnts.InsertNextPoint(x)
+
+    grid = vtk.vtkStructuredGrid()
+    grid.SetDimensions(ldims)
+    grid.SetPoints(pnts)
+
+    data = []
+    data.append(vtk.vtkDoubleArray())
+    data[0].SetNumberOfComponents(3)
+    data[0].Allocate(3*pnts.GetNumberOfPoints())
+    data[0].SetName('Velocity')
+
+    data.append(vtk.vtkDoubleArray())
+    data[1].Allocate(pnts.GetNumberOfPoints())
+    data[1].SetName('Pressure')
+
+    data.append(vtk.vtkDoubleArray())
+    data[2].Allocate(pnts.GetNumberOfPoints())
+    data[2].SetName('Time')
+
+    for k in range(pnts.GetNumberOfPoints()):
+        if hasattr(velocity, '__call__'):
+            data[0].InsertNextTuple3(*velocity(grid.GetPoints().GetPoint(k)))
+        else:
+            data[0].InsertNextTuple3(*velocity[k, :])
+        if hasattr(pressure, '__call__'):
+            data[1].InsertNextValue(pressure(grid.GetPoints().GetPoint(k)))
+        else:
+            data[1].InsertNextValue(pressure[k])
+        data[2].InsertNextValue(time)
+
+
+    for _ in data:
+        grid.GetPointData().AddArray(_)
+
+    if outfile:
+        write_to_file(grid, outfile)    
+    
+
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     """Given a mesh (in Gmsh format), velocity and pressure fields, and a
     time level, store the data in a vtkUnstructuredGridFormat."""
@@ -933,7 +1050,9 @@ def get_linear_block(infile):
 
 def get_block(infile, name):
     """Get the block containing the field 'name'"""
-    if isinstance(infile, vtk.vtkUnstructuredGrid):
+    if (isinstance(infile, vtk.vtkUnstructuredGrid) or
+        isinstance(infile, vtk.vtkStructuredGrid) or
+        isinstance(infile, vtk.vtkRectilinearGrid)):
         return infile
     else:
         if BLOCK_UGRID_NO.setdefault(name, None):
@@ -1023,7 +1142,9 @@ def get_scalar(infile, data, name, index):
 
     global SCALAR_UGRID_NO
 
-    if infile.IsA('vtkUnstructuredGrid'):
+    if (infile.IsA('vtkUnstructuredGrid') or 
+        infile.IsA('vtkStructuredGrid') or
+        infile.IsA('vtkRectilinearGrid')):
         ids = infile.GetCell(index).GetPointIds()
         if not data:
             data = infile.GetPointData().GetScalars(name)

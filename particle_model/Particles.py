@@ -280,7 +280,7 @@ class Particle(ParticleBase.ParticleBase):
 
                     return pos_f, vel_i
                 elif surface_id in self.system.boundary.outlet_ids:
-                    return pos_1, vel_1
+                    raise Collision.OutletException(pos_1, vel_1)
                 else:
                     # This is a "reflecting" boundary.
                     angle, normal = Collision.collision_angle(self, pos_0, pos_i,

@@ -25,7 +25,7 @@ def cross(vec1, vec2):
     out[2] = vec1[0]*vec2[1]-vec1[1]*vec2[0]
     return out
 
-def grad(data, pts, dim, cell_type):
+def grad(data, pts, dim, cell_type=vtk.VTK_TETRA):
     """Get gradient of cell data."""
 
     grad_d = numpy.zeros(3)

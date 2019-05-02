@@ -20,6 +20,8 @@
 #include "PickerObject.h"
 
 extern "C" {
+
+  static PyObject* pyVersion = PyString_FromString(GIT_VERSION_STRING);
   
   static vtkGenericCell* cell;
 
@@ -198,6 +200,8 @@ extern "C" {
     if (m == NULL) return NULL;
     import_array();
 
+    PyModule_AddObject(m, "__version__", pyVersion);
+
     if (PyType_Ready(vtk_extrasPicker_Type()) < 0)  return NULL;
 
     cell = vtkGenericCell::New();
@@ -219,6 +223,8 @@ extern "C" {
     PyObject* m = Py_InitModule3("vtk_extras", extrasMethods, extrasDocString);
     if (m == NULL) return;
     import_array();
+
+    PyModule_AddObject(m, "__version__", pyVersion);
 
     if (PyType_Ready(vtk_extrasPicker_Type()) < 0)  return;
 

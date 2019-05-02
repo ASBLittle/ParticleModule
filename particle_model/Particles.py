@@ -283,8 +283,7 @@ class Particle(ParticleBase.ParticleBase):
                     # This is a "reflecting" boundary.
                     angle, normal = Collision.collision_angle(self, pos_0, pos_i,
                                         cell_index)
-                    pos_o = (1.0-t_val*0.99999)*(pos_1-pos_i)
-                    return pos_i + pos_o - 2.0*numpy.dot(pos_o, normal)*normal, vel_0
+                    return pos_1 - 2.0*numpy.dot(pos_1-pos_i, normal)*normal, vel_0
                     
 
         #otherwise

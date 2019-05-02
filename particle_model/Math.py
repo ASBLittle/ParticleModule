@@ -36,8 +36,6 @@ def grad(data, pts, dim, cell_type=vtk.VTK_TETRA):
     rhs = data[1:dim+1]-data[0]
     mat = numpy.zeros((dim, dim))
 
-    print pts
-
     for i in range(dim):
         mat[i, :] = pts[i+1, :dim] - pts[0, :dim]
 

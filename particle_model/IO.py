@@ -5,6 +5,7 @@ import os
 import os.path
 import glob
 import copy
+import inspect
 
 from particle_model.Debug import profile, logger
 from particle_model import Collision
@@ -781,6 +782,10 @@ def make_subdirectory(fname):
             with open(fname, 'w') as summary_file:
                 summary_file.write(new_text)
 
+def arg_count(func):
+    argspec = inspect.getargspec(func)
+    return len(argspec.args)
+  
 def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
     """Given velocity and pressure fields, and a
     time level, store the data in a vtkStructuredGridFormat."""
@@ -818,13 +823,19 @@ def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
     data[2].Allocate(grid.GetNumberOfPoints())
     data[2].SetName('Time')
 
+    velocity_arg_count = arg_count(velocity)
+    pressure_arg_count = arg_count(pressure)
+
+    args = [None, time]
+
     for k in range(grid.GetNumberOfPoints()):
+        args[0] = grid.GetPoint(k)
         if hasattr(velocity, '__call__'):
-            data[0].InsertNextTuple3(*velocity(grid.GetPoint(k)))
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:
             data[0].InsertNextTuple3(*velocity[k, :])
         if hasattr(pressure, '__call__'):
-            data[1].InsertNextValue(pressure(grid.GetPoint(k)))
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
         else:
             data[1].InsertNextValue(pressure[k])
         data[2].InsertNextValue(time)
@@ -872,17 +883,22 @@ def make_structured_grid(dims, dx, velocity, pressure, time, outfile=None):
     data[2].Allocate(pnts.GetNumberOfPoints())
     data[2].SetName('Time')
 
-    for k in range(pnts.GetNumberOfPoints()):
+    velocity_arg_count = arg_count(velocity)
+    pressure_arg_count = arg_count(pressure)
+
+    args = [None, time]
+
+    for k in range(grid.GetNumberOfPoints()):
+        args[0] = grid.GetPoint(k)
         if hasattr(velocity, '__call__'):
-            data[0].InsertNextTuple3(*velocity(grid.GetPoints().GetPoint(k)))
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:
             data[0].InsertNextTuple3(*velocity[k, :])
         if hasattr(pressure, '__call__'):
-            data[1].InsertNextValue(pressure(grid.GetPoints().GetPoint(k)))
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
         else:
             data[1].InsertNextValue(pressure[k])
         data[2].InsertNextValue(time)
-
 
     for _ in data:
         grid.GetPointData().AddArray(_)
@@ -926,17 +942,17 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     data[2].Allocate(pnts.GetNumberOfPoints())
     data[2].SetName('Time')
 
-    for k in range(len(mesh.nodes)):
+    for k in range(grid.GetNumberOfPoints()):
+        args[0] = grid.GetPoint(k)
         if hasattr(velocity, '__call__'):
-            data[0].InsertNextTuple3(*velocity(ugrid.GetPoints().GetPoint(k)))
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:
             data[0].InsertNextTuple3(*velocity[k, :])
         if hasattr(pressure, '__call__'):
-            data[1].InsertNextValue(pressure(ugrid.GetPoints().GetPoint(k)))
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
         else:
             data[1].InsertNextValue(pressure[k])
         data[2].InsertNextValue(time)
-
 
     for _ in data:
         ugrid.GetPointData().AddArray(_)
@@ -980,6 +996,39 @@ def get_boundary_from_block(mblock):
     vgrid.GetCellData().AddArray(surface_ids)
 
     return vgrid
+
+def make_structured_boundary(dims, dx, outfile=None, surface_ids=[1,2,3,4]):
+    """Write a boundary vtk file to disk for a structured mesh"""
+
+
+
+    pnts = vtk.vtkPoints()
+    pnts.InsertNextPoint(numpy.array([0, 0, 0], float))
+    pnts.InsertNextPoint(numpy.array([(dims[0]-1)*dx[0], 0, 0], float))
+    pnts.InsertNextPoint(numpy.array([(dims[0]-1)*dx[0], (dims[1]-1)*dx[1], 0], float))
+    pnts.InsertNextPoint(numpy.array([0, (dims[1]-1)*dx[1], 0], float))
+
+    pd = vtk.vtkPolyData()
+    pd.SetPoints(pnts)
+    pd.Allocate()
+
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [0, 1])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [1, 2])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [2, 3])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [3, 0])
+
+    data = vtk.vtkIntArray()
+    data.SetNumberOfComponents(1)
+    data.SetNumberOfTuples(4)
+    data.SetName("SurfaceIds")
+
+    for k, v in enumerate(surface_ids):
+        data.SetTuple(k, [v])
+
+    pd.GetCellData().AddArray(data)
+
+    return pd
+    
 
 def make_boundary_from_msh(mesh, outfile=None):
 

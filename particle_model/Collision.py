@@ -5,6 +5,7 @@ import copy
 import numpy
 
 from particle_model.Debug import logger
+from particle_model.ParticleBase import ParticleBase
 import vtk
 
 class BadCollisionException(Exception):

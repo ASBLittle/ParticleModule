@@ -422,7 +422,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
 
     for _, par in zip(plive, bucket):
         particle_id.InsertNextValue(hash(par))
-        if _:
+        if _ and not hasattr(par, "exited"):
             live.InsertNextValue(1.0)
         else:
             live.InsertNextValue(0.0)
@@ -507,7 +507,7 @@ def write_level_to_csv(bucket, level, basename=None, do_average=False,
 
     for _, par in zip(plive, bucket):
         particle_id.InsertNextValue(hash(par))
-        if _:
+        if _ and not hasattr(par, "exited"):
             live.InsertNextValue(1.0)
         else:
             live.InsertNextValue(0.0)
@@ -942,8 +942,8 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     data[2].Allocate(pnts.GetNumberOfPoints())
     data[2].SetName('Time')
 
-    for k in range(grid.GetNumberOfPoints()):
-        args[0] = grid.GetPoint(k)
+    for k in range(ugrid.GetNumberOfPoints()):
+        args[0] = ugrid.GetPoint(k)
         if hasattr(velocity, '__call__'):
             data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:

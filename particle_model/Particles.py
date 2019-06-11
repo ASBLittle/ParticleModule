@@ -77,7 +77,7 @@ class Particle(ParticleBase.ParticleBase):
             self._old = []
             self.update(self.delta_t-col.delta_t, method)
         except Collision.OutletException as col:
-            pass
+            self.exited = True
 
 
     def drag_coefficient(self, position, particle_velocity, time, nearest=False):
@@ -199,7 +199,6 @@ class Particle(ParticleBase.ParticleBase):
             else:
                 grad_p = numpy.zeros(3)
                 picker.cell.Derivatives(0, picker.pcoords, data_p, 1, grad_p)
-                print grad_p
                 
         else:
             grad_p = ZERO
@@ -279,8 +278,8 @@ class Particle(ParticleBase.ParticleBase):
                     par_col.time = self.time + t_val * delta_t
 
                     return pos_f, vel_i
-                elif surface_id in self.system.boundary.outlet_ids:
-                    raise Collision.OutletException(pos_1, vel_1)
+                elif surface_id in self.system.boundary.outlet_ids: 
+                    raise Collision.OutletException(pos_1, vel_0)
                 else:
                     # This is a "reflecting" boundary.
                     angle, normal = Collision.collision_angle(self, pos_0, pos_i,
@@ -449,7 +448,7 @@ class ParticleBucket(object):
         live = self.system.in_system(self.pos(), len(self), self.time)
         _ = []
         for k, part in enumerate(self):
-            if live[k]:
+            if live[k] and not hasattr(part, "exited"):
                 part.update(self.delta_t, *args, **kwargs)
             else:
                 self.dead_particles.append(part)
@@ -491,6 +490,7 @@ class ParticleBucket(object):
             weights = inlet.cum_weight(self.time+0.5*self.delta_t,
                                        self.system.boundary.bnd,
                                        self.system.temporal_cache)
+
             if weights:
                 for i in range(n_par):
                     prob = numpy.random.random()

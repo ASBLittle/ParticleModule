@@ -1,5 +1,6 @@
 """ Module controlling access to the vtu/pvtu files driving the particle model"""
 
+import os
 import glob
 import numpy
 import vtk
@@ -31,7 +32,7 @@ def read_pvd(filename):
 
     for data in etree[0].findall('DataSet'):
         times.append(float(data.get('timestep')))
-        names.append((data.get('file')))
+        names.append(os.sep.join((os.path.dirname(filename), data.get('file'))))
 
     return zip(times, names)
 

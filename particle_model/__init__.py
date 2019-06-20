@@ -7,6 +7,7 @@ import particle_model.Particles
 import particle_model.Coupling
 import particle_model.DragModels
 import particle_model.Stochastic
+from particle_model.vtk_extras import __version__
 
 from numpy import zeros
 

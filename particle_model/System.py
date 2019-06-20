@@ -30,6 +30,9 @@ class System(object):
             self.temporal_cache = None
         self.options = options
 
+        if kwargs.get('outlet_ids', None):
+            self.boundary.outlet_ids = kwargs['outlet_ids']
+        
         self.gravity = kwargs.get('gravity', zeros(3))
         self.rho = kwargs.get('rho', 1.0e3)
         self.omega = kwargs.get('omega', zeros(3))
@@ -64,9 +67,11 @@ class System(object):
             return out
 
         obj = self.temporal_cache(time)[0][0][2]
-        loc = vtk.vtkCellLocator()
+        loc = self.temporal_cache(time)[0][0][3]
 
-        if obj.IsA('vtkUnstructuredGrid'):
+        if (obj.IsA('vtkUnstructuredGrid') or 
+            obj.IsA('vtkStructuredGrid') or
+            obj.IsA('vtkRectilinearGrid')):
             loc.SetDataSet(obj)
         else:
             loc.SetDataSet(obj.GetBlock(0))
@@ -90,9 +95,9 @@ class System(object):
             out[:] = True
             return out
 
-        obj = self.temporal_cache(time)[0][0][2]
         loc = vtk.vtkCellLocator()
 
+        print 'testing', obj
         if obj.IsA('vtkUnstructuredGrid'):
             loc.SetDataSet(obj)
         else:

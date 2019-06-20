@@ -30,8 +30,15 @@ else(USE_SYSTEM_VTK STREQUAL "ON")
   set(VTK_DIR ${CMAKE_CURRENT_BINARY_DIR}/vtk/build)
 endif(USE_SYSTEM_VTK STREQUAL "ON")
 
-
 add_subdirectory(src)
+
+enable_testing()
+find_program(PYTEST_EXECUTABLE 
+  NAMES pytest-${PYTHON_VERSION} py.test-${PYTHON_VERSION} py.test pytest)
+add_test(NAME python_tests
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+  COMMAND ${PYTEST_EXECUTABLE})
+set_tests_properties(python_tests PROPERTIES ENVIRONMENT PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}:${CMAKE_CURRENT_BINARY_DIR}:particle_model FAIL_REGULAR_EXPRESSION "failed;error")
 
 set(PACKAGE_VERSION 1.1.0)
 set(SETUP_PY_IN "${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in")	

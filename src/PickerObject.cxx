@@ -94,6 +94,12 @@ extern "C" {
     return vtkPythonUtil::GetObjectFromPointer(self->cell);
   }
 
+  static PyObject* get_pcoords(PyObject* pyself, void *closure) {
+    vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
+    npy_intp dims[1] = {3};
+    return PyArray_SimpleNewFromData(1, dims, NPY_DOUBLE, self->pcoords);
+  }
+
   static PyObject* get_pos(PyObject* pyself, void *closure) {
     vtk_extrasPicker *self = (vtk_extrasPicker *)pyself;
     npy_intp dims[1] = {3};
@@ -333,6 +339,7 @@ extern "C" {
     { (char*)"name", get_name, set_name, (char*)"Get/set data name.", NULL},
     { (char*)"cell_index", get_cell_index, NULL, (char*)"Get picker cell index.", NULL},
     { (char*)"cell", get_cell, NULL, (char*)"Get picker cell.", NULL},
+    { (char*)"pcoords", get_pcoords, NULL, (char*)"Get picker pcoords.", NULL},
     { (char*)"pos", get_pos, (setter)set_pos, (char*)"Get/set picker position.", NULL},
     { NULL}
   };

@@ -5,6 +5,7 @@ import copy
 import numpy
 
 from particle_model.Debug import logger
+from particle_model.ParticleBase import ParticleBase
 import vtk
 
 class BadCollisionException(Exception):
@@ -13,11 +14,14 @@ class BadCollisionException(Exception):
 
 class OutletException(Exception):
     """ Exception to deal with collisions"""
-    def __init__(self, particle, pos_i, cell_index=None, angle=None,
+    def __init__(self, pos_i, vel_i, cell_index=None, angle=None,
                  normal=None, delta_t=None):
+        particle = ParticleBase(pos_i, vel_i)
         Exception.__init__(self, particle, pos_i, cell_index, angle,
                            normal, delta_t)
-        self.args = [CollisionInfo(particle, pos_i, cell_index, angle, normal)]
+#        self.args = CollisionInfo(particle, pos_i, cell_index, angle, normal)
+        self.pos = pos_i
+        self.vel = vel_i
         self.delta_t = delta_t
 
 class MappedBoundaryException(Exception):

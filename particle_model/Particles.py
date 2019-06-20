@@ -76,8 +76,6 @@ class Particle(ParticleBase.ParticleBase):
             self.collisions += [col.info]
             self._old = []
             self.update(self.delta_t-col.delta_t, method)
-        except Collision.OutletException as col:
-            pass
 
 
     def drag_coefficient(self, position, particle_velocity, time, nearest=False):
@@ -310,7 +308,7 @@ class Particle(ParticleBase.ParticleBase):
             surface_id = self.system.boundary.get_surface_id(cell_index)
             if surface_id is not None:
                 if surface_id in self.system.boundary.outlet_ids:
-                    raise Collision.OutletException(self,pos_i)
+                    raise Collision.OutletException(pos_1, vel_1)
                 elif surface_id in self.system.boundary.mapped_ids:
                     raise Collision.MappedBoundaryException(self.system.boundary.mapped_ids[surface_id])
             #otherwise

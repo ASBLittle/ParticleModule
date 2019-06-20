@@ -1,5 +1,6 @@
 """ Module controlling access to the vtu/pvtu files driving the particle model"""
 
+import os
 import glob
 import numpy
 import vtk
@@ -31,7 +32,7 @@ def read_pvd(filename):
 
     for data in etree[0].findall('DataSet'):
         times.append(float(data.get('timestep')))
-        names.append((data.get('file')))
+        names.append(os.sep.join((os.path.dirname(filename), data.get('file'))))
 
     return zip(times, names)
 
@@ -63,7 +64,9 @@ class DataCache(object):
 
         data = _.get(name)
         if not data:
-            if infile.IsA('vtkUnstructuredGrid'):
+            if (infile.IsA('vtkUnstructuredGrid') or
+                infile.IsA('vtkStructuredGrid') or
+                infile.IsA('vtkRectilinearGrid')):
                 if infile.GetPointData().HasArray(name):
                     data = infile.GetPointData().GetArray(name)
                 else:
@@ -112,9 +115,11 @@ class TemporalCache(object):
                 self.data.append([timescale_factor*time, filename, None, None])
         else:
             if (Parallel.is_parallel() and online) or parallel_files:
-                files = glob.glob(base_name+'_[0-9]*.pvtu')
+                files = glob.glob(base_name+'_[0-9]*.p%s'%kwargs.get('fileext',
+                                                                     'vtu'))
             else:
-                files = glob.glob(base_name+'_[0-9]*.vtu')
+                files = glob.glob(base_name+'_[0-9]*.%s'%kwargs.get('fileext',
+                                                                     'vtu'))
 
             for filename in files:
                 if (Parallel.is_parallel() and online) or parallel_files:
@@ -129,7 +134,9 @@ class TemporalCache(object):
 
         self.cache = DataCache()
 
-    def set_field_names(self, velocity_name="Velocity", pressure_name="Pressure", time_name="Time"):
+    def set_field_names(self, velocity_name="Velocity",
+                        pressure_name="Pressure", time_name="Time",
+                        **kwargs):
         """Set the names used to look up pressure and velocity fields."""
         self.field_names = {}
         self.field_names["Velocity"] = velocity_name or ""
@@ -192,7 +199,7 @@ class TemporalCache(object):
     def get_time_from_vtk(self, filename):
         """ Get the time from a vtk XML formatted file."""
 
-        parallel_files = ('pvtu', 'pvtp', 'pvtm', 'vtm')
+        parallel_files = ('pvtu', 'pvtp', 'pvtm', 'vtm', 'pvts', 'pvtr')
         parallel = filename.split('.')[-1] in parallel_files
 
         etree = element_tree(file=filename).getroot()

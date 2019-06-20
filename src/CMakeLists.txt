@@ -42,6 +42,15 @@ link_directories(${VTK_DIR}/lib)
 link_directories(/opt/local/lib)
 include_directories("${PYTHON_INCLUDE_DIRS}")
 
+execute_process(
+  COMMAND git log -1 --format=%H
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_VERSION_STRING
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+
+add_definitions(-DGIT_VERSION_STRING="${GIT_VERSION_STRING}")
+
 add_library(vtkParticles SHARED ${FILE_SRCS})
 target_link_libraries(vtkParticles ${VTK_LIBRARIES})
 add_library(vtk_extras SHARED Picker.cxx BoundingSurface.cxx)

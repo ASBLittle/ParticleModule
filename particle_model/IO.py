@@ -5,6 +5,7 @@ import os
 import os.path
 import glob
 import copy
+import inspect
 
 from particle_model.Debug import profile, logger
 from particle_model import Collision
@@ -38,6 +39,12 @@ TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
 WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
                                      if Parallel.is_parallel()
                                      else vtk.vtkXMLUnstructuredGridWriter),
+          vtk.VTK_STRUCTURED_GRID:(vtk.vtkXMLPStructuredGridWriter
+                                     if Parallel.is_parallel()
+                                     else vtk.vtkXMLStructuredGridWriter),
+          vtk.VTK_RECTILINEAR_GRID:(vtk.vtkXMLPRectilinearGridWriter
+                                     if Parallel.is_parallel()
+                                     else vtk.vtkXMLRectilinearGridWriter),
           vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
                              if Parallel.is_parallel()
                              else vtk.vtkXMLPolyDataWriter),
@@ -395,7 +402,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
 
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
-    pnts.Allocate(0)
+    pnts.Allocate(len(bucket))
     poly_data.SetPoints(pnts)
     poly_data.Allocate(len(bucket))
 
@@ -415,7 +422,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
 
     for _, par in zip(plive, bucket):
         particle_id.InsertNextValue(hash(par))
-        if _:
+        if _ and not hasattr(par, "exited"):
             live.InsertNextValue(1.0)
         else:
             live.InsertNextValue(0.0)
@@ -450,6 +457,7 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
         for particle in bucket:
             _.InsertNextValue(particle.fields[name])
         poly_data.GetPointData().AddArray(_)
+        del _
 
     if do_average:
         gsp = calculate_averaged_properties_cpp(poly_data)
@@ -499,7 +507,7 @@ def write_level_to_csv(bucket, level, basename=None, do_average=False,
 
     for _, par in zip(plive, bucket):
         particle_id.InsertNextValue(hash(par))
-        if _:
+        if _ and not hasattr(par, "exited"):
             live.InsertNextValue(1.0)
         else:
             live.InsertNextValue(0.0)
@@ -774,6 +782,131 @@ def make_subdirectory(fname):
             with open(fname, 'w') as summary_file:
                 summary_file.write(new_text)
 
+def arg_count(func):
+    argspec = inspect.getargspec(func)
+    return len(argspec.args)
+  
+def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
+    """Given velocity and pressure fields, and a
+    time level, store the data in a vtkStructuredGridFormat."""
+
+    ldims = 3*[1]
+    ldx = 3*[1.0]
+    for k, _ in enumerate(dims):
+        ldims[k] = _
+    for k, _ in enumerate(dx):
+        ldx[k] = _
+
+    grid = vtk.vtkRectilinearGrid()
+    grid.SetDimensions(ldims)
+    for k, SetCoordinate in enumerate([grid.SetXCoordinates,
+                             grid.SetYCoordinates,
+                             grid.SetZCoordinates]):
+        x = vtk.vtkDoubleArray()
+        x.SetNumberOfComponents(1)
+        x.SetNumberOfTuples(ldims[k])
+        for _ in range(ldims[k]):
+            x.SetTuple1(_, _*ldx[k])
+        SetCoordinate(x)
+
+    data = []
+    data.append(vtk.vtkDoubleArray())
+    data[0].SetNumberOfComponents(3)
+    data[0].Allocate(3*grid.GetNumberOfPoints())
+    data[0].SetName('Velocity')
+
+    data.append(vtk.vtkDoubleArray())
+    data[1].Allocate(grid.GetNumberOfPoints())
+    data[1].SetName('Pressure')
+
+    data.append(vtk.vtkDoubleArray())
+    data[2].Allocate(grid.GetNumberOfPoints())
+    data[2].SetName('Time')
+
+    velocity_arg_count = arg_count(velocity)
+    pressure_arg_count = arg_count(pressure)
+
+    args = [None, time]
+
+    for k in range(grid.GetNumberOfPoints()):
+        args[0] = grid.GetPoint(k)
+        if hasattr(velocity, '__call__'):
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
+        else:
+            data[0].InsertNextTuple3(*velocity[k, :])
+        if hasattr(pressure, '__call__'):
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
+        else:
+            data[1].InsertNextValue(pressure[k])
+        data[2].InsertNextValue(time)
+
+
+    for _ in data:
+        grid.GetPointData().AddArray(_)
+
+    if outfile:
+        write_to_file(grid, outfile)  
+
+def make_structured_grid(dims, dx, velocity, pressure, time, outfile=None):
+    """Given velocity and pressure fields, and a
+    time level, store the data in a vtkStructuredGridFormat."""
+
+    ldims = 3*[1]
+    ldx = 3*[1.0]
+    for k, _ in enumerate(dims):
+        ldims[k] = _
+    for k, _ in enumerate(dx):
+        ldx[k] = _
+
+    pnts = vtk.vtkPoints()
+    for i in range(ldims[0]):
+        for j in range(ldims[1]):
+            for k in range(ldims[2]):
+                x = [i*ldx[0], j*ldx[1], k*ldx[2]]
+                pnts.InsertNextPoint(x)
+
+    grid = vtk.vtkStructuredGrid()
+    grid.SetDimensions(ldims)
+    grid.SetPoints(pnts)
+
+    data = []
+    data.append(vtk.vtkDoubleArray())
+    data[0].SetNumberOfComponents(3)
+    data[0].Allocate(3*pnts.GetNumberOfPoints())
+    data[0].SetName('Velocity')
+
+    data.append(vtk.vtkDoubleArray())
+    data[1].Allocate(pnts.GetNumberOfPoints())
+    data[1].SetName('Pressure')
+
+    data.append(vtk.vtkDoubleArray())
+    data[2].Allocate(pnts.GetNumberOfPoints())
+    data[2].SetName('Time')
+
+    velocity_arg_count = arg_count(velocity)
+    pressure_arg_count = arg_count(pressure)
+
+    args = [None, time]
+
+    for k in range(grid.GetNumberOfPoints()):
+        args[0] = grid.GetPoint(k)
+        if hasattr(velocity, '__call__'):
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
+        else:
+            data[0].InsertNextTuple3(*velocity[k, :])
+        if hasattr(pressure, '__call__'):
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
+        else:
+            data[1].InsertNextValue(pressure[k])
+        data[2].InsertNextValue(time)
+
+    for _ in data:
+        grid.GetPointData().AddArray(_)
+
+    if outfile:
+        write_to_file(grid, outfile)    
+    
+
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     """Given a mesh (in Gmsh format), velocity and pressure fields, and a
     time level, store the data in a vtkUnstructuredGridFormat."""
@@ -809,17 +942,17 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     data[2].Allocate(pnts.GetNumberOfPoints())
     data[2].SetName('Time')
 
-    for k in range(len(mesh.nodes)):
+    for k in range(ugrid.GetNumberOfPoints()):
+        args[0] = ugrid.GetPoint(k)
         if hasattr(velocity, '__call__'):
-            data[0].InsertNextTuple3(*velocity(ugrid.GetPoints().GetPoint(k)))
+            data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:
             data[0].InsertNextTuple3(*velocity[k, :])
         if hasattr(pressure, '__call__'):
-            data[1].InsertNextValue(pressure(ugrid.GetPoints().GetPoint(k)))
+            data[1].InsertNextValue(pressure(*args[:pressure_arg_count]))
         else:
             data[1].InsertNextValue(pressure[k])
         data[2].InsertNextValue(time)
-
 
     for _ in data:
         ugrid.GetPointData().AddArray(_)
@@ -863,6 +996,39 @@ def get_boundary_from_block(mblock):
     vgrid.GetCellData().AddArray(surface_ids)
 
     return vgrid
+
+def make_structured_boundary(dims, dx, outfile=None, surface_ids=[1,2,3,4]):
+    """Write a boundary vtk file to disk for a structured mesh"""
+
+
+
+    pnts = vtk.vtkPoints()
+    pnts.InsertNextPoint(numpy.array([0, 0, 0], float))
+    pnts.InsertNextPoint(numpy.array([(dims[0]-1)*dx[0], 0, 0], float))
+    pnts.InsertNextPoint(numpy.array([(dims[0]-1)*dx[0], (dims[1]-1)*dx[1], 0], float))
+    pnts.InsertNextPoint(numpy.array([0, (dims[1]-1)*dx[1], 0], float))
+
+    pd = vtk.vtkPolyData()
+    pd.SetPoints(pnts)
+    pd.Allocate()
+
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [0, 1])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [1, 2])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [2, 3])
+    pd.InsertNextCell(vtk.VTK_LINE, 2, [3, 0])
+
+    data = vtk.vtkIntArray()
+    data.SetNumberOfComponents(1)
+    data.SetNumberOfTuples(4)
+    data.SetName("SurfaceIds")
+
+    for k, v in enumerate(surface_ids):
+        data.SetTuple(k, [v])
+
+    pd.GetCellData().AddArray(data)
+
+    return pd
+    
 
 def make_boundary_from_msh(mesh, outfile=None):
 
@@ -933,7 +1099,9 @@ def get_linear_block(infile):
 
 def get_block(infile, name):
     """Get the block containing the field 'name'"""
-    if isinstance(infile, vtk.vtkUnstructuredGrid):
+    if (isinstance(infile, vtk.vtkUnstructuredGrid) or
+        isinstance(infile, vtk.vtkStructuredGrid) or
+        isinstance(infile, vtk.vtkRectilinearGrid)):
         return infile
     else:
         if BLOCK_UGRID_NO.setdefault(name, None):
@@ -1023,7 +1191,9 @@ def get_scalar(infile, data, name, index):
 
     global SCALAR_UGRID_NO
 
-    if infile.IsA('vtkUnstructuredGrid'):
+    if (infile.IsA('vtkUnstructuredGrid') or 
+        infile.IsA('vtkStructuredGrid') or
+        infile.IsA('vtkRectilinearGrid')):
         ids = infile.GetCell(index).GetPointIds()
         if not data:
             data = infile.GetPointData().GetScalars(name)

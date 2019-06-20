@@ -149,7 +149,6 @@ def get_wear_rate_source(bucket, alpha, delta_t):
         for dummy_1 in range(pnt_ids.GetNumberOfIds()):
             volume[pnt_ids.GetId(dummy_1)] += cv_mass
 
-    print(len(bucket.collisions()))
     for col in bucket.collisions():
         if col.time < bucket.time-bucket.delta_t:
             continue

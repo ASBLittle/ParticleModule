@@ -76,6 +76,8 @@ class Particle(ParticleBase.ParticleBase):
             self.collisions += [col.info]
             self._old = []
             self.update(self.delta_t-col.delta_t, method)
+        except Collision.OutletException as col:
+            self.exited = True
 
 
     def drag_coefficient(self, position, particle_velocity, time, nearest=False):
@@ -189,8 +191,15 @@ class Particle(ParticleBase.ParticleBase):
 
         if data_p is not None:
             dim = picker.cell.GetCellDimension()
-            pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(dim+1)])
-            grad_p = Math.grad(data_p, pts, dim)
+            pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(picker.cell.GetNumberOfPoints())])
+            if (pts.shape[0] == dim+1 
+                or (pts.shape[0] == 6 and dim == 2)
+                or (pts.shape[0] == 10 and dim == 3)):
+                grad_p = Math.grad(data_p, pts, dim)
+            else:
+                grad_p = numpy.zeros(3)
+                picker.cell.Derivatives(0, picker.pcoords, data_p, 1, grad_p)
+                
         else:
             grad_p = ZERO
 
@@ -269,15 +278,13 @@ class Particle(ParticleBase.ParticleBase):
                     par_col.time = self.time + t_val * delta_t
 
                     return pos_f, vel_i
-                elif surface_id in self.system.boundary.outlet_ids:
-                    return pos_1, vel_1
+                elif surface_id in self.system.boundary.outlet_ids: 
+                    raise Collision.OutletException(pos_1, vel_0)
                 else:
-                    pos_o = numpy.array(pos_0*(1.0-t_val*(0.99))+pos_1*t_val*(0.99),
-                                        dtype=float)
-                    vel_i, _ = self.picker(pos_o, self.time+delta_t)
-                    if vel_i is None:
-                        vel_i = vel_0
-                    return pos_0, vel_0
+                    # This is a "reflecting" boundary.
+                    angle, normal = Collision.collision_angle(self, pos_0, pos_i,
+                                        cell_index)
+                    return pos_1 - 2.0*numpy.dot(pos_1-pos_i, normal)*normal, vel_0
                     
 
         #otherwise
@@ -300,6 +307,10 @@ class Particle(ParticleBase.ParticleBase):
             fvel = self.picker(pos_1, self.time+delta_t)[0]
             if fvel is None:
                 return self._check_remapping(pos_1, pos_0, vel_0, delta_t)
+
+            for cback in self.vel_callbacks:
+                fvel += delta_t*cback(pos_1, fvel, self.time+delta_t, delta_t)
+
             return pos_1, fvel
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
@@ -437,7 +448,7 @@ class ParticleBucket(object):
         live = self.system.in_system(self.pos(), len(self), self.time)
         _ = []
         for k, part in enumerate(self):
-            if live[k]:
+            if live[k] and not hasattr(part, "exited"):
                 part.update(self.delta_t, *args, **kwargs)
             else:
                 self.dead_particles.append(part)

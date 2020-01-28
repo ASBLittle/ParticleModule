@@ -95,9 +95,9 @@ class System(object):
             out[:] = True
             return out
 
+        obj = self.temporal_cache(time)[0][0][2]
         loc = vtk.vtkCellLocator()
 
-        print 'testing', obj
         if obj.IsA('vtkUnstructuredGrid'):
             loc.SetDataSet(obj)
         else:

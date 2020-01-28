@@ -367,6 +367,7 @@ class ParticleBucket(object):
 
         self.particles = []
         self.dead_particles = []
+	    self.stuck_particles = []
         self.parameters = parameters
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             par = Particle((dummy_pos, dummy_vel, time, delta_t),
@@ -449,7 +450,13 @@ class ParticleBucket(object):
         _ = []
         for k, part in enumerate(self):
             if live[k] and not hasattr(part, "exited"):
-                part.update(self.delta_t, *args, **kwargs)
+                try: 
+                #if particle updates fails e.g. max recursion depth reached
+                    part.update(self.delta_t, *args, **kwargs)
+                except RuntimeError: 
+                #remove as a stuck particle
+                    self.stuck_particles.append(part)
+                    _.append(part)
             else:
                 self.dead_particles.append(part)
                 _.append(part)

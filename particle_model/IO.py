@@ -15,6 +15,9 @@ from particle_model import vtk_extras
 from particle_model.GmshIO import GmshMesh
 from particle_model.SolidInteractions import *
 from vtk.util import numpy_support
+from vtk.util.numpy_support import vtk_to_numpy
+from vtk.numpy_interface import dataset_adapter
+
 import numpy
 from scipy.interpolate import griddata
 
@@ -383,9 +386,7 @@ def write_bucket_to_points(bucket):
 
     return pnts
 
-def write_level_to_polydata(bucket, level, basename=None, do_average=False,
-                            field_data=None, **kwargs):
-
+def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump_no=None, do_average=False, field_data=None,**kwargs):
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
     Each file contains one time level of the data, and are numbered sequentially.
@@ -467,7 +468,12 @@ def write_level_to_polydata(bucket, level, basename=None, do_average=False,
     else:
         file_ext = 'vtp'
 
-    write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))
+
+    if checkpoint: ##if checkpoint, write both level file as well as checkpoint file
+		write_to_file(poly_data, "%s_%d_checkpoint.%s"%(basename, dump_no, file_ext))
+		write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))
+    else:
+    	write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))         
 
     if do_average:
         return gsp
@@ -1475,3 +1481,19 @@ def get_real_x(cell, locx):
         return numpy.array(cell.GetPoint(0))*(1.0-locx[0])+numpy.array(cell.GetPoint(1))*locx[0]
     #otherwise
     return numpy.array(cell.GetPoint(0))*(1.0-locx[0]-locx[1])+numpy.array(cell.GetPoint(1))*locx[0]+numpy.array(cell.GetPoint(2))*locx[1]
+
+def read_from_polydata(filename):
+    """Return numpy arrays of particle location and velocities."""
+    reader = vtk.vtkXMLPolyDataReader()
+    reader.SetFileName(filename)
+    reader.Update()
+    
+    polydata = reader.GetOutput()
+
+    coordinates = dataset_adapter.WrapDataObject(polydata).Points
+    velocity = dataset_adapter.WrapDataObject(polydata).PointData["Particle Velocity"]
+
+    X = vtk_to_numpy(coordinates)
+    V = vtk_to_numpy(velocity)
+    
+    return X, V

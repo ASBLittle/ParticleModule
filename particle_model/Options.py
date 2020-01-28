@@ -124,7 +124,7 @@ class OptionsReader(object):
     def get_name(self):
         """ Return the simulation name (for output/cross communication with fluidity)."""
         return libspud.get_option('/simulation_name')
-
+    
     def get_gravity(self):
         """ Return the acceleration due to gravity."""
         options_base = '/physical_parameters/gravity'

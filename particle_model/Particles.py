@@ -367,7 +367,7 @@ class ParticleBucket(object):
 
         self.particles = []
         self.dead_particles = []
-	    self.stuck_particles = []
+        self.stuck_particles = []
         self.parameters = parameters
         for _, (dummy_pos, dummy_vel) in enumerate(zip(X, V)):
             par = Particle((dummy_pos, dummy_vel, time, delta_t),

@@ -122,11 +122,14 @@ class TemporalCache(object):
                                                                      'vtu'))
 
             for filename in files:
-                if (Parallel.is_parallel() and online) or parallel_files:
+                if (Parallel.is_parallel() and online):
                     pfilename = get_piece_filename_from_vtk(filename)
                 else:
                     pfilename = filename
-                time = self.get_time_from_vtk(pfilename)
+                try:
+                    time = self.get_time_from_vtk(pfilename)
+                except:
+                    time = int(filename.rsplit('.', 1)[0].rsplit('_', 1)[1])
                 self.data.append([timescale_factor*time, pfilename, None, None])
 
         self.data.sort(key=lambda x: x[0])

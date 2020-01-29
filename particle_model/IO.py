@@ -1484,7 +1484,10 @@ def get_real_x(cell, locx):
 
 def read_from_polydata(filename):
     """Return numpy arrays of particle location and velocities."""
-    reader = vtk.vtkXMLPolyDataReader()
+    if Parallel.is_parallel():
+        reader = vtk.vtkXMLPPolyDataReader()
+    else:
+        reader = vtk.vtkXMLPolyDataReader()
     reader.SetFileName(filename)
     reader.Update()
     

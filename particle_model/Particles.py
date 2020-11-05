@@ -20,6 +20,7 @@ from particle_model import vtk_extras
 
 LEVEL = 0
 ZERO = numpy.zeros(3)
+numpy.random.seed(42)
 
 class Particle(ParticleBase.ParticleBase):
     """Class representing a single Lagrangian particle with mass"""

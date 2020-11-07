@@ -2,22 +2,26 @@
 
 import numpy
 
+
 class Model(object):
     """Generic class for drag models."""
     def __init__(self, coefficient):
         self.coefficient = coefficient
+
     def __call__(self, fluid_velocity, particle_velocity, *args, **kwargs):
         return (self.coefficient(fluid_velocity, particle_velocity,
-                                 *args, **kwargs)
-                *(fluid_velocity-particle_velocity))
+                                 *args, **kwargs) *
+                                (fluid_velocity - particle_velocity))
+
 
 def stokes_drag_coefficient(fluid_velocity, particle_velocity,
                             diameter, rho, fluid_viscosity, **kwargs):
     """ Return Stokes drag force for particle parameters"""
     del fluid_velocity
     del particle_velocity
-    del kwargs ## supress argument unused warning
-    return rho*18./diameter**2*fluid_viscosity
+    del kwargs  # supress argument unused warning
+    return rho * 18. / diameter**2 * fluid_viscosity
+
 
 def stokes_drag(fluid_velocity, particle_velocity,
                 diameter, rho, fluid_viscosity, **kwargs):
@@ -26,16 +30,18 @@ def stokes_drag(fluid_velocity, particle_velocity,
                                    particle_velocity,
                                    diameter, rho, fluid_viscosity,
                                    **kwargs
-                                  )*(fluid_velocity-particle_velocity)
+                                   ) * (fluid_velocity - particle_velocity)
+
 
 def turbulent_drag_coefficient(fluid_velocity, particle_velocity,
                                diameter, rho, rho_f, **kwargs):
     """ Return turbulent drag force for particle parameters"""
-    del kwargs, rho ## supress argument unused warning
+    del kwargs, rho  # supress argument unused warning
     fluid_velocity = numpy.array(fluid_velocity)
     particle_velocity = numpy.array(particle_velocity)
-    delta = numpy.sqrt(sum((fluid_velocity-particle_velocity)**2))
-    return rho_f*0.44*3.0/32.0/diameter*delta
+    delta = numpy.sqrt(sum((fluid_velocity - particle_velocity)**2))
+    return rho_f * 0.44 * 3.0 / 32.0 / diameter * delta
+
 
 def turbulent_drag(fluid_velocity, particle_velocity, diameter, rho, rho_f,
                    fluid_viscosity, **kwargs):
@@ -45,7 +51,8 @@ def turbulent_drag(fluid_velocity, particle_velocity, diameter, rho, rho_f,
                                       particle_velocity,
                                       diameter, rho, rho_f,
                                       **kwargs
-                                     )*(fluid_velocity-particle_velocity)
+                                      ) * (fluid_velocity - particle_velocity)
+
 
 def transitional_drag_coefficient(fluid_velocity, particle_velocity,
                                   diameter, rho_f, fluid_viscosity=1.0e-3,
@@ -57,21 +64,22 @@ def transitional_drag_coefficient(fluid_velocity, particle_velocity,
 
     Re=rho_f*du*diameter/ mu
     """
-    del kwargs ## supress argument unused warning
+    del kwargs  # supress argument unused warning
     fluid_velocity = numpy.array(fluid_velocity)
     particle_velocity = numpy.array(particle_velocity)
 
-    delta = numpy.sqrt(sum((fluid_velocity-particle_velocity)**2))
+    delta = numpy.sqrt(sum((fluid_velocity - particle_velocity)**2))
 
-    reynolds_no = rho_f*delta*diameter/ fluid_viscosity
+    reynolds_no = rho_f * delta * diameter / fluid_viscosity
 
     if reynolds_no < 1.0e-8:
-        return rho_f*delta*(fluid_velocity-particle_velocity)
+        return rho_f * delta * (fluid_velocity - particle_velocity)
     if reynolds_no < 1000.0:
-        c_d = (24.0/reynolds_no)*(1.0+0.15*reynolds_no**0.687)
-        return rho_f*c_d*3.0/32.0/diameter*delta
-    #otherwise
-    return rho_f*0.44*3.0/32.0/diameter*delta
+        c_d = (24.0 / reynolds_no) * (1.0 + 0.15 * reynolds_no**0.687)
+        return rho_f * c_d * 3.0 / 32.0 / diameter * delta
+    # otherwise
+    return rho_f * 0.44 * 3.0 / 32.0 / diameter * delta
+
 
 def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f,
                       fluid_viscosity, **kwargs):
@@ -81,4 +89,4 @@ def transitional_drag(fluid_velocity, particle_velocity, diameter, rho_f,
                                          diameter, rho_f,
                                          fluid_viscosity,
                                          **kwargs
-                                        )*(fluid_velocity-particle_velocity)
+                                         ) * (fluid_velocity - particle_velocity)

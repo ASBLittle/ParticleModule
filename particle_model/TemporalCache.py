@@ -11,11 +11,13 @@ from particle_model.Debug import profile
 from particle_model import vtk_extras
 try:
     from lxml import etree as ET
+
     def element_tree(**kwargs):
         """ Wrapper for lxml ElementTree."""
         return ET.ElementTree(parser=ET.XMLParser(recover=True), **kwargs)
 except ImportError:
     from xml.etree import ElementTree as ET
+
     def element_tree(**kwargs):
         """ Wrapper for xml ElementTree."""
         return ET.ElementTree(**kwargs)
@@ -23,6 +25,7 @@ except ImportError:
 PICKERS = [vtk_extras.Picker(),
            vtk_extras.Picker(),
            vtk_extras.Picker()]
+
 
 def read_pvd(filename):
     """Read timestep and filename data from a .pvd file."""
@@ -36,12 +39,14 @@ def read_pvd(filename):
 
     return zip(times, names)
 
+
 def get_piece_filename_from_vtk(filename, piece=Parallel.get_rank()):
 
     """Get the filename of individual VTK file piece."""
 
     etree = element_tree(file=filename).getroot()
     return etree[0].findall('Piece')[piece].get('Source')
+
 
 class DataCache(object):
     """ Store data in a cyclical cache. """
@@ -66,7 +71,7 @@ class DataCache(object):
         if not data:
             if (infile.IsA('vtkUnstructuredGrid') or
                 infile.IsA('vtkStructuredGrid') or
-                infile.IsA('vtkRectilinearGrid')):
+                    infile.IsA('vtkRectilinearGrid')):
                 if infile.GetPointData().HasArray(name):
                     data = infile.GetPointData().GetArray(name)
                 else:
@@ -94,6 +99,7 @@ class DataCache(object):
 
         _[name] = data
 
+
 class TemporalCache(object):
     """ The base object containing the vtu files.
 
@@ -112,14 +118,14 @@ class TemporalCache(object):
 
         if base_name.rsplit(".", 1)[-1] == "pvd":
             for time, filename in read_pvd(base_name):
-                self.data.append([timescale_factor*time, filename, None, None])
+                self.data.append([timescale_factor * time, filename, None, None])
         else:
             if (Parallel.is_parallel() and online) or parallel_files:
-                files = glob.glob(base_name+'_[0-9]*.p%s'%kwargs.get('fileext',
-                                                                     'vtu'))
+                files = glob.glob(base_name + '_[0-9]*.p%s' % kwargs.get('fileext',
+                                                                         'vtu'))
             else:
-                files = glob.glob(base_name+'_[0-9]*.%s'%kwargs.get('fileext',
-                                                                     'vtu'))
+                files = glob.glob(base_name + '_[0-9]*.%s' % kwargs.get('fileext',
+                                                                        'vtu'))
 
             for filename in files:
                 if (Parallel.is_parallel() and online):
@@ -130,7 +136,7 @@ class TemporalCache(object):
                     time = self.get_time_from_vtk(pfilename)
                 except:
                     time = int(filename.rsplit('.', 1)[0].rsplit('_', 1)[1])
-                self.data.append([timescale_factor*time, pfilename, None, None])
+                self.data.append([timescale_factor * time, pfilename, None, None])
 
         self.data.sort(key=lambda x: x[0])
         self.range(t_min, t_max)
@@ -164,19 +170,19 @@ class TemporalCache(object):
             raise ValueError
         if self.data[self.lower][0] > t_min:
             self.reset()
-        while (self.lower < len(self.data)-2
-               and self.data[self.lower+1][0] <= t_min):
+        while (self.lower < len(self.data) - 2 and
+                self.data[self.lower + 1][0] <= t_min):
             self.close(self.lower)
             self.lower += 1
         if self.upper <= self.lower:
             self.upper = self.lower
             self.open(self. lower)
-        while (self.upper <= len(self.data)-2
-               and self.data[self.upper][0] <= t_max):
+        while (self.upper <= len(self.data) - 2 and
+                self.data[self.upper][0] <= t_max):
             self.upper += 1
             self.open(self.upper)
 
-        return self.data[self.lower:self.upper+1]
+        return self.data[self.lower:self.upper + 1]
 
     def open(self, k):
         """ Open a file for reading."""
@@ -222,17 +228,17 @@ class TemporalCache(object):
         lower = self.lower
         upper = self.upper
 
-        assert self.data[lower][0] <= time and self.data[upper][0]+1.0e-8 >= time
+        assert self.data[lower][0] <= time and self.data[upper][0] + 1.0e-8 >= time
 
-        while lower < len(self.data)-2 and self.data[lower+1][0] <= time:
+        while lower < len(self.data) - 2 and self.data[lower + 1][0] <= time:
             lower += 1
 
         t_min = self.data[lower][0]
-        t_max = self.data[lower+1][0]
+        t_max = self.data[lower + 1][0]
         if t_max == t_min:
             t_max = numpy.infty
 
-        return (self.data[lower:lower+2], (time-t_min)/(t_max-t_min),
+        return (self.data[lower:lower + 2], (time - t_min) / (t_max - t_min),
                 [[self.field_names["Velocity"], self.field_names["Pressure"]],
                  [self.field_names["Velocity"], self.field_names["Pressure"]]])
 
@@ -263,7 +269,8 @@ class TemporalCache(object):
         vel0 = vtk_extras.EvaluateField(vel_data0, loc0, pos, names[0][0])
         vel1 = vtk_extras.EvaluateField(vel_data1, loc1, pos, names[1][0])
 
-        return alpha*vel1+(1.0-alpha)*vel0
+        return alpha * vel1 + (1.0 - alpha) * vel0
+
 
 class FluidityCache(object):
     """Cache like object used when running particles online."""
@@ -303,9 +310,9 @@ class FluidityCache(object):
     def __call__(self, ptime):
         self.cloc.Update()
         return ([[self.time, None, self.block, self.cloc],
-                 [self.time+self.delta_t, None, self.block, self.cloc]],
-                (ptime-self.time+self.delta_t)/self.delta_t,
-                [['Old'+self.velocity_name, 'OldPressure'],
+                 [self.time + self.delta_t, None, self.block, self.cloc]],
+                (ptime - self.time + self.delta_t) / self.delta_t,
+                [['Old' + self.velocity_name, 'OldPressure'],
                  [self.velocity_name, 'Pressure']])
 
     def get_bounds(self, ptime):
@@ -338,5 +345,5 @@ class FluidityCache(object):
 
         if vel0 is None or vel1 is None:
             raise ValueError
-        #otherwise
-        return alpha*vel1+(1.0-alpha)*vel0
+        # otherwise
+        return alpha * vel1 + (1.0 - alpha) * vel0

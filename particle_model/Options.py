@@ -5,12 +5,13 @@ import numpy
 from particle_model import Parallel
 from particle_model import Debug
 import vtk
-#from particle_model import IO
+# from particle_model import IO
 
 try:
     import libspud
 except ImportError:
     Debug.logger.warning("Want the libspud python package. Try: \n sudo apt-get install python-spud")
+
 
 class Inlet(object):
     """ class for an inlet surface"""
@@ -38,10 +39,10 @@ class Inlet(object):
                 for _ in range(npts):
                     if self.pdf:
                         inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
-                                                 time) * mass /npts
+                                                 time) * mass / npts
                     else:
                         inlet_weight += numpy.sqrt(sum(cache.get_velocity(cell.GetPoints().GetPoint(_),
-                                                                          time)**2))* mass /npts
+                                                                          time)**2)) * mass / npts
 
         return inlet_weight
 
@@ -64,28 +65,27 @@ class Inlet(object):
 
                     if self.pdf:
                         inlet_weight += self.pdf(cell.GetPoints().GetPoint(_),
-                                                 time) * mass /npts
+                                                 time) * mass / npts
                     else:
                         inlet_weight += numpy.sqrt(sum(cache.get_velocity(cell.GetPoints().GetPoint(_),
-                                                                          time)**2))* mass /npts
+                                                                          time)**2)) * mass / npts
 
                     weights.append((index, old_inlet_weight, inlet_weight))
 
         return weights
 
-
     def select_point(self, time, weights, boundary):
         """Given the boundary cdf weights, find a suitable insertion point."""
 
         total_weight = weights[-1][-1]
-        prob = total_weight*numpy.random.random()
+        prob = total_weight * numpy.random.random()
 
         index = 0
         for index, weight_low, weight_high in weights:
             if weight_low < prob and weight_high >= prob:
                 break
 
-        ## quick test code
+        # quick test code
 
         cell = boundary.GetCell(index)
         pnt0 = numpy.array(cell.GetPoints().GetPoint(0))
@@ -97,17 +97,18 @@ class Inlet(object):
 
         for _ in range(1, cell.GetNumberOfPoints()):
             prob = numpy.random.random()
-            pnrm = pnrm*prob
-            edge = numpy.array(cell.GetPoints().GetPoint(_))-pnt0
-            pnt += pnrm*edge
-            pnrm = 1.0-pnrm
+            pnrm = pnrm * prob
+            edge = numpy.array(cell.GetPoints().GetPoint(_)) - pnt0
+            pnt += pnrm * edge
+            pnrm = 1.0 - pnrm
 
         return pnt
 
     def get_number_of_insertions(self, time, delta_t):
         """ Return the result of a  poisson series on how many insertions occur."""
         del time
-        return numpy.random.poisson(delta_t*self.insertion_rate)
+        return numpy.random.poisson(delta_t * self.insertion_rate)
+
 
 class OptionsReader(object):
     """ Handle processing the XML into python"""
@@ -116,15 +117,13 @@ class OptionsReader(object):
         if options_file:
             libspud.load_options(options_file)
 
-
             self.simulation_name = libspud.get_option('/simulation_name')
             self.dimension = libspud.get_option('/geometry/dimension')
-
 
     def get_name(self):
         """ Return the simulation name (for output/cross communication with fluidity)."""
         return libspud.get_option('/simulation_name')
-    
+
     def get_gravity(self):
         """ Return the acceleration due to gravity."""
         options_base = '/physical_parameters/gravity'
@@ -133,11 +132,11 @@ class OptionsReader(object):
         self.dimension = libspud.get_option('/geometry/dimension')
 
         if libspud.have_option(options_base):
-            magnitude = libspud.get_option(options_base+'/magnitude')
-            direction[:self.dimension] = libspud.get_option(options_base
-                                                            +'/vector_field[0]/prescribed/value[0]/constant')
+            magnitude = libspud.get_option(options_base + '/magnitude')
+            direction[:self.dimension] = libspud.get_option(options_base +
+                                                            '/vector_field[0]/prescribed/value[0]/constant')
 
-        return magnitude*direction
+        return magnitude * direction
 
     def get_rotation(self):
         """ Return the rotation vector."""
@@ -146,8 +145,8 @@ class OptionsReader(object):
         origin = numpy.zeros(3)
 
         if libspud.have_option(options_base):
-            omega[2] = libspud.get_option(options_base+'/rotational_velocity')
-            origin[:self.dimension] = libspud.get_option(options_base+'/point_on_axis')
+            omega[2] = libspud.get_option(options_base + '/rotational_velocity')
+            origin[:self.dimension] = libspud.get_option(options_base + '/point_on_axis')
 
         return omega, origin
 
@@ -155,9 +154,9 @@ class OptionsReader(object):
         """ interogate the model specific options """
 
         options_base = '/embedded_models/particle_model/'
-        if libspud.have_option(options_base+option_name):
-            return libspud.get_option(options_base+option_name)
-        #otherwise
+        if libspud.have_option(options_base + option_name):
+            return libspud.get_option(options_base + option_name)
+        # otherwise
         return None
 
     def get_outlet_ids(self):
@@ -165,7 +164,7 @@ class OptionsReader(object):
         options_base = '/embedded_models/particle_model/outlet_ids/surface_ids'
         if libspud.have_option(options_base):
             return libspud.get_option(options_base)
-        #otherwise
+        # otherwise
         return None
 
     def get_inlets(self):
@@ -177,26 +176,26 @@ class OptionsReader(object):
 
         for _ in range(libspud.option_count(options_base)):
             val = None
-            options_key = options_base +'[%s]'%_
-            surface_ids = libspud.get_option(options_key+'/surface_ids')
-            insertion_rate = libspud.get_option(options_key+'/insertion_rate')
-            if libspud.have_option(options_key+'/particle_velocity/constant'):
-                rvel = libspud.get_option(options_key+'/particle_velocity/constant')
+            options_key = options_base + '[%s]' % _
+            surface_ids = libspud.get_option(options_key + '/surface_ids')
+            insertion_rate = libspud.get_option(options_key + '/insertion_rate')
+            if libspud.have_option(options_key + '/particle_velocity/constant'):
+                rvel = libspud.get_option(options_key + '/particle_velocity/constant')
                 velocity = lambda x, t: rvel
-            elif libspud.have_option(options_key+'/particle_velocity/fluid_velocity'):
+            elif libspud.have_option(options_key + '/particle_velocity/fluid_velocity'):
                 velocity = None
             else:
                 g_vars, l_vars = globals(), locals()
-                exec(libspud.get_option(options_key+'/particle_velocity/python')) in g_vars, l_vars
+                exec(libspud.get_option(options_key + '/particle_velocity/python')) in g_vars, l_vars
                 velocity = l_vars['val']
-            if libspud.have_option(options_key+'/probability_density_function/constant'):
-                rpdf = libspud.get_option(options_key+'/probability_density_function/constant')
+            if libspud.have_option(options_key + '/probability_density_function/constant'):
+                rpdf = libspud.get_option(options_key + '/probability_density_function/constant')
                 pdf = lambda x, t: rpdf
-            elif libspud.have_option(options_key+'/probability_density_function/fluid_velocity'):
+            elif libspud.have_option(options_key + '/probability_density_function/fluid_velocity'):
                 pdf = None
             else:
                 g_vars, l_vars = globals(), locals()
-                exec(libspud.get_option(options_key+'/probability_density_function/python')) in g_vars, l_vars
+                exec(libspud.get_option(options_key + '/probability_density_function/python')) in g_vars, l_vars
                 pdf = l_vars['val']
 
             inlets.append(Inlet(surface_ids, insertion_rate, velocity, pdf))
@@ -206,9 +205,9 @@ class OptionsReader(object):
     def get_mesh_filename(self):
         """Return the mesh file name"""
         if Parallel.is_parallel():
-            return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'_%d.msh'%Parallel.get_rank()
-        #otherwise
-        return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name')+'.msh'
+            return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name') + '_%d.msh' % Parallel.get_rank()
+        # otherwise
+        return libspud.get_option('/geometry/mesh::CoordinateMesh/from_file/file_name') + '.msh'
 
     def get_current_time(self):
         """Return the current time from the options file."""
@@ -226,16 +225,16 @@ class OptionsReader(object):
         """Return the number of fluidity adapts at first timestep."""
         if libspud.have_option('/mesh_adaptivity/hr_adaptivity/adapt_at_first_timestep/number_of_adapts'):
             return libspud.get_option('/mesh_adaptivity/hr_adaptivity/adapt_at_first_timestep/number_of_adapts')
-        #otherwise
+        # otherwise
         return 0
 
     def get_dump_period(self):
         """Return the dump period and whether this is measured in timesteps."""
         if libspud.have_option('/io/dump_period_in_timesteps'):
             opt_type = libspud.get_child_name('/io/dump_period_in_timesteps', 0)
-            period = libspud.get_option('/io/dump_period_in_timesteps/'+opt_type)
+            period = libspud.get_option('/io/dump_period_in_timesteps/' + opt_type)
             return period, True
-        #otherwise
+        # otherwise
         opt_type = libspud.get_child_name('/io/dump_period', 0)
-        period = libspud.get_option('/io/dump_period/'+opt_type)
+        period = libspud.get_option('/io/dump_period/' + opt_type)
         return period, False

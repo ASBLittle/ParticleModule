@@ -9,17 +9,19 @@ from particle_model.Debug import logger
 import vtk
 from vtk.util import numpy_support
 
+
 def radial_distribution_function(alpha):
 
     """Calculate radial distribution function."""
 
     ALPHA_MAX = 0.59999
 
-    ALPHA0 =0.6
+    ALPHA0 = 0.6
 
     numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
 
-    return 1.0/(1.0-(alpha/ALPHA0)**(1.0/3.0))
+    return 1.0 / (1.0 - (alpha / ALPHA0)**(1.0 / 3.0))
+
 
 def rdf_deriv(alpha):
 
@@ -31,11 +33,13 @@ def rdf_deriv(alpha):
 
     numpy.where(alpha > ALPHA_MAX, ALPHA_MAX, alpha)
 
-    return -1.0/(3.0*ALPHA0)*(alpha/ALPHA0)**(-2.0/3.0)/(1.0-(alpha/ALPHA0)**(1.0/3.0))**2
+    return -1.0 / (3.0 * ALPHA0) * (alpha / ALPHA0)**(-2.0 / 3.0) / (1.0 - (alpha / ALPHA0)**(1.0 / 3.0))**2
+
 
 def distance2(pnt1, pnt2):
     """Get square of distance between two points."""
     return vtk.vtkMath().Distance2BetweenPoints(pnt1, pnt2)
+
 
 def calculate_averaged_properties_cpp(poly_data):
     """Calculate volume averaged values using C++."""
@@ -49,6 +53,7 @@ def calculate_averaged_properties_cpp(poly_data):
     poly_data.DeepCopy(gt_filter.GetOutput())
 
     return numpy_support.vtk_to_numpy(poly_data.GetPointData().GetVectors("SolidPressureGradient"))
+
 
 def calculate_averaged_properties(poly_data, bucket):
 
@@ -71,7 +76,7 @@ def calculate_averaged_properties(poly_data, bucket):
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
 
-        beta = 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+        beta = 1.0 / 6.0 * numpy.pi * particle.parameters.diameter**3
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
@@ -81,14 +86,14 @@ def calculate_averaged_properties(poly_data, bucket):
             rad2 = distance2(particle2.pos, particle.pos)
             rad2 /= LENGTH**2
 
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
+            gamma = beta * numpy.exp(-rad2) * MODIFIER
 
             volume[point_index] += gamma
 
-            velocity[point_index, :] += particle.vel*gamma
+            velocity[point_index, :] += particle.vel * gamma
 
-    volume /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
-    velocity /= 0.5*LENGTH**2*(1.0-numpy.exp(-1.0**2))
+    volume /= 0.5 * LENGTH**2 * (1.0 - numpy.exp(-1.0**2))
+    velocity /= 0.5 * LENGTH**2 * (1.0 - numpy.exp(-1.0**2))
 
     for i in range(3):
         velocity[:, i] /= volume
@@ -97,7 +102,7 @@ def calculate_averaged_properties(poly_data, bucket):
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
 
-        beta = 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+        beta = 1.0 / 6.0 * numpy.pi * particle.parameters.diameter**3
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
@@ -105,41 +110,40 @@ def calculate_averaged_properties(poly_data, bucket):
             rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
             rad2 /= LENGTH**2
 
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
+            gamma = beta * numpy.exp(-rad2) * MODIFIER
 
             c = distance2(particle.vel, velocity[k, :])
 
-            temperature[point_index] += c*gamma
-
+            temperature[point_index] += c * gamma
 
     for particle in bucket:
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(LENGTH, particle.pos, point_list)
 
-        beta = 1.0/6.0*numpy.pi*particle.parameters.diameter**3
+        beta = 1.0 / 6.0 * numpy.pi * particle.parameters.diameter**3
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
             rad2 = distance2(poly_data.GetPoints().GetPoint(point_index), particle.pos)
-            rad2 /= LENGTH **2
+            rad2 /= LENGTH**2
 
-            gamma = beta*numpy.exp(-rad2)*MODIFIER
+            gamma = beta * numpy.exp(-rad2) * MODIFIER
 
             c = distance2(particle.vel, velocity[point_index, :])
 
-            val = (bucket.particles[point_index].pos-particle.pos)/LENGTH**2
+            val = (bucket.particles[point_index].pos - particle.pos) / LENGTH**2
 
-            spg = ((radial_distribution_function(volume[point_index])
-                    +volume[point_index]*rdf_deriv(volume[point_index]))*temperature[point_index]
-                   +c*volume[point_index]*radial_distribution_function(volume[point_index]))
+            spg = ((radial_distribution_function(volume[point_index]) +
+                    volume[point_index] * rdf_deriv(volume[point_index])) * temperature[point_index] +
+                   c * volume[point_index] * radial_distribution_function(volume[point_index]))
 
-            solid_pressure_gradient[point_index, :] += (val*spg*gamma)
+            solid_pressure_gradient[point_index, :] += (val * spg * gamma)
 
     for _ in range(poly_data.GetNumberOfPoints()):
 
-        solid_pressure[_] = (bucket.particles[0].parameters.rho*volume[_]
-                             *radial_distribution_function(volume[_])*temperature[_])
+        solid_pressure[_] = (bucket.particles[0].parameters.rho * volume[_] *
+                             radial_distribution_function(volume[_]) * temperature[_])
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -166,6 +170,7 @@ def calculate_averaged_properties(poly_data, bucket):
 
     return data[4]
 
+
 def get_measure(cell):
     """Get the measure of a VTK cell."""
     if cell.GetCellType() == vtk.VTK_LINE:
@@ -176,6 +181,7 @@ def get_measure(cell):
         pts = [cell.GetPoints().GetPoint(i) for i in range(4)]
         return cell.ComputeVolume(*pts)
     return None
+
 
 def point_average(model, bucket):
     """ Calculate a volume fraction estimate at the level of the grid."""
@@ -199,7 +205,7 @@ def point_average(model, bucket):
     for _ in range(ugrid.GetNumberOfCells()):
         cell = ugrid.GetCell(_)
 
-        loc_vol = get_measure(cell)/cell.GetNumberOfPoints()
+        loc_vol = get_measure(cell) / cell.GetNumberOfPoints()
 
         for i in range(cell.GetNumberOfPoints()):
             logger.info(cell.GetPointIds().GetId(i))
@@ -212,19 +218,19 @@ def point_average(model, bucket):
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
-            rad2 = 0.0*distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
+            rad2 = 0.0 * distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
             rad2 /= LENGTH**2
 
-            gamma = particle.volume*numpy.exp(-rad2)
+            gamma = particle.volume * numpy.exp(-rad2)
 
             volume[point_index] += gamma
-            velocity[point_index, :] += particle.vel*gamma
+            velocity[point_index, :] += particle.vel * gamma
 
     for _ in range(ugrid.GetNumberOfPoints()):
         if volume[_] > 1.0e-12:
             velocity[_, :] /= volume[_]
 
-    volfrac = volume/cell_volume
+    volfrac = volume / cell_volume
 
     for particle in bucket:
         point_list = vtk.vtkIdList()
@@ -236,20 +242,18 @@ def point_average(model, bucket):
             rad2 = distance2(ugrid.GetPoints().GetPoint(point_index), particle.pos)
             rad2 /= LENGTH**2
 
-            gamma = particle.volume*numpy.exp(-rad2)
+            gamma = particle.volume * numpy.exp(-rad2)
 
             c = distance2(particle.vel, velocity[point_index, :])
 
-            temperature[point_index] += c*gamma
-
-
+            temperature[point_index] += c * gamma
 
     for _ in range(ugrid.GetNumberOfPoints()):
         if volume[_] > 1.0e-12:
             temperature[_] /= volume[_]
 
-    solid_pressure = (bucket.particles[0].parameters.rho*volfrac
-                      *radial_distribution_function(volfrac)*temperature)
+    solid_pressure = (bucket.particles[0].parameters.rho * volfrac *
+                      radial_distribution_function(volfrac) * temperature)
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -279,6 +283,7 @@ def point_average(model, bucket):
 
     return ugrid
 
+
 def cell_average(model, bucket):
     """ Calculate a volume fraction estimate at the level of the grid."""
 
@@ -297,7 +302,7 @@ def cell_average(model, bucket):
     for particle in bucket:
         cell_id = locator.FindCell(particle.pos)
         volume[cell_id] += particle.volume
-        velocity[cell_id, :] += particle.volume*particle.vel
+        velocity[cell_id, :] += particle.volume * particle.vel
 
     for _ in range(ugrid.GetNumberOfCells()):
         if volume[_] > 1.0e-12:
@@ -306,7 +311,7 @@ def cell_average(model, bucket):
 
     for particle in bucket:
         cell_id = locator.FindCell(particle.pos)
-        temperature[cell_id] += particle.volume*distance2(particle.vel, velocity[cell_id, :])
+        temperature[cell_id] += particle.volume * distance2(particle.vel, velocity[cell_id, :])
 
     for _ in range(ugrid.GetNumberOfCells()):
         if volume[_] > 1.0e-12:

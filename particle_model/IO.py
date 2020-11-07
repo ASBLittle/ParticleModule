@@ -36,24 +36,25 @@ WEIGHTS = numpy.zeros(10)
 SUB_ID = vtk.mutable(0)
 CELL = vtk.vtkGenericCell()
 
-TYPE_DICT = {1 : vtk.VTK_LINE, 2 : vtk.VTK_TRIANGLE, 4 : vtk.VTK_TETRA,
-             15 : vtk.VTK_PIXEL}
+TYPE_DICT = {1: vtk.VTK_LINE, 2: vtk.VTK_TRIANGLE, 4: vtk.VTK_TETRA,
+             15: vtk.VTK_PIXEL}
 
-WRITER = {vtk.VTK_UNSTRUCTURED_GRID:(vtk.vtkXMLPUnstructuredGridWriter
+WRITER = {vtk.VTK_UNSTRUCTURED_GRID: (vtk.vtkXMLPUnstructuredGridWriter
                                      if Parallel.is_parallel()
                                      else vtk.vtkXMLUnstructuredGridWriter),
-          vtk.VTK_STRUCTURED_GRID:(vtk.vtkXMLPStructuredGridWriter
+          vtk.VTK_STRUCTURED_GRID: (vtk.vtkXMLPStructuredGridWriter
                                      if Parallel.is_parallel()
                                      else vtk.vtkXMLStructuredGridWriter),
-          vtk.VTK_RECTILINEAR_GRID:(vtk.vtkXMLPRectilinearGridWriter
+          vtk.VTK_RECTILINEAR_GRID: (vtk.vtkXMLPRectilinearGridWriter
                                      if Parallel.is_parallel()
                                      else vtk.vtkXMLRectilinearGridWriter),
-          vtk.VTK_POLY_DATA:(vtk.vtkXMLPPolyDataWriter
+          vtk.VTK_POLY_DATA: (vtk.vtkXMLPPolyDataWriter
                              if Parallel.is_parallel()
                              else vtk.vtkXMLPolyDataWriter),
-          vtk.VTK_TABLE:(None
+          vtk.VTK_TABLE: (None
                          if Parallel.is_parallel()
                          else vtk.vtkDelimitedTextWriter)}
+
 
 class PolyData(object):
     """ Class storing a living vtkPolyData construction"""
@@ -61,14 +62,13 @@ class PolyData(object):
     def __init__(self, filename, fields=None):
         """ Initialize the PolyData instance"""
 
-
         if filename.rsplit('.', 1)[-1] in ('pvtp', 'vtp'):
             self.filename = filename
         else:
             if Parallel.is_parallel():
-                self.filename = filename +'.pvtp'
+                self.filename = filename + '.pvtp'
             else:
-                self.filename = filename +'.vtp'
+                self.filename = filename + '.vtp'
         self.cell_ids = {}
         self.poly_data = vtk.vtkPolyData()
         self.pnts = vtk.vtkPoints()
@@ -135,6 +135,7 @@ class PolyData(object):
         if Parallel.is_parallel():
             make_subdirectory(self.filename)
 
+
 class BoundaryData(object):
     """ Class storing the boundary data for the problem"""
     def __init__(self, filename=None, bnd=None, outlet_ids=None,
@@ -184,7 +185,7 @@ class BoundaryData(object):
         """ Update the boundary data from a new object."""
 
         if boundary.IsA('vtkMultiBlockDataSet'):
-            self.bnd = boundary.GetBlock(boundary.GetNumberOfBlocks()-1)
+            self.bnd = boundary.GetBlock(boundary.GetNumberOfBlocks() - 1)
         else:
             self.bnd = boundary
 
@@ -241,10 +242,11 @@ class BoundaryData(object):
                                     pos_i, ARGV, ARGI,
                                     cell_index, CELL)
 
-        if t_val>0.0 and t_val<=1.0:
+        if t_val > 0.0 and t_val <= 1.0:
             return (True, numpy.array(pos_i), t_val, cell_index, ARGV)
-        #otherwise
+        # otherwise
         return False, None, None, -1, None
+
     def has_surface_ids(self):
         """Boolean test whether boundary stores surface ids."""
         return self.bnd.GetCellData().HasArray('SurfaceIds')
@@ -256,7 +258,7 @@ class BoundaryData(object):
 
         if not self.has_surface_ids():
             return None
-        #otherwise
+        # otherwise
         return self.bnd.GetCellData().GetScalars('SurfaceIds').GetValue(cell_index)
 
 
@@ -293,10 +295,10 @@ def clean_unstructured_grid(ugrid):
 
         out_grid.InsertNextCell(cell.GetCellType(), cell.GetPointIds())
 
-
     out_grid.GetCellData().DeepCopy(ugrid.GetCellData())
 
     return out_grid
+
 
 def extract_boundary(ugrid):
     """Extract the boundary elements from an unstructured grid, provided it already contains them.
@@ -337,7 +339,7 @@ def extract_boundary(ugrid):
             return 2
         if cell_type in TYPES_1D:
             return 1
-        #otherwise
+        # otherwise
         return 0
 
     ncells = ugrid.GetNumberOfCells()
@@ -358,6 +360,7 @@ def extract_boundary(ugrid):
 
     return out_grid
 
+
 def write_bucket_to_polydata(bucket):
 
     """ Output the points of a bucket to a vtkPoints object. """
@@ -374,6 +377,7 @@ def write_bucket_to_polydata(bucket):
                                      poly_data.GetPoints().InsertNextPoint(*positions))
         poly_data.InsertNextCell(pixel.GetCellType(), pixel.GetPointIds())
 
+
 def write_bucket_to_points(bucket):
 
     """ Output the basic data of a bucket to a vtkPolyData object. """
@@ -386,7 +390,8 @@ def write_bucket_to_points(bucket):
 
     return pnts
 
-def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump_no=None, do_average=False, field_data=None,**kwargs):
+
+def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump_no=None, do_average=False, field_data=None, **kwargs):
     """Output a time level of a particle bucket to a vtkPolyData (.vtp) files.
 
     Each file contains one time level of the data, and are numbered sequentially.
@@ -428,7 +433,6 @@ def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump
         else:
             live.InsertNextValue(0.0)
 
-
     velocity = vtk.vtkDoubleArray()
     velocity.SetNumberOfComponents(3)
     velocity.Allocate(len(bucket))
@@ -468,18 +472,18 @@ def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump
     else:
         file_ext = 'vtp'
 
-
-    if checkpoint: ##if checkpoint, write both level file as well as checkpoint file
-		write_to_file(poly_data, "%s_%d_checkpoint.%s"%(basename, dump_no, file_ext))
-		write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))
+    if checkpoint:  # if checkpoint, write both level file as well as checkpoint file
+        write_to_file(poly_data, "%s_%d_checkpoint.%s" % (basename, dump_no, file_ext))
+        write_to_file(poly_data, "%s_%d.%s" % (basename, level, file_ext))
     else:
-    	write_to_file(poly_data, "%s_%d.%s"%(basename, level, file_ext))         
+        write_to_file(poly_data, "%s_%d.%s" % (basename, level, file_ext))
 
     if do_average:
         return gsp
 
+
 def write_level_to_csv(bucket, level, basename=None, do_average=False,
-                            field_data=None, **kwargs):
+                       field_data=None, **kwargs):
 
     """Output a time level of a particle bucket to a text (.csv) files.
 
@@ -556,7 +560,8 @@ def write_level_to_csv(bucket, level, basename=None, do_average=False,
             _.InsertNextValue(particle.fields[name])
         table.AddColumn(_)
 
-    write_to_file(table, "%s_%d.%s"%(basename, level, 'csv'))
+    write_to_file(table, "%s_%d.%s" % (basename, level, 'csv'))
+
 
 def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     """ Output a time level of a bucket to a vtkXMLUnstructuredGrid (.vtu) file.
@@ -599,39 +604,39 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
 
-            rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
-                              -dummy_particle.pos)**2)
+            rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index)) -
+                             dummy_particle.pos)**2)
             rad2 /= length
 
-            volume[point_index] += (1.0/6.0*numpy.pi*dummy_particle.parameters.diameter**3
-                                    *numpy.exp(-rad2**2)*multiplier)
-            velocity[point_index, :] += (dummy_particle.vel*1.0/6.0*numpy.pi
-                                         *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2)*multiplier)
+            volume[point_index] += (1.0 / 6.0 * numpy.pi * dummy_particle.parameters.diameter**3 *
+                                    numpy.exp(-rad2**2) * multiplier)
+            velocity[point_index, :] += (dummy_particle.vel * 1.0 / 6.0 * numpy.pi *
+                                         dummy_particle.parameters.diameter**3 *
+                                         numpy.exp(-rad2**2) * multiplier)
 
-    volume /= 0.5*length**2*(1.0-numpy.exp(-1.0**2))
-    velocity /= 0.5*length**2*(1.0-numpy.exp(-1.0**2))
+    volume /= 0.5 * length**2 * (1.0 - numpy.exp(-1.0**2))
+    velocity /= 0.5 * length**2 * (1.0 - numpy.exp(-1.0**2))
 
     for dummy_particle in bucket:
         point_list = vtk.vtkIdList()
         locator.FindPointsWithinRadius(length, dummy_particle.pos, point_list)
 
-        rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index))
-                          -dummy_particle.pos)**2)
+        rad2 = numpy.sum((numpy.array(ugrid.GetPoints().GetPoint(point_index)) -
+                         dummy_particle.pos)**2)
         rad2 /= length
 
         for _ in range(point_list.GetNumberOfIds()):
             point_index = point_list.GetId(_)
-            c = numpy.sum((dummy_particle.vel-velocity[point_index, :])**2)
+            c = numpy.sum((dummy_particle.vel - velocity[point_index, :])**2)
 
-            temperature[point_index] += (c*1.0/6.0*numpy.pi
-                                         *dummy_particle.parameters.diameter**3
-                                         *numpy.exp(-rad2**2)*multiplier)
+            temperature[point_index] += (c * 1.0 / 6.0 * numpy.pi *
+                                         dummy_particle.parameters.diameter**3 *
+                                         numpy.exp(-rad2**2) * multiplier)
 
     for _ in range(ugrid.GetNumberOfPoints()):
 
-        solid_pressure[_] = (dummy_particle.parameters.rho*volume[_]
-                             *radial_distribution_function(volume[_])*temperature[_])
+        solid_pressure[_] = (dummy_particle.parameters.rho * volume[_] *
+                             radial_distribution_function(volume[_]) * temperature[_])
 
     data = [vtk.vtkDoubleArray()]
     data[0].SetName('SolidVolumeFraction')
@@ -646,9 +651,9 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     for _ in range(ugrid.GetNumberOfPoints()):
         data[0].InsertNextValue(volume[_])
         if volume[_] > 1.0e-20:
-            data[1].InsertNextTuple3(*(velocity[_]/volume[_]))
+            data[1].InsertNextTuple3(*(velocity[_] / volume[_]))
         else:
-            data[1].InsertNextTuple3(*(0*velocity[_]))
+            data[1].InsertNextTuple3(*(0 * velocity[_]))
         data[2].InsertNextValue(temperature[_])
         data[3].InsertNextValue(solid_pressure[_])
         ugrid.GetPointData().GetScalars('Time').SetValue(_, bucket.time)
@@ -656,9 +661,10 @@ def write_level_to_ugrid(bucket, level, basename, model, **kwargs):
     for _ in data:
         ugrid.GetPointData().AddArray(_)
 
-    write_to_file(ugrid, "%s_out_%d.vtu"%(basename, level))
+    write_to_file(ugrid, "%s_out_%d.vtu" % (basename, level))
 
-def update_collision_polydata(bucket, base_name, **kwargs):
+
+def update_collision_polydata(bucket, base_name, wm, **kwargs):
     """ Update collisions from data in the particle bucket."""
 
     if Parallel.is_parallel():
@@ -666,10 +672,14 @@ def update_collision_polydata(bucket, base_name, **kwargs):
     else:
         fext = 'vtp'
 
-    collision_list_to_polydata(bucket.collisions(), base_name+'_collisions.'+fext)
+    collision_list_to_polydata(bucket.collisions(), base_name + '_collisions.' + fext, wm)
+
+# def collision_list_to_polydata(col_list, outfile,
+#                               model=Collision.mclaury_mass_coeff, **kwargs):
+
 
 def collision_list_to_polydata(col_list, outfile,
-                               model=Collision.mclaury_mass_coeff, **kwargs):
+                               wm, **kwargs):
     """Convert collision data to a single vtkPolyData (.vtp) files.
 
     Each particle is written to seperate cell.
@@ -677,6 +687,13 @@ def collision_list_to_polydata(col_list, outfile,
     Args:
         outfile (str):  Filename of the output PolyDataFile. The extension .vtp
         is NOT added automatically."""
+    if wm == "Arabnejad":
+        model = Collision.arabnejad
+    elif wm == "McLaury":
+        model = Collision.mclaury_mass_coeff
+    else:
+        print "Lily no wear option selected"
+        model = Collision.mclaury_mass_coeff
 
     poly_data = vtk.vtkPolyData()
     pnts = vtk.vtkPoints()
@@ -1078,7 +1095,7 @@ def interpolate_collision_data(col_list, ugrid, method='nearest'):
     out_pts = numpy.array([ugrid.GetPoint(i) for i in range(ugrid.GetNumberOfPoints())])
 
     data_pts = numpy.array([c.pos for c in col_list])
-    wear_pts = numpy.array([c.get_wear() for c in col_list])
+    wear_pts = numpy.array([c.get_wear(wm, ER) for c in col_list])
 
     wear_on_grid = griddata(data_pts, wear_pts, out_pts, method=method)
 #    rbfi = Rbf(data_pts[:,0], data_pts[:, 1], data_pts[:, 2], wear_pts,
@@ -1484,17 +1501,23 @@ def get_real_x(cell, locx):
 
 def read_from_polydata(filename):
     """Return numpy arrays of particle location and velocities."""
+    print "Lily in read from polydata"
     if Parallel.is_parallel():
         reader = vtk.vtkXMLPPolyDataReader()
     else:
+        print "Lily creating serial polyreader object"
         reader = vtk.vtkXMLPolyDataReader()
+    print "Lily about to read file", filename
     reader.SetFileName(filename)
+    print "Lily about to update"
     reader.Update()
     
     polydata = reader.GetOutput()
-
+    print "Lily getting coordinates"
     coordinates = dataset_adapter.WrapDataObject(polydata).Points
+    print "Lily getting velocity"
     velocity = dataset_adapter.WrapDataObject(polydata).PointData["Particle Velocity"]
+    print "Lily setting coordinates and velocity"
 
     X = vtk_to_numpy(coordinates)
     V = vtk_to_numpy(velocity)

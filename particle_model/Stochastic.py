@@ -3,6 +3,7 @@
 import numpy
 import numpy.random
 
+
 def generic_1d_gaussian_drift(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
     # Calculate stochastic part of magnitude.
@@ -10,9 +11,10 @@ def generic_1d_gaussian_drift(kappa, pos, vel, time, delta_t):
     # Calculate time varying part of drift term.
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
-    K = numpy.sqrt(2.0*kappa(pos))/numpy.sqrt(delta_t)
+    K = numpy.sqrt(2.0 * kappa(pos)) / numpy.sqrt(delta_t)
 
-    return numpy.array((r*K, 0.0, 0.0))
+    return numpy.array((r * K, 0.0, 0.0))
+
 
 def generic_2d_gaussian_drift(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
@@ -24,26 +26,27 @@ def generic_2d_gaussian_drift(kappa, pos, vel, time, delta_t):
     # Calculate time varying part of drift term.
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
-    K = numpy.sqrt(4.0*kappa(pos))/numpy.sqrt(delta_t)
+    K = numpy.sqrt(4.0 * kappa(pos)) / numpy.sqrt(delta_t)
 
-    return numpy.array((r*numpy.cos(theta), r*numpy.sin(theta), 0.0))*K
+    return numpy.array((r * numpy.cos(theta), r * numpy.sin(theta), 0.0)) * K
+
 
 def generic_3d_gaussian_drift(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
 
     # Choose direction (some double counting going on)
-    theta = numpy.random.uniform(0, 2.0*numpy.pi)
-    phi = numpy.random.uniform(0, 2.0*numpy.pi)
+    theta = numpy.random.uniform(0, 2.0 * numpy.pi)
+    phi = numpy.random.uniform(0, 2.0 * numpy.pi)
     # Calculate stochastic part of magnitude.
     r = numpy.random.standard_normal()
     # Calculate time varying part of drift term.
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
-    K = numpy.sqrt(6.0*kappa(pos))/numpy.sqrt(delta_t)
+    K = numpy.sqrt(6.0 * kappa(pos)) / numpy.sqrt(delta_t)
 
-    return K*numpy.array((r*numpy.cos(theta)*numpy.cos(phi), 
-                          r*numpy.sin(theta)*numpy.cos(phi),
-                          r*numpy.sin(phi)))
+    return K * numpy.array((r * numpy.cos(theta) * numpy.cos(phi),
+                           r * numpy.sin(theta) * numpy.cos(phi),
+                           r * numpy.sin(phi)))
 
 generic_gaussian_drift = [None,
                           generic_1d_gaussian_drift,
@@ -57,8 +60,9 @@ def constant_gaussian_drift_term(kappa, dim=3):
     def func(pos, vel, time, delta_t):
         """ Constant valued drift term"""
         return generic_gaussian_drift[dim](lambda pos: kappa, pos, vel, time, delta_t)
-    
+
     return func
+
 
 def nonconstant_gaussian_drift_term(kappa, dim=3):
     """ Factory for a nonconstant valued drift term"""
@@ -67,8 +71,9 @@ def nonconstant_gaussian_drift_term(kappa, dim=3):
         """ Nononstant valued drift term"""
 
         return generic_gaussian_drift[dim](kappa, pos, vel, time, delta_t)
-    
+
     return func
+
 
 def generic_1d_gaussian_impulse(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
@@ -78,9 +83,10 @@ def generic_1d_gaussian_impulse(kappa, pos, vel, time, delta_t):
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
     del_t = max(delta_t, 1.0e-8)
-    K = numpy.sqrt(2.0*kappa(pos))/(del_t*numpy.sqrt(del_t))
+    K = numpy.sqrt(2.0 * kappa(pos)) / (del_t * numpy.sqrt(del_t))
 
-    return numpy.array((r*K, 0.0, 0.0))
+    return numpy.array((r * K, 0.0, 0.0))
+
 
 def generic_2d_gaussian_impulse(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
@@ -93,27 +99,28 @@ def generic_2d_gaussian_impulse(kappa, pos, vel, time, delta_t):
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
     del_t = max(delta_t, 1.0e-8)
-    K = numpy.sqrt(4.0*kappa(pos))/(del_t*numpy.sqrt(del_t))
+    K = numpy.sqrt(4.0 * kappa(pos)) / (del_t * numpy.sqrt(del_t))
 
-    return numpy.array((r*numpy.cos(theta), r*numpy.sin(theta), 0.0))*K
+    return numpy.array((r * numpy.cos(theta), r * numpy.sin(theta), 0.0)) * K
+
 
 def generic_3d_gaussian_impulse(kappa, pos, vel, time, delta_t):
     """ A Langevin equation style random walk term, to apply as a callback."""
 
     # Choose direction (some double counting going on)
-    theta = numpy.random.uniform(0, 2.0*numpy.pi)
-    phi = numpy.random.uniform(0, 2.0*numpy.pi)
+    theta = numpy.random.uniform(0, 2.0 * numpy.pi)
+    phi = numpy.random.uniform(0, 2.0 * numpy.pi)
     # Calculate stochastic part of magnitude.
     r = numpy.random.standard_normal()
     # Calculate time varying part of impulse term.
     # dr ~ N(0, sqrt(2*d*kappa*dt))
     # but we calculate dr/dt
     del_t = max(delta_t, 1.0e-8)
-    K = numpy.sqrt(6.0*kappa(pos))/(del_t*numpy.sqrt(del_t))
+    K = numpy.sqrt(6.0 * kappa(pos)) / (del_t * numpy.sqrt(del_t))
 
-    return K*numpy.array((r*numpy.cos(theta)*numpy.cos(phi), 
-                          r*numpy.sin(theta)*numpy.cos(phi),
-                          r*numpy.sin(phi)))
+    return K * numpy.array((r * numpy.cos(theta) * numpy.cos(phi),
+                           r * numpy.sin(theta) * numpy.cos(phi),
+                           r * numpy.sin(phi)))
 
 generic_gaussian_impulse = [None,
                             generic_1d_gaussian_impulse,
@@ -127,8 +134,9 @@ def constant_gaussian_impulse_term(kappa, dim=3):
     def func(pos, vel, time, delta_t):
         """ Constant valued impulse term"""
         return generic_gaussian_impulse[dim](lambda pos: kappa, pos, vel, time, delta_t)
-    
+
     return func
+
 
 def nonconstant_gaussian_impulse_term(kappa, dim=3):
     """ Factory for a nonconstant valued impulse term"""
@@ -137,5 +145,5 @@ def nonconstant_gaussian_impulse_term(kappa, dim=3):
         """ Nononstant valued impulse term"""
 
         return generic_gaussian_impulse[dim](kappa, pos, vel, time, delta_t)
-    
+
     return func

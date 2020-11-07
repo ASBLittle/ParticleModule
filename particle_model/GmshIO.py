@@ -1,5 +1,6 @@
 """ Model containing class to read Gmsh files."""
 
+
 class GmshMesh(object):
     """This is a class for storing nodes and elements.
 
@@ -26,10 +27,10 @@ class GmshMesh(object):
 
         mshfile = open(filename, 'r')
 
-        mode_dict = {'$NOD' : 1, '$Nodes' : 1,
-                     '$ELM' : 2,
-                     '$Elements' : 3,
-                     '$MeshFormat' : 4}
+        mode_dict = {'$NOD': 1, '$Nodes': 1,
+                     '$ELM': 2,
+                     '$Elements': 3,
+                     '$MeshFormat': 4}
 
         readmode = 0
         line = 'a'
@@ -57,7 +58,7 @@ class GmshMesh(object):
                         elif ftype == 1:
                             nnods = int(columns[0])
                             for __ in range(nnods):
-                                data = mshfile.read(4+3*dsize)
+                                data = mshfile.read(4 + 3 * dsize)
                                 values = struct.unpack('=i3d', data)
                                 self.nodes[values[0]] = list(values[1:])
                             mshfile.read(1)
@@ -78,24 +79,24 @@ class GmshMesh(object):
                         else:
                             # Version 2.0 Elements
                             ntags = columns[2]
-                            tags = columns[3:3+ntags]
-                            nodes = columns[3+ntags:]
+                            tags = columns[3:3 + ntags]
+                            nodes = columns[3 + ntags:]
                         self.elements[ele_id] = (ele_type, tags, nodes)
                 elif readmode == 3 and ftype == 1:
-                    tdict = {1:2, 2:3, 3:4, 4:4, 5:5, 6:6, 7:5, 8:3, 9:6, 10:9, 11:10}
+                    tdict = {1: 2, 2: 3, 3: 4, 4: 4, 5: 5, 6: 6, 7: 5, 8: 3, 9: 6, 10: 9, 11: 10}
                     try:
                         neles = int(columns[0])
                         k = 0
                         while k < neles:
-                            ele_type, ntype, ntags = struct.unpack('=3i', mshfile.read(3*4))
+                            ele_type, ntype, ntags = struct.unpack('=3i', mshfile.read(3 * 4))
                             k += ntype
                             for __ in range(ntype):
-                                mysize = 1+ntags+tdict[ele_type]
-                                data = struct.unpack('=%di'%mysize,
-                                                     mshfile.read(4*mysize))
+                                mysize = 1 + ntags + tdict[ele_type]
+                                data = struct.unpack('=%di' % mysize,
+                                                     mshfile.read(4 * mysize))
                                 self.elements[data[0]] = (ele_type,
-                                                          data[1:1+ntags],
-                                                          data[1+ntags:])
+                                                          data[1:1 + ntags],
+                                                          data[1 + ntags:])
                     except:
                         raise
                     mshfile.read(1)
@@ -108,15 +109,15 @@ class GmshMesh(object):
         with open(filename, 'w') as mshfile:
 
             mshfile.write('$MeshFormat\n2.0 0 8\n$EndMeshFormat\n')
-            mshfile.write('$Nodes\n%d\n'%len(self.nodes))
+            mshfile.write('$Nodes\n%d\n' % len(self.nodes))
             for node_id, coord in self.nodes.items():
-                mshfile.write('%s %s %s\n'%(mshfile, node_id, ' '.join([str(c) for c in  coord])))
+                mshfile.write('%s %s %s\n' % (mshfile, node_id, ' '.join([str(c) for c in coord])))
             mshfile.write('$EndNodes\n')
-            mshfile.write('$Elements\n%d\n'%len(self.elements))
+            mshfile.write('$Elements\n%d\n' % len(self.elements))
             for ele_id, elem in self.elements.items():
                 (ele_type, tags, nodes) = elem
-                mshfile.write('%s %s %s '%(ele_id, ele_type, len(tags)))
-                mshfile.write('%s '%' '.join([str(c) for c in tags]))
-                mshfile.write('%s\n'%' '.join([str(c) for c in nodes]))
+                mshfile.write('%s %s %s ' % (ele_id, ele_type, len(tags)))
+                mshfile.write('%s ' % ' '.join([str(c) for c in tags]))
+                mshfile.write('%s\n' % ' '.join([str(c) for c in nodes]))
             mshfile.write('$EndElements\n')
             mshfile.close()

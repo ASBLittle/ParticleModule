@@ -9,6 +9,7 @@ try:
 except ImportError:
     MPI = None
 
+
 def is_parallel():
     """ Check if this is a parallel run."""
 
@@ -18,6 +19,7 @@ def is_parallel():
     comm = MPI.COMM_WORLD
 
     return comm.Get_size() > 1
+
 
 def barrier():
     """ Set up an MPI barrier."""
@@ -31,6 +33,7 @@ def barrier():
 
     return None
 
+
 def get_rank():
     """ Get MPI rank."""
 
@@ -40,6 +43,7 @@ def get_rank():
     comm = MPI.COMM_WORLD
 
     return comm.Get_rank()
+
 
 def get_size():
     """ Get MPI size. """
@@ -51,11 +55,13 @@ def get_size():
 
     return comm.Get_size()
 
+
 def get_world_comm():
     """ Get the world communicator."""
     comm = MPI.COMM_WORLD
 
     return comm
+
 
 def is_root(root=0):
     """ Is this process rank 0?"""
@@ -72,6 +78,7 @@ def point_in_bound(pnt, bound):
                 pnt[2] > bound[4],
                 pnt[2] < bound[5]))
 
+
 def gather_bounds(bounds):
     """ Exchange bounds across multiple processors """
     comm = MPI.COMM_WORLD
@@ -83,6 +90,7 @@ def gather_bounds(bounds):
     comm.Allgather(bounds, all_bounds)
 
     return all_bounds
+
 
 def distribute_particles(particle_list, system, time=0.0):
     """ Handle exchanging particles across multiple processors """
@@ -136,6 +144,7 @@ def distribute_particles(particle_list, system, time=0.0):
 
     return output
 
+
 class ParticleId(object):
     """Id class for individual particles."""
 
@@ -148,11 +157,11 @@ class ParticleId(object):
         else:
             self.creator_id, self.creator_rank = divmod(phash, get_size())
             if self.creator_id > self.newid():
-                ### we should really update the id creator here
+                # we should really update the id creator here
                 self.update_counter(self.creator_id)
 
     def __call__(self):
-        return self.creator_id*get_size()+self.creator_rank
+        return self.creator_id * get_size() + self.creator_rank
 
     def __hash__(self):
         return self()
@@ -165,13 +174,13 @@ class ParticleId(object):
         """Get unused id number for a Particle."""
         if sys.version_info.major >= 3:
             return next(ParticleId._counter)
-        #otherwise
+        # otherwise
         return ParticleId._counter.next()
 
     @staticmethod
     def update_counter(val):
         """Increase counter to val+1."""
-        ParticleId._counter = itertools.count(val+1).next
+        ParticleId._counter = itertools.count(val + 1).next
 
 
 def cell_owned(block, ele):
@@ -182,7 +191,7 @@ def cell_owned(block, ele):
         return True
     if not block.GetBlock(0).GetCellData().HasArray("ElementOwner"):
         return True
-    return  block.GetBlock(0).GetCellData().GetScalar("ElementOwner").GetValue(ele) == get_rank()+1
+    return block.GetBlock(0).GetCellData().GetScalar("ElementOwner").GetValue(ele) == get_rank() + 1
 
 
 def point_owned(block, points):
@@ -196,6 +205,7 @@ def point_owned(block, points):
             out[k] = False
 
     return out
+
 
 def find_cell(block, point):
     """ Find which cell a point in a block is in."""

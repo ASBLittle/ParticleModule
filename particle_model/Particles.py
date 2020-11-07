@@ -22,6 +22,7 @@ LEVEL = 0
 ZERO = numpy.zeros(3)
 numpy.random.seed(42)
 
+
 class Particle(ParticleBase.ParticleBase):
     """Class representing a single Lagrangian particle with mass"""
 
@@ -42,13 +43,13 @@ class Particle(ParticleBase.ParticleBase):
         self.vel_callbacks = kwargs.get('vel_callbacks', [])
 
     def __repr__(self):
-        return "Particle((%r, %r, %r, %r, %r) , %r, %r)"%(self.pos,
-                                                          self.vel,
-                                                          self.time,
-                                                          self.delta_t,
-                                                          self._hash,
-                                                          self.parameters,
-                                                          self.system)
+        return "Particle((%r, %r, %r, %r, %r) , %r, %r)" % (self.pos,
+                                                            self.vel,
+                                                            self.time,
+                                                            self.delta_t,
+                                                            self._hash,
+                                                            self.parameters,
+                                                            self.system)
 
     def copy(self):
         """ Create a (mixed) copy of the particle."""
@@ -71,15 +72,14 @@ class Particle(ParticleBase.ParticleBase):
         except Collision.CollisionException as col:
             # wall collision occurred.
             self.vel = Collision.rebound_velocity(self, col.vel, numpy.zeros(3), col.info.normal, col.info.cell)
-            self.pos = col.pos+1.0e-10*col.info.normal
+            self.pos = col.pos + 1.0e-10 * col.info.normal
             self.time += col.delta_t
             col.info.time = self.time
             self.collisions += [col.info]
             self._old = []
-            self.update(self.delta_t-col.delta_t, method)
+            self.update(self.delta_t - col.delta_t, method)
         except Collision.OutletException as col:
             self.exited = True
-
 
     def drag_coefficient(self, position, particle_velocity, time, nearest=False):
         """ Get particle drag coefficent for specified position and velocity. """
@@ -96,7 +96,7 @@ class Particle(ParticleBase.ParticleBase):
         else:
             drag = 0.0
 
-        return drag/self.parameters.rho, fluid_velocity
+        return drag / self.parameters.rho, fluid_velocity
 
     def get_fluid_properties(self):
         """ Get the fluid velocity and pressure gradient at the particle
@@ -115,7 +115,6 @@ class Particle(ParticleBase.ParticleBase):
 
 #        if collision:
 #            raise collisionException
-
 
         if self.pure_lagrangian:
             return ZERO
@@ -139,12 +138,12 @@ class Particle(ParticleBase.ParticleBase):
             drag_force = 0.0
 
 #        try:
-        return (-1.0*grad_p / self.parameters.rho
-                + drag_force/ self.parameters.rho
-                + self.coriolis_force(particle_velocity)
-                + self.system.gravity
-                + self.centrifugal_force(position)
-                + self.solid_pressure_gradient / self.parameters.rho)
+        return (-1.0 * grad_p / self.parameters.rho +
+                drag_force / self.parameters.rho +
+                self.coriolis_force(particle_velocity) +
+                self.system.gravity +
+                self.centrifugal_force(position) +
+                self.solid_pressure_gradient / self.parameters.rho)
 #        except:
 #            IPython.embed()
 
@@ -154,8 +153,8 @@ class Particle(ParticleBase.ParticleBase):
 
     def centrifugal_force(self, position):
         """ Return centrifugal force on particle"""
-        return - (numpy.dot(self.system.omega, position) * self.system.omega
-                  - numpy.dot(self.system.omega, self.system.omega) * position)
+        return -(numpy.dot(self.system.omega, position) * self.system.omega -
+                 numpy.dot(self.system.omega, self.system.omega) * position)
 
     def find_cell(self, locator, point=None):
         """ Use vtk rountines to find cell/element containing the point."""
@@ -193,14 +192,13 @@ class Particle(ParticleBase.ParticleBase):
         if data_p is not None:
             dim = picker.cell.GetCellDimension()
             pts = numpy.array([picker.cell.GetPoints().GetPoint(i) for i in range(picker.cell.GetNumberOfPoints())])
-            if (pts.shape[0] == dim+1 
-                or (pts.shape[0] == 6 and dim == 2)
-                or (pts.shape[0] == 10 and dim == 3)):
+            if (pts.shape[0] == dim + 1 or (pts.shape[0] == 6 and dim == 2) or
+                    (pts.shape[0] == 10 and dim == 3)):
                 grad_p = Math.grad(data_p, pts, dim)
             else:
                 grad_p = numpy.zeros(3)
                 picker.cell.Derivatives(0, picker.pcoords, data_p, 1, grad_p)
-                
+
         else:
             grad_p = ZERO
 
@@ -208,9 +206,8 @@ class Particle(ParticleBase.ParticleBase):
             vdata = self.system.temporal_cache.get(infile, names[2])
             gout = picker(pos, vdata)
             return out, grad_p, gout
-        #otherwise
+        # otherwise
         return out, grad_p
-
 
     @profile
     def picker(self, pos, time, gvel_out=None, nearest=False):
@@ -246,16 +243,16 @@ class Particle(ParticleBase.ParticleBase):
             return None, None
 
         if gvel_out:
-            gvel_out = (1.0-alpha)*gvel_0+alpha*gvel_1
+            gvel_out = (1.0 - alpha) * gvel_0 + alpha * gvel_1
 
-        return ((1.0-alpha) * vel0 + alpha * vel1,
+        return ((1.0 - alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
 
     def _check_remapping(self, pos_1, pos_0, vel_0, delta_t):
         """Test for periodic/remapped boundaries"""
 
-        ### this finds the point of boundary intersection
-        ### pos_i = pos_0 + t_val*(pos_1-pos_0)
+        # this finds the point of boundary intersection
+        # pos_i = pos_0 + t_val*(pos_1-pos_0)
 
         intersect, pos_i, t_val, cell_index, pcoords = self.system.boundary.test_intersection(pos_0, pos_1)
 
@@ -265,9 +262,9 @@ class Particle(ParticleBase.ParticleBase):
                 if surface_id in self.system.boundary.mapped_ids:
                     pos_o, vel_o = self.system.boundary.mapped_ids[surface_id](pos_i, vel_0)
 
-                    pos_f = pos_o+(1.0-t_val)*delta_t*vel_o
+                    pos_f = pos_o + (1.0 - t_val) * delta_t * vel_o
 
-                    vel_i, _ = self.picker(pos_f, self.time+delta_t)
+                    vel_i, _ = self.picker(pos_f, self.time + delta_t)
 
                     par_col = copy.copy(self)
                     if self.system.boundary.dist:
@@ -279,17 +276,16 @@ class Particle(ParticleBase.ParticleBase):
                     par_col.time = self.time + t_val * delta_t
 
                     return pos_f, vel_i
-                elif surface_id in self.system.boundary.outlet_ids: 
+                elif surface_id in self.system.boundary.outlet_ids:
                     raise Collision.OutletException(pos_1, vel_0)
                 else:
                     # This is a "reflecting" boundary.
                     angle, normal = Collision.collision_angle(self, pos_0, pos_i,
-                                        cell_index)
-                    return pos_1 - 2.0*numpy.dot(pos_1-pos_i, normal)*normal, vel_0
-                    
+                                                              cell_index)
+                    return pos_1 - 2.0 * numpy.dot(pos_1 - pos_i, normal) * normal, vel_0
 
-        #otherwise
-        
+        # otherwise
+
         return pos_0, vel_0
 
     def check_collision_full(self, pos_1, pos_0, vel_1, vel_0, delta_t, drag):
@@ -305,12 +301,12 @@ class Particle(ParticleBase.ParticleBase):
         """
 
         if self.pure_lagrangian:
-            fvel = self.picker(pos_1, self.time+delta_t)[0]
+            fvel = self.picker(pos_1, self.time + delta_t)[0]
             if fvel is None:
                 return self._check_remapping(pos_1, pos_0, vel_0, delta_t)
 
             for cback in self.vel_callbacks:
-                fvel += delta_t*cback(pos_1, fvel, self.time+delta_t, delta_t)
+                fvel += delta_t * cback(pos_1, fvel, self.time + delta_t, delta_t)
 
             return pos_1, fvel
 
@@ -323,14 +319,14 @@ class Particle(ParticleBase.ParticleBase):
                     raise Collision.OutletException(pos_1, vel_1)
                 elif surface_id in self.system.boundary.mapped_ids:
                     raise Collision.MappedBoundaryException(self.system.boundary.mapped_ids[surface_id])
-            #otherwise
+            # otherwise
             raise Collision.CollisionException(self, pos_i, cell_index,
-                                               t_val*delta_t)
+                                               t_val * delta_t)
 
         # no collisions
         if drag:
             return pos_1, self._drag_update(pos_1, vel_0, vel_1,
-                                            self.time+delta_t, delta_t)
+                                            self.time + delta_t, delta_t)
         return pos_1, vel_1
 
     def _drag_update(self, pos, vel_0, vel_1, time, delta_t):
@@ -338,8 +334,9 @@ class Particle(ParticleBase.ParticleBase):
 
         c_d, fvel = self.drag_coefficient(pos, vel_1, time)
         if fvel is None:
-            return vel_1/(1.0+delta_t*c_d)
-        return (vel_1+delta_t*c_d*fvel)/(1.0+delta_t*c_d)
+            return vel_1 / (1.0 + delta_t * c_d)
+        return (vel_1 + delta_t * c_d * fvel) / (1.0 + delta_t * c_d)
+
 
 class ParticleBucket(object):
     """Class for a container for multiple Lagrangian particles."""
@@ -361,7 +358,7 @@ class ParticleBucket(object):
 
         self.system = system
 
-        ### pick only points which are actually in our test box
+        # pick only points which are actually in our test box
         live = system.in_system(X, len(X), time)
         X = X.compress(live, axis=0)
         V = V.compress(live, axis=0)
@@ -451,11 +448,11 @@ class ParticleBucket(object):
         _ = []
         for k, part in enumerate(self):
             if live[k] and not hasattr(part, "exited"):
-                try: 
-                #if particle updates fails e.g. max recursion depth reached
+                try:
+                    # if particle updates fails e.g. max recursion depth reached
                     part.update(self.delta_t, *args, **kwargs)
-                except RuntimeError: 
-                #remove as a stuck particle
+                except RuntimeError:
+                    # remove as a stuck particle
                     self.stuck_particles.append(part)
                     _.append(part)
             else:
@@ -495,13 +492,13 @@ class ParticleBucket(object):
                                                        self.delta_t)
             if n_par == 0:
                 continue
-            weights = inlet.cum_weight(self.time+0.5*self.delta_t,
+            weights = inlet.cum_weight(self.time + 0.5 * self.delta_t,
                                        self.system.boundary.bnd,
                                        self.system.temporal_cache)
             if weights:
                 for i in range(n_par):
                     prob = numpy.random.random()
-                    time = self.time+prob*self.delta_t
+                    time = self.time + prob * self.delta_t
                     pos = inlet.select_point(time, weights,
                                              self.system.boundary.bnd)
                     if inlet.velocity:
@@ -511,8 +508,8 @@ class ParticleBucket(object):
                         fvel = self.system.temporal_cache.get_velocity(pos, time)
                         vel[:len(fvel)] = fvel
 
-                    ## update position by fractional timestep
-                    pos = pos + vel*(1-prob)*self.delta_t
+                    # update position by fractional timestep
+                    pos = pos + vel * (1 - prob) * self.delta_t
 
                     data, alpha, names = self.system.temporal_cache(time)
                     cell_id, pcoords = vtk_extras.FindCell(data[0][3], pos)
@@ -521,7 +518,7 @@ class ParticleBucket(object):
                         continue
 
                     par = Particle((pos, vel, time,
-                                    (1.0-prob)*self.delta_t),
+                                    (1.0 - prob) * self.delta_t),
                                    system=self.system,
                                    parameters=self.parameters.randomize(),
                                    **inlet.kwargs)
@@ -533,7 +530,7 @@ class ParticleBucket(object):
 
     def collisions(self):
         """Collect all collisions felt by particles in the bucket"""
-        return [i for i in itertools.chain(*[p.collisions for p in self.particles+self.dead_particles])]
+        return [i for i in itertools.chain(*[p.collisions for p in self.particles + self.dead_particles])]
 
     def set_solid_pressure_gradient(self, solid_pressure_gradient):
         self.solid_pressure_gradient = solid_pressure_gradient
@@ -542,7 +539,7 @@ class ParticleBucket(object):
 
     def run(self, time, delta_t=None, write=False, *args, **kwargs):
         """Drive particles forward until a given time."""
-        while time-self.time > 1.0e-6*(delta_t or self.delta_t):
+        while time - self.time > 1.0e-6 * (delta_t or self.delta_t):
             self.update(delta_t, *args, **kwargs)
             if write:
                 global LEVEL

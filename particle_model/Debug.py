@@ -16,6 +16,7 @@ except KeyError:
         return obj
     builtins.__dict__['profile'] = profile
 
+
 def make_line_profiler(*args, **kwargs):
     """Register and return a line profiler."""
     import line_profiler

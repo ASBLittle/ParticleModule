@@ -11,6 +11,7 @@ from particle_model.vtk_extras import __version__
 
 from numpy import zeros
 
+
 def setup_from_fluidity(mblock, time, system_dt, delta_t=None,
                         positions=None, velocities=None):
     """Drive particles from inside Fluidity."""
@@ -34,6 +35,7 @@ def DebugOn():
     logging = particle_model.Debug.logging
     logger = particle_model.Debug.logger
     logger.setLevel(level=logging.DEBUG)
+
 
 def InfoOn():
     """ Turn on info level logging."""

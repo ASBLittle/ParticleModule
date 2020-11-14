@@ -186,7 +186,7 @@ class OptionsReader(object):
                 velocity = None
             else:
                 g_vars, l_vars = globals(), locals()
-                exec(libspud.get_option(options_key + '/particle_velocity/python')) in g_vars, l_vars
+                exec((libspud.get_option(options_key + '/particle_velocity/python')), g_vars, l_vars)
                 velocity = l_vars['val']
             if libspud.have_option(options_key + '/probability_density_function/constant'):
                 rpdf = libspud.get_option(options_key + '/probability_density_function/constant')
@@ -195,7 +195,7 @@ class OptionsReader(object):
                 pdf = None
             else:
                 g_vars, l_vars = globals(), locals()
-                exec(libspud.get_option(options_key + '/probability_density_function/python')) in g_vars, l_vars
+                exec((libspud.get_option(options_key + '/probability_density_function/python')), g_vars, l_vars)
                 pdf = l_vars['val']
 
             inlets.append(Inlet(surface_ids, insertion_rate, velocity, pdf))

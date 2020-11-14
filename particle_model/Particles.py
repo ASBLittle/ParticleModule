@@ -374,7 +374,7 @@ class ParticleBucket(object):
                            **kwargs)
             if par.pure_lagrangian:
                 par.vel = par.picker(par.pos, time)[0]
-            for name, value in field_data.items():
+            for name, value in list(field_data.items()):
                 par.fields[name] = copy.deepcopy(value[_])
             if self.system.temporal_cache:
                 dummy_u, dummy_p = par.get_fluid_properties()
@@ -400,7 +400,7 @@ class ParticleBucket(object):
     def __contains__(self, par):
         return par in self.particles
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.__bool__()
 
     def __iter__(self):

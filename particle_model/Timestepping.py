@@ -331,7 +331,7 @@ def update_apc23(self, delta_t=None):
             beta1 = (3.0 * (self.time - self.get_old(0, 2)) + delta_t) / (6.0 * self.time - self.get_old(0, 2))
             beta2 = -delta_t**2 / (6.0 * (self.time + delta_t - self.get_old(0, 2)) * (self.time - self.get_old(0, 2)))
 
-            print self.force(pos, vel, self.time + delta_t), kap[1], self.get_old(0, 1)
+            print(self.force(pos, vel, self.time + delta_t), kap[1], self.get_old(0, 1))
 
             pos = self.pos + delta_t * ((1.0 - beta1 - beta2) * vel + beta1 * self.vel + beta2 * self.get_old(0, 0))
             vel = self.vel + delta_t * ((1.0 - beta1 - beta2) * self.force(pos, vel, self.time + delta_t,
@@ -510,7 +510,7 @@ def generic_adams_bashforth(y, f, dt, t):
                                                      for x in itertools.combinations(times, len(f) - s - 1)])
                       for s in range(len(f))]) / np.prod([t[_] - t[i] for i in range(len(f)) if i != _])
 
-    print beta
+    print(beta)
     return y + dt * np.dot(beta, f)
 
 
@@ -520,14 +520,14 @@ def generic_adams_predictor_corrector(y, fun, f, dt, t):
     beta = np.empty(len(f))
     for _ in range(len(f)):
         times = [t[0] - t[i] for i in range(len(f)) if i != _]
-        print [((-dt)**s / ((s + 2.) * (s + 1)), sum([np.prod(x)
+        print([((-dt)**s / ((s + 2.) * (s + 1)), sum([np.prod(x)
                                                      for x in itertools.combinations(times, len(f) - s - 1)]))
-               for s in range(len(f))]
+               for s in range(len(f))])
         beta[_] = sum([(dt)**(s - 1) / ((s + 2.) * (s + 1.)) * sum([np.prod(x)
                                                                     for x in itertools.combinations(times, len(f) - s - 1)])
                        for s in range(len(f))]) / ((dt + t[0] - t[_]) * np.prod([t[_] - t[i]
                                                                                  for i in range(len(f)) if i != _]))
-    print beta
+    print(beta)
     return y + dt * (1.0 - sum(beta)) * f_s + dt * np.dot(beta, f)
 
 

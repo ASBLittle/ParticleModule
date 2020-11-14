@@ -78,7 +78,7 @@ class PolyData(object):
         self.fields["Time"] = 1
 
         self.arrays = {}
-        for name, num_comps in self.fields.items():
+        for name, num_comps in list(self.fields.items()):
             array = vtk.vtkDoubleArray()
             array.SetName(name)
             array.SetNumberOfComponents(num_comps)
@@ -94,7 +94,7 @@ class PolyData(object):
 
             ids.InsertNextId(part_id)
 
-            for name, num_comps in self.fields.items():
+            for name, num_comps in list(self.fields.items()):
                 if name == "Time":
                     self.poly_data.GetPointData().GetArray('Time').InsertNextValue(bucket.time)
                 elif name in particle.fields:
@@ -111,7 +111,7 @@ class PolyData(object):
         self.poly_data.SetPoints(self.pnts)
 
         self.poly_data.Allocate(len(self.cell_ids))
-        for cell_id in self.cell_ids.values():
+        for cell_id in list(self.cell_ids.values()):
             self.poly_data.InsertNextCell(vtk.VTK_LINE, cell_id)
 
         writer = WRITER[vtk.VTK_POLY_DATA]()
@@ -454,7 +454,7 @@ def write_level_to_polydata(bucket, level, basename=None, checkpoint=False, dump
     poly_data.GetPointData().AddArray(particle_id)
     poly_data.GetCellData().AddArray(live)
 
-    for name, num_comps in field_data.items():
+    for name, num_comps in list(field_data.items()):
         _ = vtk.vtkDoubleArray()
         _.SetName(name)
         _.SetNumberOfComponents(num_comps)
@@ -551,7 +551,7 @@ def write_level_to_csv(bucket, level, basename=None, do_average=False,
     table.AddColumn(particle_id)
     table.AddColumn(live)
 
-    for name, num_comps in field_data.items():
+    for name, num_comps in list(field_data.items()):
         _ = vtk.vtkDoubleArray()
         _.SetName(name)
         _.SetNumberOfComponents(num_comps)
@@ -692,7 +692,7 @@ def collision_list_to_polydata(col_list, outfile,
     elif wm == "McLaury":
         model = Collision.mclaury_mass_coeff
     else:
-        print "Lily no wear option selected"
+        print("Lily no wear option selected")
         model = Collision.mclaury_mass_coeff
 
     poly_data = vtk.vtkPolyData()
@@ -938,13 +938,13 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     pnts.Allocate(len(mesh.nodes))
 
     node2id = {}
-    for k, point in mesh.nodes.items():
+    for k, point in list(mesh.nodes.items()):
         node2id[k] = pnts.InsertNextPoint(point)
 
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pnts)
 
-    for element in mesh.elements.values():
+    for element in list(mesh.elements.values()):
         id_list = vtk.vtkIdList()
         for node in element[2]:
             id_list.InsertNextId(node2id[node])
@@ -1061,7 +1061,7 @@ def make_boundary_from_msh(mesh, outfile=None):
     pnts.Allocate(len(mesh.nodes))
 
     node2id = {}
-    for k, point in mesh.nodes.items():
+    for k, point in list(mesh.nodes.items()):
         node2id[k] = pnts.InsertNextPoint(point)
 
     ugrid = vtk.vtkUnstructuredGrid()
@@ -1070,7 +1070,7 @@ def make_boundary_from_msh(mesh, outfile=None):
     surface_ids = vtk.vtkIntArray()
     surface_ids.SetName('SurfaceIds')
 
-    for element in mesh.elements.values():
+    for element in list(mesh.elements.values()):
         id_list = vtk.vtkIdList()
         for node in element[2]:
             id_list.InsertNextId(node2id[node])
@@ -1264,7 +1264,7 @@ def get_boundary_from_fluidity_mesh(positions):
             tmp = tuple(sorted(tmp))
             faces[tmp] = not faces.get(tmp, False)
 
-    for key, val in faces.items():
+    for key, val in list(faces.items()):
         if val:
             for node in key:
                 surface_nodes.add(node)
@@ -1445,7 +1445,7 @@ def make_trajectories(outfile, base_name, extension='vtp'):
 
     trajectories.SetPoints(pnts)
     trajectories.Allocate(len(cell_ids))
-    for _ in cell_ids.values():
+    for _ in list(cell_ids.values()):
         trajectories.InsertNextCell(vtk.VTK_LINE, _)
 
     write_to_file(trajectories, outfile)
@@ -1501,23 +1501,23 @@ def get_real_x(cell, locx):
 
 def read_from_polydata(filename):
     """Return numpy arrays of particle location and velocities."""
-    print "Lily in read from polydata"
+    print("Lily in read from polydata")
     if Parallel.is_parallel():
         reader = vtk.vtkXMLPPolyDataReader()
     else:
-        print "Lily creating serial polyreader object"
+        print("Lily creating serial polyreader object")
         reader = vtk.vtkXMLPolyDataReader()
-    print "Lily about to read file", filename
+    print("Lily about to read file", filename)
     reader.SetFileName(filename)
-    print "Lily about to update"
+    print("Lily about to update")
     reader.Update()
     
     polydata = reader.GetOutput()
-    print "Lily getting coordinates"
+    print("Lily getting coordinates")
     coordinates = dataset_adapter.WrapDataObject(polydata).Points
-    print "Lily getting velocity"
+    print("Lily getting velocity")
     velocity = dataset_adapter.WrapDataObject(polydata).PointData["Particle Velocity"]
-    print "Lily setting coordinates and velocity"
+    print("Lily setting coordinates and velocity")
 
     X = vtk_to_numpy(coordinates)
     V = vtk_to_numpy(velocity)

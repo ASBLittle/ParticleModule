@@ -110,11 +110,11 @@ class GmshMesh(object):
 
             mshfile.write('$MeshFormat\n2.0 0 8\n$EndMeshFormat\n')
             mshfile.write('$Nodes\n%d\n' % len(self.nodes))
-            for node_id, coord in self.nodes.items():
+            for node_id, coord in list(self.nodes.items()):
                 mshfile.write('%s %s %s\n' % (mshfile, node_id, ' '.join([str(c) for c in coord])))
             mshfile.write('$EndNodes\n')
             mshfile.write('$Elements\n%d\n' % len(self.elements))
-            for ele_id, elem in self.elements.items():
+            for ele_id, elem in list(self.elements.items()):
                 (ele_type, tags, nodes) = elem
                 mshfile.write('%s %s %s ' % (ele_id, ele_type, len(tags)))
                 mshfile.write('%s ' % ' '.join([str(c) for c in tags]))

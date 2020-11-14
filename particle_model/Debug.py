@@ -6,7 +6,7 @@ import atexit
 try:
     import builtins
 except ImportError:
-    import __builtin__ as builtins
+    import builtins as builtins
 
 try:
     profile = builtins.__dict__['profile']

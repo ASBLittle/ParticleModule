@@ -175,12 +175,12 @@ class ParticleId(object):
         if sys.version_info.major >= 3:
             return next(ParticleId._counter)
         # otherwise
-        return ParticleId._counter.next()
+        return next(ParticleId._counter)
 
     @staticmethod
     def update_counter(val):
         """Increase counter to val+1."""
-        ParticleId._counter = itertools.count(val + 1).next
+        ParticleId._counter = itertools.count(val + 1).__next__
 
 
 def cell_owned(block, ele):

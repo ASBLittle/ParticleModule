@@ -158,7 +158,7 @@ def get_wear_rate_source(bucket, alpha, delta_t, wm, ER):
         wear[gid] += col.get_wear(wm, ER) / delta_t
 
     wear /= volume
-    print "Lily max wear rate source for %s is %s at %s with %s" % (ER, max(wear), delta_t, max(volume))
-    print "Lily min wear rate source for %s is %s at %s with %s" % (ER, min(wear), delta_t, min(volume))
+    print("Lily max wear rate source for %s is %s at %s with %s" % (ER, max(wear), delta_t, max(volume)))
+    print("Lily min wear rate source for %s is %s at %s with %s" % (ER, min(wear), delta_t, min(volume)))
 
     return wear

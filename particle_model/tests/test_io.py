@@ -62,7 +62,7 @@ def test_make_unstructured_grid(tmpdir):
     mesh.read("/".join((DATA_DIR, 'Structured.msh')))
 
 
-    print("/".join((DATA_DIR, 'Structured.msh')))
+    print(("/".join((DATA_DIR, 'Structured.msh'))))
     num = len(mesh.nodes)
 
     vel = numpy.zeros((num, 3))

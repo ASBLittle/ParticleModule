@@ -37,7 +37,7 @@ def read_pvd(filename):
         times.append(float(data.get('timestep')))
         names.append(os.sep.join((os.path.dirname(filename), data.get('file'))))
 
-    return zip(times, names)
+    return list(zip(times, names))
 
 
 def get_piece_filename_from_vtk(filename, piece=Parallel.get_rank()):

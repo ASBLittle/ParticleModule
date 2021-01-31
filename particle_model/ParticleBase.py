@@ -56,7 +56,9 @@ class PhysicalParticle(object):
     """ Class describing the physical properties of a particle drawn from a known distribution."""
 
     def __init__(self, diameter=40.0e-6, rho=2.5e3,
-                 distribution=None, material_name='Sand', **kwargs):
+                 distribution=None, material_name='Sand', n_exp=None, cutting_coeff=None, hardness=None,
+                 sharpness_factor=None, ratio_of_contact=None, material_density=None, deformation=None, 
+                 threshold_vel=None, penetration_factor=None, wear_model=None, **kwargs):
         """Initialize physical particle state."""
 
         self.diameter = diameter

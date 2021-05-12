@@ -113,7 +113,9 @@ def fluidity_to_ugrid_p1(state, p1_check, p0_check, coordinates):
     ugrid = vtk.vtkUnstructuredGrid()
     ugrid.SetPoints(pts)
 
-    for k in range(coordinates.element_count):
+    print(coordinates)
+    print(coordinates.__dict__)
+    for k in range(coordinates.mesh.element_count):
         id_list = vtk.vtkIdList()
         shape = coordinates.ele_shape(k)
 
@@ -233,9 +235,9 @@ def fluidity_to_ugrid_by_mesh(state, test, prefix='', exclude=[]):
 def fluidity_data_to_ugrid(state, meshes, ugrid, prefix=None, exclude=[]):
     """ Extract fluidity data from meshes on a desired type to an existing unstructured grid object's point data."""
 
-    for name, field in (state.scalar_fields.items()
-                        +state.vector_fields.items()
-                        +state.tensor_fields.items()):
+    for name, field in (list(state.scalar_fields.items())
+                        +list(state.vector_fields.items())
+                        +list(state.tensor_fields.items())):
         
         if field.mesh not in meshes:
             continue
@@ -283,9 +285,9 @@ def fluidity_cell_data_to_ugrid(state, meshes, ugrid):
 
     Will only work for P0 meshes."""
 
-    for name, field in (state.scalar_fields.items()
-                        +state.vector_fields.items()
-                        +state.tensor_fields.items()):
+    for name, field in (list(state.scalar_fields.items())
+                        +list(state.vector_fields.items())
+                        +list(state.tensor_fields.items())):
         
         if field.mesh not in meshes:
             continue

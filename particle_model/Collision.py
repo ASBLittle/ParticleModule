@@ -52,6 +52,8 @@ class CollisionInfo(object):
         self.cell = cell
         self.angle = copy.deepcopy(angle)
         self.normal = copy.deepcopy(normal)
+        self.rho = self.particle.parameters.rho
+        self.volume = 1.0/6.0*numpy.pi*self.particle.parameters.diameter**3
 
     def get_wear(self, wm, ER):
         """ Calculate wear induced by this collision"""
@@ -62,7 +64,7 @@ class CollisionInfo(object):
         elif wm == "McLaury":
             return mclaury_mass_coeff(self, ER)
         else:
-            print "Lily no wear option selected"   
+            print("Lily no wear option selected") 
             return arabnejad(self, ER)
 
     def write_data(self, poly_data):

@@ -33,9 +33,9 @@ GSP = pm.IO.write_level_to_polydata(PB, 0, NAME, do_average=True)
 PB.set_solid_pressure_gradient(GSP)
 
 for i in range(20):
-    print PB.time
-    print 'min, max: pos_x', PB.pos_as_array()[:, 0].min(), PB.pos_as_array()[:, 0].max()
-    print 'min, max: vel_x', PB.vel_as_array()[:, 0].min(), PB.vel_as_array()[:, 0].max()
+    print(PB.time)
+    print('min, max: pos_x', PB.pos_as_array()[:, 0].min(), PB.pos_as_array()[:, 0].max())
+    print('min, max: vel_x', PB.vel_as_array()[:, 0].min(), PB.vel_as_array()[:, 0].max())
     PB.run(0.01*i, method="AdamsBashforth2")
     PD.append_data(PB)
     gsp = pm.IO.write_level_to_polydata(PB, i+1, NAME, do_average=True)

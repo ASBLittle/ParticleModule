@@ -785,7 +785,7 @@ def make_subdirectory(fname):
 def arg_count(func):
     argspec = inspect.getargspec(func)
     return len(argspec.args)
-  
+
 def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
     """Given velocity and pressure fields, and a
     time level, store the data in a vtkStructuredGridFormat."""
@@ -845,7 +845,7 @@ def make_rectilinear_grid(dims, dx, velocity, pressure, time, outfile=None):
         grid.GetPointData().AddArray(_)
 
     if outfile:
-        write_to_file(grid, outfile)  
+        write_to_file(grid, outfile)
 
 def make_structured_grid(dims, dx, velocity, pressure, time, outfile=None):
     """Given velocity and pressure fields, and a
@@ -904,8 +904,8 @@ def make_structured_grid(dims, dx, velocity, pressure, time, outfile=None):
         grid.GetPointData().AddArray(_)
 
     if outfile:
-        write_to_file(grid, outfile)    
-    
+        write_to_file(grid, outfile)
+
 
 def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     """Given a mesh (in Gmsh format), velocity and pressure fields, and a
@@ -942,8 +942,13 @@ def make_unstructured_grid(mesh, velocity, pressure, time, outfile=None):
     data[2].Allocate(pnts.GetNumberOfPoints())
     data[2].SetName('Time')
 
-    for k in range(grid.GetNumberOfPoints()):
-        args[0] = grid.GetPoint(k)
+    velocity_arg_count = arg_count(velocity)
+    pressure_arg_count = arg_count(pressure)
+
+    args = [None, time]
+
+    for k in range(ugrid.GetNumberOfPoints()):
+        args[0] = ugrid.GetPoint(k)
         if hasattr(velocity, '__call__'):
             data[0].InsertNextTuple3(*velocity(*args[:velocity_arg_count]))
         else:
@@ -1028,7 +1033,7 @@ def make_structured_boundary(dims, dx, outfile=None, surface_ids=[1,2,3,4]):
     pd.GetCellData().AddArray(data)
 
     return pd
-    
+
 
 def make_boundary_from_msh(mesh, outfile=None):
 
@@ -1191,7 +1196,7 @@ def get_scalar(infile, data, name, index):
 
     global SCALAR_UGRID_NO
 
-    if (infile.IsA('vtkUnstructuredGrid') or 
+    if (infile.IsA('vtkUnstructuredGrid') or
         infile.IsA('vtkStructuredGrid') or
         infile.IsA('vtkRectilinearGrid')):
         ids = infile.GetCell(index).GetPointIds()
@@ -1283,7 +1288,7 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
 
 
     if ugrid.GetCell(0).GetClassName() == 'vtkLine':
-    
+
 
         for i in range(ugrid.GetNumberOfCells()):
 
@@ -1297,7 +1302,7 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
 
             n[i, 0] = p[1]
             n[i, 1] = -p[0]
-            
+
             if abs(n[i, 0]) > 0.0:
                 if x[0] > 0.11:
                     n[i, 0] = 1.0
@@ -1308,7 +1313,7 @@ def move_boundary_through_normal(ugrid, distance, Ids=[]):
                     n[i, 1] = 1.0
                 else:
                     n[i, 1] = -1.0
-                
+
 
     else:
 
@@ -1459,7 +1464,7 @@ def make_pvd(pvd_name, base_name, extension='vtp'):
                                      attrib={'timestep':str(time),
                                              'file':str(_)})
                          )
-               
+
 
         vtkfile.append(collection)
 

@@ -7,10 +7,10 @@ from particle_model import Debug
 import vtk
 #from particle_model import IO
 
-try:
-    import libspud
-except ImportError:
-    Debug.logger.warning("Want the libspud python package. Try: \n sudo apt-get install python-spud")
+# try:
+#     import libspud
+# except ImportError:
+#     Debug.logger.warning("Want the libspud python package. Try: \n sudo apt-get install python-spud")
 
 class Inlet(object):
     """ class for an inlet surface"""

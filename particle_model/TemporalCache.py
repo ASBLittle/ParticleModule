@@ -8,6 +8,9 @@ from particle_model import Debug
 from particle_model import IO
 from particle_model.Debug import profile
 from particle_model import vtk_extras
+from scipy.io import netcdf
+import scipy
+import utm
 try:
     from lxml import etree as ET
     def element_tree(**kwargs):
@@ -22,6 +25,19 @@ except ImportError:
 PICKERS = [vtk_extras.Picker(),
            vtk_extras.Picker(),
            vtk_extras.Picker()]
+
+def map_bathy(bathy_file, var_name='z'):
+    nc = netcdf.NetCDFFile(bathy_file,'r', mmap=False)
+    lat = nc.variables['lat'][:]
+    lon = nc.variables['lon'][:]
+    values = nc.variables[var_name][:,:]
+    bathymetry_interpolator = scipy.interpolate.RegularGridInterpolator((lat, lon), values)
+    nc.close()
+    return bathymetry_interpolator
+
+def get_bathy(pos, minimum_depth, bathymetry_interpolator, utm_zone=30, utm_band='U'):
+  lat, lon = utm.to_latlon(pos[0], pos[1], utm_zone, utm_band)
+  return max(minimum_depth, -bathymetry_interpolator((lat, lon)))
 
 def read_pvd(filename):
     """Read timestep and filename data from a .pvd file."""
@@ -260,6 +276,200 @@ class TemporalCache(object):
         vel1 = vtk_extras.EvaluateField(vel_data1, loc1, pos, names[1][0])
 
         return alpha*vel1+(1.0-alpha)*vel0
+
+    def get_mod_velocity(self, pos, time, prandle=[-0.61, 1.16, 0.62], wind_vel):
+        da_vel = self.get_velocity(pos, time)
+        z_vel = prandle[0]*da_vel**2 + prandle[1]*da_vel + prandle[3]
+
+class Elev_TempCache(object):
+    """ The base object containing the vtu files.
+
+    This scans the files for their timelevel information and provides a pair
+    of files bracketing the desired timelevel when called
+    """
+    def __init__(self, base_name, t_min=0., t_max=numpy.infty, online=False,
+                 parallel_files=False, timescale_factor=1.0, **kwargs):
+        """
+        Initialise the cache from a base file name and optional limits on the time levels desired.
+        """
+
+        self.data = []
+        self.set_field_names(**kwargs)
+        self.reset()
+
+        if base_name.rsplit(".", 1)[-1] == "pvd":
+            for time, filename in read_pvd(base_name):
+                self.data.append([timescale_factor*time, filename, None, None])
+        else:
+            if (Parallel.is_parallel() and online) or parallel_files:
+                files = glob.glob(base_name+'_[0-9]*.p%s'%kwargs.get('fileext',
+                                                                     'vtu'))
+            else:
+                files = glob.glob(base_name+'_[0-9]*.%s'%kwargs.get('fileext',
+                                                                     'vtu'))
+
+            for filename in files:
+                if (Parallel.is_parallel() and online) or parallel_files:
+                    pfilename = get_piece_filename_from_vtk(filename)
+                else:
+                    pfilename = filename
+                time = self.get_time_from_vtk(pfilename)
+                self.data.append([timescale_factor*time, pfilename, None, None])
+
+        self.data.sort(key=lambda x: x[0])
+        self.range(t_min, t_max)
+
+        self.cache = DataCache()
+
+    def set_field_names(self, elevation_name="Elevation", time_name="Time",
+                        **kwargs):
+        """Set the names used to look up pressure and velocity fields."""
+        self.field_names = {}
+        self.field_names["Elevation"] = elevation_name or ""
+        self.field_names["Time"] = time_name or ""
+
+    def get(self, infile, name):
+        """Find array, possibly from cache."""
+        return self.cache.get(infile, name)
+
+    def reset(self):
+        """ Reset the bounds on the loaded cache data"""
+        for k, dat in enumerate(self.data):
+            if dat[2]:
+                self.close(k)
+        self.lower = 0
+        self.upper = 0
+
+    def range(self, t_min, t_max):
+        """ Specify a range of data to keep open."""
+        if not self.data:
+            raise ValueError
+        if self.data[self.lower][0] > t_min:
+            self.reset()
+        while (self.lower < len(self.data)-2
+               and self.data[self.lower+1][0] <= t_min):
+            self.close(self.lower)
+            self.lower += 1
+        if self.upper <= self.lower:
+            self.upper = self.lower
+            self.open(self. lower)
+        while (self.upper <= len(self.data)-2
+               and self.data[self.upper][0] <= t_max):
+            self.upper += 1
+            self.open(self.upper)
+
+        return self.data[self.lower:self.upper+1]
+
+    def open(self, k):
+        """ Open a file for reading."""
+        rdr = vtk.vtkXMLGenericDataObjectReader()
+
+        Debug.logger.info('loading %s', self.data[k][1])
+        rdr.SetFileName(self.data[k][1])
+        rdr.Update()
+
+        self.data[k][2] = rdr.GetOutput()
+        cloc = vtk.vtkCellLocator()
+        cloc.SetDataSet(self.data[k][2])
+        cloc.BuildLocator()
+        self.data[k][3] = cloc
+
+    def close(self, k):
+        """Close an open file (implictly through the garbage collector."""
+        del self.data[k][3]
+        del self.data[k][2]
+        self.data[k].append(None)
+        self.data[k].append(None)
+
+    def get_time_from_vtk(self, filename):
+        """ Get the time from a vtk XML formatted file."""
+
+        parallel_files = ('pvtu', 'pvtp', 'pvtm', 'vtm', 'pvts', 'pvtr')
+        parallel = filename.split('.')[-1] in parallel_files
+
+        etree = element_tree(file=filename).getroot()
+        assert etree.tag == 'VTKFile'
+        if parallel:
+            parallel_name = etree[0].findall('Piece')[Parallel.get_rank()].get('Source')
+            return self.get_time_from_vtk(parallel_name)
+        else:
+            for piece in etree[0]:
+                for data in piece[0]:
+                    if data.get('Name') != self.field_names["Time"]:
+                        continue
+                    return float(data.get('RangeMin'))
+
+    def __call__(self, time):
+        """ Get the data bracketing time level."""
+        lower = self.lower
+        upper = self.upper
+
+        assert self.data[lower][0] <= time and self.data[upper][0]+1.0e-8 >= time
+
+        while lower < len(self.data)-2 and self.data[lower+1][0] <= time:
+            lower += 1
+
+        t_min = self.data[lower][0]
+        t_max = self.data[lower+1][0]
+        if t_max == t_min:
+            t_max = numpy.infty
+
+        return (self.data[lower:lower+2], (time-t_min)/(t_max-t_min),
+                [[self.field_names["Elevation"]],
+                 [self.field_names["Elevation"]]])
+
+    def __iter__(self):
+        return self.data.__iter__()
+
+    def get_bounds(self, ptime):
+        """ Get bounds of vtk object, in form (xmin, xmax, ymin, ymax, zmin, zmax)."""
+        data = self(ptime)
+        bounds = numpy.zeros(6)
+        data[0][1][-2].ComputeBounds()
+        data[0][1][-2].GetBounds(bounds)
+        return bounds
+
+    def get_elevation(self, pos, time):
+        """ Get the velocity value from the cache at a given position and time."""
+
+        data, alpha, names = self(time)
+
+        elev_data0 = self.cache.get(data[0][2], names[0][0])
+        elev_data1 = self.cache.get(data[1][2], names[1][0])
+
+        loc0 = data[0][3]
+        loc0.BuildLocatorIfNeeded()
+        loc1 = data[1][3]
+        loc1.BuildLocatorIfNeeded()
+
+        elev0 = vtk_extras.EvaluateField(elev_data0, loc0, pos, names[0][0])
+        elev1 = vtk_extras.EvaluateField(elev_data1, loc1, pos, names[1][0])
+        # interpolate between timesteps?
+        return (alpha*elev1+(1.0-alpha)*elev0)[0]
+
+    def get_depth(self, pos, time, minimum_depth, bathymetry_interpolator,
+                  utm_zone=30, utm_band='U'):
+        """ Get the velocity value from the cache at a given position and time."""
+        # Bathymetry data at position
+        b_data = get_bathy(pos, minimum_depth, bathymetry_interpolator,
+                           utm_zone, utm_band)
+        # Elevation Data
+        elev=self.get_elevation(pos, time)
+        return b_data + elev
+
+    def get_sigma_depth(self, pos, time, minimum_depth, bathymetry_interpolator,
+                  utm_zone=30, utm_band='U'):
+        """ Get the sigma depth value from the cache at a given position and time."""
+        # Bathymetry data at position
+        dep = self.get_depth(pos, time, minimum_depth, bathymetry_interpolator,
+                      utm_zone, utm_band)
+        return pos[2] / dep
+
+    def set_z_on_sigma(self, pos, sigma, time, minimum_depth, bathymetry_interpolator,
+                  utm_zone=30, utm_band='U'):
+        dep = self.get_depth(pos, time, minimum_depth, bathymetry_interpolator,
+                      utm_zone, utm_band)
+        return dep * sigma
 
 class FluidityCache(object):
     """Cache like object used when running particles online."""

@@ -41,15 +41,63 @@ def update_euler(self, delta_t=None):
         C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
         col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
         raise col
-        
+
     self.time += delta_t
 
     return kap
 
-     
+
 @profile
 def update_ab2(self, delta_t=None):
     """Update the state of the particle to the next time level
+
+    The method uses the Adams Bashforth second order method"""
+
+    delta_t = delta_t or self.delta_t
+
+    if len(self._old) >= 1:
+
+        kap = (self.vel, self.force(self.pos,
+                                    self.vel,
+                                    self.time, drag=False), self.time)
+
+        beta = 0.5*self.delta_t/(self.time-self.get_old(0, 2))
+
+        pos = self.pos+delta_t*((1+beta)*self.vel-beta*self.get_old(0, 0))
+        vel = self.vel+delta_t*((1+beta)*kap[1]-beta*self.get_old(0, 1))
+
+        for cback in self.pos_callbacks:
+            pos += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+        for cback in self.vel_callbacks:
+            vel += delta_t*cback(self.pos, self.vel, self.time, delta_t)
+
+        try:
+            self.pos, self.vel = self.check_collision_full(pos, self.pos,
+                                                           vel, self.vel,
+                                                           delta_t, drag=True)
+        except Collision.CollisionException as col:
+            beta = 0.5*col.delta_t/(self.time-self.get_old(0, 2))
+            vel = self.vel+col.delta_t*(1+beta)*kap[1]-beta*self.get_old(0, 1)
+            C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest=True)
+            col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
+            raise col
+
+        self.time += delta_t
+
+    else:
+        ## reduced to using the Euler method for the first timestep:
+
+        kap = update_euler(self)
+
+    self.set_old(kap, 1)
+
+    return kap
+
+def update_ab2_mod(self, delta_t=None):
+    """
+    Modified AB2 method with try except for zero velocities
+
+    Update the state of the particle to the next time level
 
     The method uses the Adams Bashforth second order method"""
 
@@ -192,7 +240,7 @@ def update_apc11(self, delta_t=None):
         C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
         col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
         raise col
-        
+
     self.time += delta_t
 
     return (self.vel, self.force(self.pos,
@@ -297,7 +345,7 @@ def update_apc12(self, delta_t=None):
         C, fvel = self.drag_coefficient(col.pos, vel, self.time+col.delta_t, nearest = True)
         col.vel = (self.vel+col.delta_t*(kap[1]+C*fvel))/(1.0+col.delta_t*C)
         raise col
-        
+
     self.time += delta_t
 
     return kap
@@ -505,7 +553,7 @@ def generic_adams_bashforth(y, f, dt, t):
     beta = np.empty(len(f))
     for _ in range(len(f)):
         times = [t[0]-t[i] for i in range(len(f)) if i != _]
-        beta[_] = sum([dt**(s-1)/(s+1.)*sum([np.prod(x) 
+        beta[_] = sum([dt**(s-1)/(s+1.)*sum([np.prod(x)
                                      for x in itertools.combinations(times,len(f)-s-1)])
                         for s in range(len(f))])/np.prod([t[_]-t[i] for i in range(len(f)) if i != _])
 
@@ -518,10 +566,10 @@ def generic_adams_predictor_corrector(y, fun, f, dt, t):
     beta = np.empty(len(f))
     for _ in range(len(f)):
         times = [t[0]-t[i] for i in range(len(f)) if i != _]
-        print [((-dt)**s/((s+2.)*(s+1)), sum([np.prod(x) 
+        print [((-dt)**s/((s+2.)*(s+1)), sum([np.prod(x)
                                      for x in itertools.combinations(times,len(f)-s-1)]))
                         for s in range(len(f))]
-        beta[_] = sum([(dt)**(s-1)/((s+2.)*(s+1.))*sum([np.prod(x) 
+        beta[_] = sum([(dt)**(s-1)/((s+2.)*(s+1.))*sum([np.prod(x)
                                      for x in itertools.combinations(times,len(f)-s-1)])
                         for s in range(len(f))])/((dt+t[0]-t[_])*np.prod([t[_]-t[i]
                                                                                 for i in range(len(f)) if i != _]))
@@ -532,6 +580,7 @@ def generic_adams_predictor_corrector(y, fun, f, dt, t):
 methods = {"ForwardEuler":update_euler,
            "AdamsBashforth1":update_euler,
            "AdamsBashforth2":update_ab2,
+           "AdamsBashforth2_mod":update_ab2_mod,
            "AdamsBashforth3":update_ab3,
            "AdamsPredictorCorrector11":update_apc11,
            "AdamsPredictorCorrector22":update_apc22,

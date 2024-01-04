@@ -133,10 +133,10 @@ for i, cache in enumerate(TEMP_CACHE):
         t_0 = particle.fields["InsertionTime"]
         particle.fields["ExampleLevel"] = numpy.exp(-(t-t_0)**2)
 
-    pm.IO.write_level_to_csv(bucket=PB, level=i, basename=NAME+'_%s'%kap,
-                                  field_data={"InsertionTime":1,
-                                              "OriginalGyre":1,
-                                              "ExampleLevel":1}) # Dump just this timelevel
+    # pm.IO.write_level_to_csv(bucket=PB, level=i, basename=NAME+'_%s'%kap,
+    #                               field_data={"InsertionTime":1,
+    #                                           "OriginalGyre":1,
+    #                                           "ExampleLevel":1}) # Dump just this timelevel
     pm.IO.write_level_to_polydata(bucket=PB, level=i, basename=NAME+'_%s'%kap,
                                   field_data={"InsertionTime":1,
                                               "OriginalGyre":1,

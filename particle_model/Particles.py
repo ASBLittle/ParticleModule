@@ -251,7 +251,7 @@ class Particle(ParticleBase.ParticleBase):
         return ((1.0-alpha) * vel0 + alpha * vel1,
                 (1.0 - alpha) * grad_p0 + alpha * grad_p1)
 
-    def _check_remapping(self, pos_1, pos_0, vel_0, delta_t):
+    def _check_remapping(self, pos_1, pos_0, vel_0, vel_1, delta_t):
         """Test for periodic/remapped boundaries"""
 
         ### this finds the point of boundary intersection
@@ -307,7 +307,7 @@ class Particle(ParticleBase.ParticleBase):
         if self.pure_lagrangian:
             fvel = self.picker(pos_1, self.time+delta_t)[0]
             if fvel is None:
-                return self._check_remapping(pos_1, pos_0, vel_0, delta_t)
+                return self._check_remapping(pos_1, pos_0, vel_0, vel_1, delta_t)
 
             for cback in self.vel_callbacks:
                 fvel += delta_t*cback(pos_1, fvel, self.time+delta_t, delta_t)
